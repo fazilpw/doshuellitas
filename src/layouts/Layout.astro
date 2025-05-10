@@ -1,0 +1,167 @@
+---
+// src/layouts/Layout.astro
+// Importamos el archivo CSS de Tailwind desde un archivo separado
+import '../styles/tailwind.css';
+import '../styles/base.css';
+
+
+// Props para personalizar el SEO por página
+export interface Props {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  image?: string;
+  canonicalURL?: URL;
+}
+
+// Valores por defecto y personalización desde props
+const {
+  title = "Club Canino Dos Huellitas | Guardería y Colegio Canino en Bogotá",
+  description = "Guardería, colegio y hotel canino con servicio de ruta puerta a puerta. Más de 8.000m² de áreas libres de corrales para la recreación, socialización y formación de tu mascota.",
+  keywords = "guardería canina Bogotá, colegio canino, hotel canino, adiestramiento canino, transporte para perros",
+  image = "/images/og-image.jpg",
+} = Astro.props;
+
+// Manejo seguro de URL canónica
+let canonicalURL;
+try {
+  canonicalURL = new URL(Astro.url.pathname, Astro.site || 'https://clubcaninodoshuellitas.com');
+} catch (error) {
+  canonicalURL = new URL('https://clubcaninodoshuellitas.com' + Astro.url.pathname);
+}
+
+// Preparamos los datos estructurados para Schema.org
+const businessSchema = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Club Canino Dos Huellitas",
+  "image": "https://clubcaninodoshuellitas.com/images/og-image.jpg",
+  "description": description,
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Vereda la aurora, subida por la 7ma con 175",
+    "addressLocality": "Bogotá",
+    "addressRegion": "Cundinamarca",
+    "addressCountry": "CO"
+  },
+  "telephone": "+573144329824",
+  "email": "clubcaninodoshuellitas@gmail.com",
+  "url": "https://clubcaninodoshuellitas.com/"
+};
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Metaetiquetas SEO básicas -->
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <meta name="keywords" content={keywords} />
+  <link rel="canonical" href={canonicalURL.toString()} />
+  
+  <!-- Metaetiquetas Open Graph para redes sociales -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonicalURL.toString()} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={new URL(image, Astro.site || 'https://clubcaninodoshuellitas.com').toString()} />
+  <meta property="og:site_name" content="Club Canino Dos Huellitas" />
+  <meta property="og:locale" content="es_CO" />
+  
+  <!-- Metaetiquetas Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={new URL(image, Astro.site || 'https://clubcaninodoshuellitas.com').toString()} />
+  
+  <!-- Datos estructurados Schema.org (JSON-LD) -->
+  <script type="application/ld+json" set:html={JSON.stringify(businessSchema)} />
+  
+  <!-- Precargar fuentes y recursos críticos -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Favicon -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="manifest" href="/site.webmanifest">
+  
+  <!-- Rendija para más estilos o scripts específicos de cada página -->
+  <slot name="head" />
+</head>
+<body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript>
+    <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX" height="0" width="0" style="display:none;visibility:hidden"></iframe>
+  </noscript>
+  
+  <main>
+    <slot />
+  </main>
+  
+  <!-- Scripts de carga diferida -->
+  <script>
+    // Script para mejorar la accesibilidad y usabilidad
+    document.addEventListener('DOMContentLoaded', () => {
+      // Agregar comportamiento de desplazamiento suave para los enlaces internos
+      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function(e) {
+          e.preventDefault();
+          const targetId = this.getAttribute('href');
+          if (targetId !== '#') {
+            const targetElement = document.querySelector(targetId);
+            if (targetElement) {
+              targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+              });
+            }
+          }
+        });
+      });
+      
+      // Detectar cuándo se carga la página para animaciones iniciales
+      window.addEventListener('load', () => {
+        document.body.classList.add('loaded');
+      });
+    });
+  </script>
+  
+  <!-- Script para cargar imágenes de forma diferida (lazy loading) -->
+  <script>
+    // Verificar si el navegador soporta lazy loading nativo
+    if ('loading' in HTMLImageElement.prototype) {
+      // El navegador soporta lazy loading
+      document.querySelectorAll('img[loading="lazy"]').forEach(img => {
+        // Asegurarse de que todas las imágenes tienen el atributo loading="lazy"
+        img.setAttribute('loading', 'lazy');
+      });
+    } else {
+      // El navegador no soporta lazy loading nativo, cargar una librería de fallback
+      const script = document.createElement('script');
+      script.src = '/js/lazysizes.min.js';
+      document.body.appendChild(script);
+    }
+  </script>
+
+  <!-- Google Tag Manager script corregido para evitar errores de TypeScript -->
+  <script is:inline>
+    // @ts-nocheck
+    (function(w,d,s,l,i){
+      w[l] = w[l] || [];
+      w[l].push({'gtm.start': new Date().getTime(), event:'gtm.js'});
+      var f = d.getElementsByTagName(s)[0];
+      var j = d.createElement(s);
+      j.async = true;
+      j.src = 'https://www.googletagmanager.com/gtm.js?id='+i;
+      if (f && f.parentNode) f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-XXXXXXX');
+  </script>
+</body>
+</html>

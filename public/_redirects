@@ -1,0 +1,5 @@
+# Archivo _redirects para Netlify
+# Coloca este archivo en la carpeta /public
+
+# Redirigir todas las rutas no encontradas a index.html para manejar el enrutamiento del lado del cliente
+/*    /index.html   200

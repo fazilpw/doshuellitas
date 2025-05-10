@@ -1,47 +1,112 @@
-# Astro Starter Kit: Minimal
+# Club Canino Dos Huellitas
 
-```sh
-npm create astro@latest -- --template minimal
+Sitio web para Club Canino Dos Huellitas, una guardería, colegio y hotel canino ubicado en Bogotá, Colombia.
+
+## Tecnologías
+
+- [Astro](https://astro.build) - Framework web moderno
+- [React](https://reactjs.org) - Biblioteca para interfaces de usuario
+- [Tailwind CSS](https://tailwindcss.com) - Framework CSS utilitario
+- [Supabase](https://supabase.io) - Backend como servicio (para fase futura)
+
+## Desarrollo local
+
+```bash
+# Instalar dependencias
+npm install
+
+# Iniciar servidor de desarrollo
+npm run dev
+
+# Construir para producción
+npm run build
+
+# Previsualizar versión de producción
+npm run preview
 ```
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/withastro/astro/tree/latest/examples/minimal)
-[![Open with CodeSandbox](https://assets.codesandbox.io/github/button-edit-lime.svg)](https://codesandbox.io/p/sandbox/github/withastro/astro/tree/latest/examples/minimal)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/withastro/astro?devcontainer_path=.devcontainer/minimal/devcontainer.json)
+## Despliegue en Netlify
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Este proyecto está configurado para desplegarse automáticamente en Netlify. Hay dos formas de hacerlo:
 
-## 🚀 Project Structure
+### 1. Despliegue a través de GitHub
 
-Inside of your Astro project, you'll see the following folders and files:
+1. Sube tu código a un repositorio de GitHub.
+2. Inicia sesión en [Netlify](https://app.netlify.com/).
+3. Haz clic en "New site from Git".
+4. Selecciona GitHub como proveedor de Git.
+5. Selecciona tu repositorio.
+6. En la configuración de compilación:
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+7. Haz clic en "Deploy site".
 
-```text
+### 2. Despliegue manual a través de la CLI de Netlify
+
+1. Instala la CLI de Netlify:
+   ```bash
+   npm install -g netlify-cli
+   ```
+
+2. Construye tu sitio:
+   ```bash
+   npm run build
+   ```
+
+3. Despliega en Netlify:
+   ```bash
+   netlify deploy
+   ```
+
+4. Para despliegue en producción:
+   ```bash
+   netlify deploy --prod
+   ```
+
+## Estructura del proyecto
+
+```
 /
-├── public/
+├── public/            # Activos estáticos
+│   ├── images/        # Imágenes
+│   ├── favicon.ico    # Favicon
+│   └── robots.txt     # Archivo robots.txt
 ├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+│   ├── components/    # Componentes React
+│   ├── layouts/       # Layouts de Astro
+│   ├── pages/         # Páginas del sitio
+│   ├── styles/        # Estilos CSS
+│   └── utils/         # Utilidades y funciones
+├── astro.config.mjs   # Configuración de Astro
+├── tailwind.config.js # Configuración de Tailwind CSS
+└── netlify.toml       # Configuración para Netlify
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## SEO
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+El sitio está optimizado para motores de búsqueda con:
 
-Any static assets, like images, can be placed in the `public/` directory.
+- Metaetiquetas optimizadas
+- Datos estructurados (Schema.org)
+- Sitemap automático
+- URLs canónicas
+- Optimización para redes sociales (Open Graph y Twitter Cards)
 
-## 🧞 Commands
+## Funcionalidades principales
 
-All commands are run from the root of the project, from a terminal:
+- Navegación responsive
+- Página de inicio con carrusel
+- Sección de servicios
+- Galería de instalaciones
+- Testimonios de clientes
+- Preguntas frecuentes
+- Formulario de contacto
+- SEO optimizado
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
+## Próxima fase
 
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- Integración con Supabase para:
+  - Sistema de administración
+  - Portal para clientes
+  - Actividades y seguimiento de perros
+  - Newsletter
