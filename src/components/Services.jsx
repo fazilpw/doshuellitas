@@ -74,7 +74,7 @@ const Services = () => {
     </svg>
   ),
   title: "Consulta Veterinaria",
-  description: "Contamos con un veterinario que realiza revisiones al ingresar y salir del colegio. Además, ofrecemos servicios adicionales como consultas básicas, toma de muestras y gestión de radiografías cuando sea necesario. Un respaldo médico para la tranquilidad de los dueños. 🐾"
+  description: "Ofrecemos servicios adicionales como consultas básicas, toma de muestras y gestión de radiografías cuando sea necesario. Un respaldo médico para la tranquilidad de los dueños. 🐾"
 },
   ];
 
