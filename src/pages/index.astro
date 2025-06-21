@@ -1,10 +1,5 @@
 ---
-// src/pages/index.astro
-
-// Importación del layout
 import Layout from '../layouts/Layout.astro';
-
-// Importación de componentes
 import Navbar from '../components/Navbar.jsx';
 import Hero from '../components/Hero.jsx';
 import Services from '../components/Services.jsx';
@@ -13,27 +8,26 @@ import Testimonials from '../components/Testimonials.jsx';
 import FAQ from '../components/FAQ.jsx';
 import Contact from '../components/Contact.jsx';
 import Footer from '../components/Footer.jsx';
+import DownloadApp from '../components/DownloadApp.jsx'; // SIMPLE!
 
-// Importación de datos para SEO
-import { FAQ_SCHEMA } from '../utils/seo';
-
-// Metadatos SEO para esta página específica
 const pageTitle = "Club Canino Dos Huellitas | Guardería y Colegio Canino en Bogotá";
-const pageDescription = "Guardería, colegio y hotel canino con servicio de ruta puerta a puerta. Más de 8.000m² de áreas libres de corrales para la recreación, socialización y formación de tu mascota en Bogotá.";
+const pageDescription = "Guardería, colegio y hotel canino con servicio de ruta puerta a puerta.";
 ---
 
 <Layout 
   title={pageTitle}
   description={pageDescription}
 >
-  <!-- Datos estructurados específicos para la página de inicio: FAQ schema -->
-  <script type="application/ld+json" set:html={JSON.stringify(FAQ_SCHEMA)} slot="head" />
-  
   <Navbar client:load />
   
   <section id="hero">
     <Hero client:load />
   </section>
+  
+  <!-- BOTÓN DESCARGAR APP -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <DownloadApp client:load />
+  </div>
   
   <section id="servicios">
     <Services client:load />

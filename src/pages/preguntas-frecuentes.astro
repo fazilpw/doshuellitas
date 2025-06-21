@@ -1,0 +1,25 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.jsx';
+import FAQ from '../components/FAQ.jsx';
+import Footer from '../components/Footer.jsx';
+import InstallButton from '../components/pwa/InstallButton.jsx';
+
+const pageTitle = "Preguntas Frecuentes | Club Canino Dos Huellitas";
+const pageDescription = "Resuelve todas tus dudas sobre nuestros servicios de guardería, colegio y hotel canino. Preguntas frecuentes sobre seguridad, actividades y planes.";
+---
+
+<Layout 
+  title={pageTitle}
+  description={pageDescription}
+  keywords="preguntas frecuentes guardería canina, dudas colegio canino, FAQ hotel para perros"
+>
+  <Navbar client:load />
+  
+  <div class="pt-20">
+    <InstallButton client:load />
+    <FAQ client:load />
+  </div>
+  
+  <Footer />
+</Layout>

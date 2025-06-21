@@ -1,0 +1,21 @@
+{
+  "name": "Club Canino Dos Huellitas",
+  "short_name": "Club Canino",
+  "description": "App para seguir el progreso de tu peludito",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFBF0",
+  "theme_color": "#56CCF2",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

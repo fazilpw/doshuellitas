@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generar Iconos Club Canino</title>
+</head>
+<body>
+    <h2>Iconos Club Canino Dos Huellitas</h2>
+    
+    <!-- Canvas para generar PNGs -->
+    <canvas id="canvas" style="border: 1px solid #ccc;"></canvas>
+    
+    <div style="margin-top: 20px;">
+        <button onclick="generateAllIcons()">Generar Todos los Iconos</button>
+        <div id="downloads"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Tamaños necesarios
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        
+        function drawIcon(size) {
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Limpiar canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Fondo azul con esquinas redondeadas
+            const radius = size * 0.2;
+            ctx.fillStyle = '#56CCF2';
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, radius);
+            ctx.fill();
+            
+            // Escalar todo proporcionalmente
+            const scale = size / 192;
+            ctx.scale(scale, scale);
+            
+            // Dibujar perrito
+            ctx.fillStyle = 'white';
+            
+            // Cuerpo
+            ctx.beginPath();
+            ctx.ellipse(96, 108, 32, 24, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Cabeza
+            ctx.beginPath();
+            ctx.arc(96, 78, 20, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Orejas
+            ctx.beginPath();
+            ctx.ellipse(83, 66, 8, 15, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.ellipse(109, 66, 8, 15, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Ojos
+            ctx.fillStyle = '#2C3E50';
+            ctx.beginPath();
+            ctx.arc(90, 73, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(102, 73, 3, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Nariz
+            ctx.beginPath();
+            ctx.ellipse(96, 80, 2, 1.5, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Patas
+            ctx.fillStyle = 'white';
+            const patas = [78, 90, 102, 114];
+            patas.forEach(x => {
+                ctx.beginPath();
+                ctx.roundRect(x, 123, 6, 15, 3);
+                ctx.fill();
+            });
+            
+            // Cola
+            ctx.save();
+            ctx.translate(123, 103);
+            ctx.rotate(Math.PI / 6);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 4, 12, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.restore();
+            
+            // Resetear escala
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        
+        function downloadIcon(size) {
+            drawIcon(size);
+            
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}x${size}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+        
+        function generateAllIcons() {
+            const downloads = document.getElementById('downloads');
+            downloads.innerHTML = '<h3>Descargando iconos...</h3>';
+            
+            sizes.forEach((size, index) => {
+                setTimeout(() => {
+                    downloadIcon(size);
+                    downloads.innerHTML += `<p>✅ icon-${size}x${size}.png descargado</p>`;
+                    
+                    if (index === sizes.length - 1) {
+                        downloads.innerHTML += '<h3>🎉 ¡Todos los iconos descargados!</h3>';
+                    }
+                }, index * 500);
+            });
+        }
+        
+        // Dibujar icono inicial
+        drawIcon(192);
+    </script>
+</body>
+</html>

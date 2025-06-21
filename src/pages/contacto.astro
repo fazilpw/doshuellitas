@@ -1,0 +1,25 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.jsx';
+import Contact from '../components/Contact.jsx';
+import Footer from '../components/Footer.jsx';
+import InstallButton from '../components/pwa/InstallButton.jsx';
+
+const pageTitle = "Contacto | Club Canino Dos Huellitas";
+const pageDescription = "Contáctanos para más información sobre nuestros servicios de guardería, colegio y hotel canino. Estamos aquí para resolver todas tus dudas.";
+---
+
+<Layout 
+  title={pageTitle}
+  description={pageDescription}
+  keywords="contacto club canino, teléfono guardería canina Bogotá, WhatsApp colegio canino"
+>
+  <Navbar client:load />
+  
+  <div class="pt-20">
+    <InstallButton client:load />
+    <Contact client:load />
+  </div>
+  
+  <Footer />
+</Layout>

@@ -4,7 +4,6 @@
 import '../styles/tailwind.css';
 import '../styles/base.css';
 
-
 // Props para personalizar el SEO por página
 export interface Props {
   title?: string;
@@ -77,6 +76,15 @@ const businessSchema = {
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={new URL(image, Astro.site || 'https://clubcaninodoshuellitas.com').toString()} />
   
+  <!-- PWA MANIFEST Y CONFIGURACIÓN -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#56CCF2">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Club Canino">
+  <meta name="msapplication-TileColor" content="#56CCF2">
+  
   <!-- Datos estructurados Schema.org (JSON-LD) -->
   <script type="application/ld+json" set:html={JSON.stringify(businessSchema)} />
   
@@ -86,11 +94,16 @@ const businessSchema = {
   <link href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
-  <!-- Favicon -->
+  <!-- Favicon y iconos PWA -->
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="manifest" href="/site.webmanifest">
+  
+  <!-- PWA - Iconos adicionales -->
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png">
   
   <!-- Rendija para más estilos o scripts específicos de cada página -->
   <slot name="head" />
@@ -147,6 +160,33 @@ const businessSchema = {
       const script = document.createElement('script');
       script.src = '/js/lazysizes.min.js';
       document.body.appendChild(script);
+    }
+  </script>
+
+  <!-- PWA SERVICE WORKER REGISTRATION -->
+  <script>
+    // Registrar Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('SW registrado exitosamente:', registration.scope);
+          })
+          .catch((registrationError) => {
+            console.log('SW falló al registrar:', registrationError);
+          });
+      });
+    }
+
+    // Solicitar permisos de notificación después de 5 segundos
+    if ('Notification' in window && navigator.serviceWorker) {
+      if (Notification.permission === 'default') {
+        setTimeout(() => {
+          Notification.requestPermission().then((permission) => {
+            console.log('Permisos de notificación:', permission);
+          });
+        }, 5000);
+      }
     }
   </script>
 
