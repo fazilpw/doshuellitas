@@ -1,11 +1,11 @@
-// src/lib/supabase.js - VERSIÓN CORREGIDA
+// src/lib/supabase.js - VERSIÓN CORREGIDA PARA BUILD
 import { createClient } from '@supabase/supabase-js'
 
 // Función para obtener variables de entorno de forma segura
 function getEnvVar(name) {
   const value = import.meta.env[name];
   if (!value) {
-    console.error(`❌ Variable de entorno ${name} no configurada`);
+    console.warn(`⚠️ Variable de entorno ${name} no configurada`);
     return null;
   }
   console.log(`✅ Variable ${name} configurada correctamente`);
@@ -16,37 +16,57 @@ function getEnvVar(name) {
 const supabaseUrl = getEnvVar('PUBLIC_SUPABASE_URL');
 const supabaseKey = getEnvVar('PUBLIC_SUPABASE_ANON_KEY');
 
-// Validar configuración
+// ✅ CAMBIO CRÍTICO: No hacer throw durante el build
+let supabase = null;
+
 if (!supabaseUrl || !supabaseKey) {
-  console.error(`
-🚨 ERROR DE CONFIGURACIÓN SUPABASE:
+  console.warn(`
+⚠️ CONFIGURACIÓN DE SUPABASE FALTANTE:
 
-1. Crea un archivo .env en la raíz del proyecto
-2. Agrega tus credenciales de Supabase:
+Variables de entorno requeridas:
+- PUBLIC_SUPABASE_URL
+- PUBLIC_SUPABASE_ANON_KEY
 
-PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-PUBLIC_SUPABASE_ANON_KEY=tu-clave-anonima
-
-3. Reinicia el servidor de desarrollo
+Para configurar en Netlify:
+1. Ve a Site settings > Environment variables
+2. Agrega las variables con tus credenciales de Supabase
 
 📍 Encuentra tus credenciales en: https://supabase.com/dashboard/project/[tu-proyecto]/settings/api
   `);
-  throw new Error('❌ Configuración de Supabase incompleta');
+  
+  // ✅ Crear cliente dummy para evitar errores
+  supabase = {
+    from: () => ({
+      select: () => Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } }),
+      insert: () => Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } }),
+      update: () => Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } }),
+      delete: () => Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } }),
+      single: () => Promise.resolve({ data: null, error: { message: 'Supabase no configurado' } }),
+      eq: () => ({ single: () => Promise.resolve({ data: null, error: { message: 'Supabase no configurado' } }) })
+    })
+  };
+} else {
+  // Crear cliente de Supabase real
+  supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false, // Por ahora no persistimos sesiones
+    }
+  });
 }
-
-// Crear cliente de Supabase
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false, // Por ahora no persistimos sesiones
-  }
-});
 
 // Función de prueba CORREGIDA
 export const testConnection = async () => {
   console.log('🧪 Iniciando prueba de conexión a Supabase...');
   
+  if (!supabaseUrl || !supabaseKey) {
+    return { 
+      success: false, 
+      message: 'Variables de entorno no configuradas',
+      needsConfig: true 
+    };
+  }
+  
   try {
-    // ✅ CONSULTA CORREGIDA - ya no usar count(*)
     const { data, error } = await supabase
       .from('users')
       .select('id, email, name')
@@ -55,7 +75,6 @@ export const testConnection = async () => {
     if (error) {
       console.log('⚠️ Error en consulta:', error.message);
       
-      // Si la tabla no existe, aún podemos confirmar que la conexión funciona
       if (error.message.includes('relation "users" does not exist')) {
         console.log('✅ Conexión a Supabase OK (tabla users no existe aún)');
         return { success: true, message: 'Conexión OK, tablas por crear' };
@@ -83,13 +102,16 @@ export const testConnection = async () => {
 export const setupDatabase = async () => {
   console.log('🏗️ Verificando base de datos...');
   
+  if (!supabaseUrl || !supabaseKey) {
+    return { error: 'Supabase no configurado' };
+  }
+  
   try {
     const tables = ['users', 'dogs', 'evaluations'];
     const results = {};
     
     for (const table of tables) {
       try {
-        // ✅ CONSULTA SIMPLE SIN COUNT
         const { data, error } = await supabase
           .from(table)
           .select('id')
@@ -114,37 +136,82 @@ export const setupDatabase = async () => {
   }
 }
 
-// Funciones utilitarias MEJORADAS
+// ✅ Funciones utilitarias que funcionan con o sin Supabase
 export const db = {
-  // ✅ USUARIOS - consultas simplificadas
-  getUsers: () => supabase.from('users').select('*'),
-  getUserById: (id) => supabase.from('users').select('*').eq('id', id).single(),
-  getUserByEmail: (email) => supabase.from('users').select('*').eq('email', email).single(),
+  // Función helper para verificar si Supabase está configurado
+  isConfigured: () => !!(supabaseUrl && supabaseKey),
+  
+  // ✅ USUARIOS - consultas con manejo de errores
+  getUsers: () => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } });
+    }
+    return supabase.from('users').select('*');
+  },
+  
+  getUserById: (id) => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ data: null, error: { message: 'Supabase no configurado' } });
+    }
+    return supabase.from('users').select('*').eq('id', id).single();
+  },
+  
+  getUserByEmail: (email) => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ data: null, error: { message: 'Supabase no configurado' } });
+    }
+    return supabase.from('users').select('*').eq('email', email).single();
+  },
   
   // ✅ PERROS - consultas con joins
-  getDogs: () => supabase.from('dogs').select(`
-    *,
-    users!dogs_owner_id_fkey(name, phone)
-  `),
-  getDogsByOwner: (ownerId) => supabase.from('dogs').select(`
-    *,
-    users!dogs_owner_id_fkey(name, phone)
-  `).eq('owner_id', ownerId),
+  getDogs: () => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } });
+    }
+    return supabase.from('dogs').select(`
+      *,
+      users!dogs_owner_id_fkey(name, phone)
+    `);
+  },
+  
+  getDogsByOwner: (ownerId) => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } });
+    }
+    return supabase.from('dogs').select(`
+      *,
+      users!dogs_owner_id_fkey(name, phone)
+    `).eq('owner_id', ownerId);
+  },
   
   // ✅ EVALUACIONES - consultas completas
-  getEvaluations: () => supabase.from('evaluations').select(`
-    *,
-    dogs(name, breed),
-    users!evaluations_evaluator_id_fkey(name, role)
-  `),
-  getEvaluationsByDog: (dogId) => supabase.from('evaluations').select(`
-    *,
-    dogs(name, breed),
-    users!evaluations_evaluator_id_fkey(name, role)
-  `).eq('dog_id', dogId).order('date', { ascending: false }),
+  getEvaluations: () => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } });
+    }
+    return supabase.from('evaluations').select(`
+      *,
+      dogs(name, breed),
+      users!evaluations_evaluator_id_fkey(name, role)
+    `);
+  },
+  
+  getEvaluationsByDog: (dogId) => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } });
+    }
+    return supabase.from('evaluations').select(`
+      *,
+      dogs(name, breed),
+      users!evaluations_evaluator_id_fkey(name, role)
+    `).eq('dog_id', dogId).order('date', { ascending: false });
+  },
   
   // ✅ EVALUACIONES DE HOY
   getTodayEvaluations: () => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ data: [], error: { message: 'Supabase no configurado' } });
+    }
     const today = new Date().toISOString().split('T')[0];
     return supabase.from('evaluations').select(`
       *,
@@ -154,20 +221,36 @@ export const db = {
   },
   
   // ✅ CREAR EVALUACIÓN
-  createEvaluation: (evaluationData) => supabase
-    .from('evaluations')
-    .insert([evaluationData])
-    .select(`
-      *,
-      dogs(name, breed),
-      users!evaluations_evaluator_id_fkey(name, role)
-    `)
-    .single()
+  createEvaluation: (evaluationData) => {
+    if (!db.isConfigured()) {
+      return Promise.resolve({ 
+        data: null, 
+        error: { message: 'Supabase no configurado - evaluación no guardada' } 
+      });
+    }
+    return supabase
+      .from('evaluations')
+      .insert([evaluationData])
+      .select(`
+        *,
+        dogs(name, breed),
+        users!evaluations_evaluator_id_fkey(name, role)
+      `)
+      .single();
+  }
 }
 
 // ✅ FUNCIÓN DE PRUEBA COMPLETA
 export const runFullTest = async () => {
   console.log('🚀 Ejecutando prueba completa...');
+  
+  if (!db.isConfigured()) {
+    return { 
+      error: 'Supabase no configurado',
+      needsConfig: true,
+      instructions: 'Configura las variables de entorno en Netlify'
+    };
+  }
   
   try {
     // Probar conexión
@@ -202,8 +285,13 @@ export const runFullTest = async () => {
 }
 
 // Log de inicialización
-console.log('🚀 Supabase configurado y listo');
-console.log(`📍 URL: ${supabaseUrl}`);
-console.log(`🔑 Key: ${supabaseKey.substring(0, 20)}...`);
+if (supabaseUrl && supabaseKey) {
+  console.log('🚀 Supabase configurado y listo');
+  console.log(`📍 URL: ${supabaseUrl}`);
+  console.log(`🔑 Key: ${supabaseKey.substring(0, 20)}...`);
+} else {
+  console.log('⚠️ Supabase no configurado - funcionando en modo demo');
+}
 
+export { supabase };
 export default supabase;
