@@ -1,0 +1,109 @@
+---
+// src/pages/test-dashboard.astro
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Test Dashboard">
+  <div class="min-h-screen bg-[#FFFBF0] py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-[#2C3E50] mb-4">
+          🧪 Prueba de Dashboards
+        </h1>
+        <p class="text-gray-600">
+          Selecciona qué dashboard quieres probar
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Dashboard Padre -->
+        <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+          <div class="w-16 h-16 bg-[#56CCF2] rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="text-2xl text-white">👨‍👩‍👧‍👦</span>
+          </div>
+          <h3 class="text-lg font-bold text-[#2C3E50] mb-2">
+            Dashboard Padre
+          </h3>
+          <p class="text-gray-600 mb-4 text-sm">
+            Panel para padres de familia para evaluar a sus perros en casa
+          </p>
+          <a 
+            href="/dashboard/padre" 
+            class="w-full bg-[#56CCF2] text-white py-2 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors inline-block"
+          >
+            Probar Dashboard
+          </a>
+        </div>
+
+        <!-- Dashboard Profesor -->
+        <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+          <div class="w-16 h-16 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="text-2xl text-[#2C3E50]">👨‍🏫</span>
+          </div>
+          <h3 class="text-lg font-bold text-[#2C3E50] mb-2">
+            Dashboard Profesor
+          </h3>
+          <p class="text-gray-600 mb-4 text-sm">
+            Panel para profesores para evaluar perros en el colegio
+          </p>
+          <a 
+            href="/dashboard/profesor" 
+            class="w-full bg-[#C7EA46] text-[#2C3E50] py-2 px-4 rounded-lg hover:bg-[#FFFE8D] transition-colors inline-block"
+          >
+            Probar Dashboard
+          </a>
+        </div>
+
+        <!-- Login -->
+        <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+          <div class="w-16 h-16 bg-[#AB5729] rounded-full flex items-center justify-center mx-auto mb-4">
+            <span class="text-2xl text-white">🔑</span>
+          </div>
+          <h3 class="text-lg font-bold text-[#2C3E50] mb-2">
+            Sistema de Login
+          </h3>
+          <p class="text-gray-600 mb-4 text-sm">
+            Probar el sistema de autenticación con usuarios demo
+          </p>
+          <a 
+            href="/login" 
+            class="w-full bg-[#AB5729] text-white py-2 px-4 rounded-lg hover:bg-opacity-90 transition-colors inline-block"
+          >
+            Ir a Login
+          </a>
+        </div>
+
+      </div>
+
+      <!-- Información adicional -->
+      <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h4 class="font-semibold text-blue-800 mb-2">ℹ️ Información de Prueba:</h4>
+        <ul class="text-sm text-blue-700 space-y-1">
+          <li>• Los dashboards usan datos de prueba de Supabase</li>
+          <li>• El formulario de evaluación incluye 4 pasos completos</li>
+          <li>• Los datos se guardan en la base de datos real</li>
+          <li>• Puedes evaluar perros tanto en casa como en el colegio</li>
+        </ul>
+      </div>
+
+      <!-- Diagnóstico -->
+      <div class="mt-6 text-center">
+        <a 
+          href="/diagnostico" 
+          class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+        >
+          🔧 Diagnóstico de Supabase
+        </a>
+      </div>
+      
+    </div>
+  </div>
+
+  <style>
+    .transition-colors {
+      transition: background-color 0.2s ease-in-out;
+    }
+  </style>
+</Layout>

@@ -1,0 +1,428 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Diagnóstico Supabase - CORREGIDO">
+  <div class="min-h-screen bg-[#FFFBF0] py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="bg-white rounded-xl shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-[#2C3E50] mb-8">
+          🔍 Diagnóstico de Supabase - VERSIÓN CORREGIDA
+        </h1>
+        
+        <div class="mb-8">
+          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">📊 Estado General</h2>
+          <div id="general-status" class="p-4 rounded-lg bg-gray-50">
+            🔄 Verificando...
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">🔧 Variables de Entorno</h2>
+          <div id="env-status" class="space-y-2">
+            🔄 Verificando configuración...
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">🌐 Pruebas de Conexión</h2>
+          <div id="connection-tests" class="space-y-4">
+            🔄 Ejecutando pruebas...
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">🗄️ Estado de las Tablas</h2>
+          <div id="tables-status" class="space-y-2">
+            🔄 Verificando tablas...
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h2 class="text-xl font-semibent text-[#2C3E50] mb-4">📋 Datos de Muestra</h2>
+          <div id="sample-data" class="bg-gray-50 p-4 rounded-lg">
+            🔄 Cargando datos...
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">🛠️ Acciones Rápidas</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button 
+              id="create-test-data" 
+              class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium"
+            >
+              ✨ Crear Datos de Prueba
+            </button>
+            <button 
+              id="reload-test" 
+              class="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] font-medium"
+            >
+              🔄 Recargar Diagnóstico
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 class="font-bold text-[#2C3E50] mb-2">🔧 Si hay errores:</h3>
+          <div class="space-y-2 text-sm">
+            <p><strong>1.</strong> Ejecuta el script SQL de corrección en Supabase</p>
+            <p><strong>2.</strong> Verifica que las variables de entorno estén configuradas</p>
+            <p><strong>3.</strong> Reinicia el servidor de desarrollo</p>
+            <p><strong>4.</strong> Prueba los dashboards: <a href="/dashboard/padre" class="text-blue-600 underline">/dashboard/padre</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    type StatusType = 'info' | 'success' | 'error' | 'warning';
+
+    function updateGeneralStatus(message: string, type: StatusType = 'info'): void {
+      const element = document.getElementById('general-status');
+      if (element) {
+        const colorClasses: Record<StatusType, string> = {
+          info: 'bg-blue-50 border border-blue-200 text-blue-700',
+          success: 'bg-green-50 border border-green-200 text-green-700',
+          error: 'bg-red-50 border border-red-200 text-red-700',
+          warning: 'bg-yellow-50 border border-yellow-200 text-yellow-700'
+        };
+        const className = colorClasses[type] || colorClasses.info;
+        element.className = 'p-4 rounded-lg ' + className;
+        element.innerHTML = message;
+      }
+    }
+
+    function checkEnvironmentVariables(): void {
+      const envStatus = document.getElementById('env-status');
+      if (!envStatus) return;
+
+      const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+      const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+      
+      const results = [
+        {
+          name: 'PUBLIC_SUPABASE_URL',
+          status: supabaseUrl ? '✅' : '❌',
+          message: supabaseUrl ? 'Configurada correctamente' : 'No configurada',
+          value: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'No definida'
+        },
+        {
+          name: 'PUBLIC_SUPABASE_ANON_KEY',
+          status: supabaseKey ? '✅' : '❌',
+          message: supabaseKey ? 'Configurada correctamente' : 'No configurada',
+          value: supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'No definida'
+        }
+      ];
+
+      const html = results.map(function(result) {
+        return '<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">' +
+          '<div>' +
+          '<span class="font-medium">' + result.name + '</span>' +
+          '<p class="text-sm text-gray-600">' + result.message + '</p>' +
+          '<p class="text-xs text-gray-500">' + result.value + '</p>' +
+          '</div>' +
+          '<span class="text-lg">' + result.status + '</span>' +
+          '</div>';
+      }).join('');
+
+      envStatus.innerHTML = html;
+
+      if (supabaseUrl && supabaseKey) {
+        updateGeneralStatus('✅ Variables de entorno configuradas correctamente', 'success');
+      } else {
+        updateGeneralStatus('❌ Variables de entorno faltantes. Configura tu archivo .env', 'error');
+      }
+    }
+
+    async function testConnection(): Promise<void> {
+      const connectionTests = document.getElementById('connection-tests');
+      if (!connectionTests) return;
+
+      connectionTests.innerHTML = '<div class="text-blue-600">🔄 Probando conexión...</div>';
+
+      try {
+        const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+        const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseKey) {
+          throw new Error('Variables de entorno no configuradas');
+        }
+
+        const module = await import('@supabase/supabase-js');
+        const supabase = module.createClient(supabaseUrl, supabaseKey);
+
+        // ✅ CONSULTA CORREGIDA - Sin count(*)
+        const result = await supabase
+          .from('users')
+          .select('id, email, name, role')
+          .limit(5);
+
+        let connectionResult = '';
+        if (result.error) {
+          if (result.error.message.includes('relation "users" does not exist')) {
+            connectionResult = '<div class="p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">' +
+              '<p class="font-medium">⚠️ Conexión OK, pero tabla \'users\' no existe</p>' +
+              '<p class="text-sm">La conexión a Supabase funciona, pero necesitas ejecutar el script SQL.</p>' +
+              '</div>';
+          } else {
+            throw result.error;
+          }
+        } else {
+          connectionResult = '<div class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">' +
+            '<p class="font-medium">✅ Conexión exitosa</p>' +
+            '<p class="text-sm">Supabase responde correctamente. Usuarios encontrados: ' + (result.data?.length || 0) + '</p>' +
+            '</div>';
+        }
+
+        connectionTests.innerHTML = connectionResult;
+
+      } catch (error: unknown) {
+        const errorMsg = error && typeof error === 'object' && 'message' in error 
+          ? (error as { message: string }).message 
+          : String(error);
+        connectionTests.innerHTML = '<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">' +
+          '<p class="font-medium">❌ Error de conexión</p>' +
+          '<p class="text-sm">' + errorMsg + '</p>' +
+          '</div>';
+      }
+    }
+
+    async function checkTables(): Promise<void> {
+      const tablesStatus = document.getElementById('tables-status');
+      if (!tablesStatus) return;
+
+      const tables = ['users', 'dogs', 'evaluations'];
+      let html = '';
+
+      try {
+        const module = await import('@supabase/supabase-js');
+        const supabase = module.createClient(
+          import.meta.env.PUBLIC_SUPABASE_URL,
+          import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+        );
+
+        for (const tableName of tables) {
+          try {
+            // ✅ CONSULTA SIMPLE SIN COUNT
+            const result = await supabase
+              .from(tableName)
+              .select('id')
+              .limit(3);
+
+            if (result.error) {
+              html += '<div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">' +
+                '<span class="font-medium">' + tableName + '</span>' +
+                '<span class="text-red-600">❌ ' + result.error.message + '</span>' +
+                '</div>';
+            } else {
+              const recordCount = result.data?.length || 0;
+              html += '<div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">' +
+                '<span class="font-medium">' + tableName + '</span>' +
+                '<span class="text-green-600">✅ Funciona (' + recordCount + ' registros)</span>' +
+                '</div>';
+            }
+          } catch (err: unknown) {
+            const errorMsg = err && typeof err === 'object' && 'message' in err 
+              ? (err as { message: string }).message 
+              : 'Error desconocido';
+            html += '<div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">' +
+              '<span class="font-medium">' + tableName + '</span>' +
+              '<span class="text-red-600">❌ ' + errorMsg + '</span>' +
+              '</div>';
+          }
+        }
+
+        tablesStatus.innerHTML = html;
+
+      } catch (error: unknown) {
+        const errorMsg = error && typeof error === 'object' && 'message' in error 
+          ? (error as { message: string }).message 
+          : String(error);
+        tablesStatus.innerHTML = '<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">' +
+          'No se pudo verificar el estado de las tablas: ' + errorMsg +
+          '</div>';
+      }
+    }
+
+    async function loadSampleData(): Promise<void> {
+      const sampleData = document.getElementById('sample-data');
+      if (!sampleData) return;
+
+      try {
+        const module = await import('@supabase/supabase-js');
+        const supabase = module.createClient(
+          import.meta.env.PUBLIC_SUPABASE_URL,
+          import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+        );
+
+        // ✅ CONSULTAS CORREGIDAS
+        const usersResult = await supabase
+          .from('users')
+          .select('id, email, name, role')
+          .limit(3);
+
+        const dogsResult = await supabase
+          .from('dogs')
+          .select('id, name, breed, size')
+          .limit(3);
+
+        const evaluationsResult = await supabase
+          .from('evaluations')
+          .select('id, location, date, energy_level')
+          .limit(3);
+
+        if (usersResult.error) {
+          sampleData.innerHTML = '<div class="text-red-600">' +
+            '❌ No se pudieron cargar datos: ' + usersResult.error.message +
+            '</div>';
+        } else {
+          const summary = {
+            usuarios: usersResult.data?.length || 0,
+            perros: dogsResult.data?.length || 0,
+            evaluaciones: evaluationsResult.data?.length || 0,
+            muestra_usuarios: usersResult.data || [],
+            muestra_perros: dogsResult.data || [],
+            muestra_evaluaciones: evaluationsResult.data || []
+          };
+
+          sampleData.innerHTML = '<div class="space-y-4">' +
+            '<div class="grid grid-cols-3 gap-4 text-center">' +
+            '<div class="bg-blue-100 p-3 rounded"><div class="font-bold">' + summary.usuarios + '</div><div class="text-sm">Usuarios</div></div>' +
+            '<div class="bg-green-100 p-3 rounded"><div class="font-bold">' + summary.perros + '</div><div class="text-sm">Perros</div></div>' +
+            '<div class="bg-purple-100 p-3 rounded"><div class="font-bold">' + summary.evaluaciones + '</div><div class="text-sm">Evaluaciones</div></div>' +
+            '</div>' +
+            '<pre class="overflow-x-auto text-xs bg-gray-100 p-3 rounded">' + 
+            JSON.stringify(summary, null, 2) + 
+            '</pre>' +
+            '</div>';
+        }
+
+      } catch (error: unknown) {
+        const errorMsg = error && typeof error === 'object' && 'message' in error 
+          ? (error as { message: string }).message 
+          : String(error);
+        sampleData.innerHTML = '<div class="text-red-600">' +
+          '❌ Error cargando datos: ' + errorMsg +
+          '</div>';
+      }
+    }
+
+    async function createTestData(): Promise<void> {
+      try {
+        updateGeneralStatus('🔄 Creando datos de prueba...', 'info');
+        
+        const module = await import('@supabase/supabase-js');
+        const supabase = module.createClient(
+          import.meta.env.PUBLIC_SUPABASE_URL,
+          import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+        );
+
+        // Crear usuarios de prueba con IDs fijos
+        const { data: users, error: userError } = await supabase
+          .from('users')
+          .upsert([
+            {
+              id: '11111111-1111-1111-1111-111111111111',
+              email: 'maria@gmail.com',
+              name: 'María García',
+              role: 'padre',
+              phone: '3007654321'
+            },
+            {
+              id: '22222222-2222-2222-2222-222222222222',
+              email: 'profesor@clubcanino.com',
+              name: 'Carlos Profesor',
+              role: 'profesor',
+              phone: '3001234567'
+            }
+          ], { onConflict: 'email' })
+          .select();
+
+        if (userError) throw userError;
+
+        // Crear perros de prueba
+        const { data: dogs, error: dogError } = await supabase
+          .from('dogs')
+          .upsert([
+            {
+              id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+              name: 'Max',
+              owner_id: '11111111-1111-1111-1111-111111111111',
+              breed: 'Golden Retriever',
+              size: 'grande',
+              age: 3,
+              active: true,
+              notes: 'Perro muy sociable y energético'
+            }
+          ], { onConflict: 'id' })
+          .select();
+
+        if (dogError) throw dogError;
+
+        // Crear evaluaciones de prueba
+        const today = new Date().toISOString().split('T')[0];
+
+        const { data: evaluations, error: evalError } = await supabase
+          .from('evaluations')
+          .upsert([
+            {
+              dog_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+              evaluator_id: '22222222-2222-2222-2222-222222222222',
+              location: 'colegio',
+              date: today,
+              energy_level: 8,
+              sociability_level: 9,
+              obedience_level: 7,
+              anxiety_level: 4,
+              barks_much: 'poco',
+              begs_food: 'a_veces',
+              highlights: 'Max tuvo un día excelente',
+              notes: 'Max demostró excelente adaptación'
+            }
+          ], { onConflict: 'dog_id,date,location' })
+          .select();
+
+        if (evalError) throw evalError;
+
+        updateGeneralStatus('✅ Datos de prueba creados exitosamente! Recarga para ver los cambios.', 'success');
+        
+        // Recargar diagnóstico
+        setTimeout(() => {
+          runDiagnostic();
+        }, 1000);
+
+      } catch (error: unknown) {
+        const errorMsg = error && typeof error === 'object' && 'message' in error 
+          ? (error as { message: string }).message 
+          : String(error);
+        updateGeneralStatus('❌ Error creando datos de prueba: ' + errorMsg, 'error');
+      }
+    }
+
+    async function runDiagnostic(): Promise<void> {
+      console.log('🔍 Iniciando diagnóstico completo...');
+      
+      updateGeneralStatus('🔄 Ejecutando diagnóstico...', 'info');
+      checkEnvironmentVariables();
+      await testConnection();
+      await checkTables();
+      await loadSampleData();
+      
+      console.log('✅ Diagnóstico completado');
+    }
+
+    document.addEventListener('DOMContentLoaded', runDiagnostic);
+
+    const reloadButton = document.getElementById('reload-test');
+    if (reloadButton) {
+      reloadButton.addEventListener('click', runDiagnostic);
+    }
+
+    const createDataButton = document.getElementById('create-test-data');
+    if (createDataButton) {
+      createDataButton.addEventListener('click', createTestData);
+    }
+  </script>
+</Layout>

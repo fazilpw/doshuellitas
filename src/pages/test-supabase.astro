@@ -1,0 +1,156 @@
+---
+// src/pages/test-supabase.astro
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Prueba Supabase">
+  <div style="padding: 20px; font-family: monospace; max-width: 800px; margin: 0 auto;">
+    <h1>🧪 Prueba de Conexión Supabase</h1>
+    <div id="results">🔄 Iniciando prueba...</div>
+    
+    <div style="margin-top: 20px;">
+      <h2>🔍 Diagnóstico:</h2>
+      <div id="diagnostics"></div>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <h2>📊 Datos de Prueba:</h2>
+      <div id="data"></div>
+    </div>
+  </div>
+
+  <script>
+    // Función para actualizar resultados de forma segura
+    function updateResults(message: string, type: 'info' | 'success' | 'error' = 'info') {
+      const resultsDiv = document.getElementById('results');
+      if (resultsDiv) {
+        const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : '🔄';
+        const color = type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue';
+        resultsDiv.innerHTML = `<span style="color: ${color}">${emoji} ${message}</span>`;
+      }
+    }
+
+    function updateDiagnostics(message: string) {
+      const diagnosticsDiv = document.getElementById('diagnostics');
+      if (diagnosticsDiv) {
+        diagnosticsDiv.innerHTML += `<p>${message}</p>`;
+      }
+    }
+
+    function updateData(data: any) {
+      const dataDiv = document.getElementById('data');
+      if (dataDiv) {
+        dataDiv.innerHTML = `<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>`;
+      }
+    }
+
+    async function testSupabase() {
+      updateResults('Iniciando prueba de conexión...', 'info');
+      updateDiagnostics('🔍 Verificando configuración...');
+      
+      try {
+        // Verificar variables de entorno
+        const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+        const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+        
+        updateDiagnostics(`📍 URL: ${supabaseUrl ? '✅ Configurada' : '❌ No configurada'}`);
+        updateDiagnostics(`🔑 Key: ${supabaseKey ? '✅ Configurada' : '❌ No configurada'}`);
+        
+        if (!supabaseUrl || !supabaseKey) {
+          throw new Error('Variables de entorno de Supabase no configuradas');
+        }
+
+        // Importar Supabase dinámicamente
+        updateDiagnostics('📦 Importando Supabase...');
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        updateDiagnostics('🔗 Cliente Supabase creado correctamente');
+        updateResults('Conectando a Supabase...', 'info');
+
+        // Probar conexión básica
+        updateDiagnostics('🧪 Probando consulta a tabla users...');
+        const { data: users, error: usersError } = await supabase
+          .from('users')
+          .select('*')
+          .limit(5);
+
+        if (usersError) {
+          updateDiagnostics(`⚠️ Error en users: ${usersError.message}`);
+          
+          // Intentar con una tabla que sabemos que existe
+          updateDiagnostics('🧪 Probando conexión básica...');
+          const { data: testData, error: testError } = await supabase
+            .from('users')
+            .select('count(*)')
+            .limit(1);
+            
+          if (testError) {
+            throw new Error(`Error de conexión: ${testError.message}`);
+          }
+          
+          updateResults('Conexión establecida pero tabla users tiene problemas', 'success');
+          updateData({ 
+            connection: 'OK', 
+            users_error: usersError.message,
+            test_query: testData 
+          });
+        } else {
+          updateDiagnostics(`👥 Usuarios encontrados: ${users?.length || 0}`);
+          updateResults(`¡Conexión exitosa! ${users?.length || 0} usuarios encontrados`, 'success');
+          updateData({ 
+            connection: 'OK', 
+            users_count: users?.length || 0, 
+            users: users 
+          });
+        }
+
+        // Probar tabla de perros si existe
+        updateDiagnostics('🐕 Probando tabla dogs...');
+        const { data: dogs, error: dogsError } = await supabase
+          .from('dogs')
+          .select('*')
+          .limit(5);
+
+        if (!dogsError && dogs) {
+          updateDiagnostics(`🐕 Perros encontrados: ${dogs.length}`);
+        } else {
+          updateDiagnostics(`⚠️ Error en dogs: ${dogsError?.message || 'Tabla no existe'}`);
+        }
+
+        // Probar tabla de evaluaciones si existe
+        updateDiagnostics('📊 Probando tabla evaluations...');
+        const { data: evaluations, error: evalError } = await supabase
+          .from('evaluations')
+          .select('*')
+          .limit(5);
+
+        if (!evalError && evaluations) {
+          updateDiagnostics(`📊 Evaluaciones encontradas: ${evaluations.length}`);
+        } else {
+          updateDiagnostics(`⚠️ Error en evaluations: ${evalError?.message || 'Tabla no existe'}`);
+        }
+
+        updateDiagnostics('✅ Prueba completada');
+
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        updateResults(`Error: ${errorMessage}`, 'error');
+        updateDiagnostics(`❌ Error capturado: ${errorMessage}`);
+        
+        // Información adicional para debugging
+        updateData({
+          error: errorMessage,
+          env_check: {
+            SUPABASE_URL: !!import.meta.env.PUBLIC_SUPABASE_URL,
+            SUPABASE_KEY: !!import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+            NODE_ENV: import.meta.env.MODE
+          }
+        });
+      }
+    }
+
+    // Ejecutar cuando cargue la página
+    document.addEventListener('DOMContentLoaded', testSupabase);
+  </script>
+</Layout>

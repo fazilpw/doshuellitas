@@ -1,0 +1,10 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ParentDashboard from '../../components/dashboard/ParentDashboard.jsx';
+---
+
+<Layout title="Mi Dashboard | Club Canino">
+  <div class="min-h-screen bg-[#FFFBF0] pt-20">
+    <ParentDashboard client:load />
+  </div>
+</Layout>

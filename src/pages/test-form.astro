@@ -1,0 +1,317 @@
+---
+// src/pages/test-form.astro
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Test Formulario">
+  <div class="min-h-screen bg-[#FFFBF0] py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-[#2C3E50] mb-4">
+          🧪 Prueba Directa del Formulario
+        </h1>
+        <p class="text-gray-600">
+          Probar el formulario de evaluación sin dashboard
+        </p>
+      </div>
+
+      <!-- Botones para abrir formulario -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        
+        <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+          <h3 class="text-lg font-bold text-[#2C3E50] mb-4">
+            Formulario como Padre
+          </h3>
+          <button 
+            id="open-parent-form"
+            class="w-full bg-[#56CCF2] text-white py-3 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors font-medium"
+          >
+            📝 Abrir Formulario (Casa)
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+          <h3 class="text-lg font-bold text-[#2C3E50] mb-4">
+            Formulario como Profesor
+          </h3>
+          <button 
+            id="open-teacher-form"
+            class="w-full bg-[#C7EA46] text-[#2C3E50] py-3 px-4 rounded-lg hover:bg-[#FFFE8D] transition-colors font-medium"
+          >
+            📝 Abrir Formulario (Colegio)
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Información de debug -->
+      <div class="bg-white rounded-xl shadow-lg p-6">
+        <h3 class="text-lg font-bold text-[#2C3E50] mb-4">🔍 Debug Info</h3>
+        <div id="debug-info" class="text-sm text-gray-600">
+          Cargando información de debug...
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Contenedor para el formulario -->
+  <div id="form-container"></div>
+
+  <script>
+    type UserRole = 'padre' | 'profesor';
+
+    // Función para crear el formulario dinámicamente
+    async function createFormComponent(userRole: UserRole): Promise<void> {
+      const formContainer = document.getElementById('form-container');
+      if (!formContainer) return;
+      
+      // Crear el elemento del formulario
+      const formElement = document.createElement('div');
+      formElement.innerHTML = `
+        <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div class="bg-white rounded-xl max-w-4xl w-full max-h-[95vh] overflow-y-auto">
+            <div class="p-6">
+              <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-[#2C3E50]">
+                  Evaluar a Max 🐕 (Prueba)
+                </h2>
+                <button 
+                  id="close-form"
+                  class="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p class="text-blue-800">
+                  🧪 <strong>Modo de prueba:</strong> ${userRole === 'padre' ? 'Evaluando en casa' : 'Evaluando en colegio'}
+                </p>
+                <p class="text-blue-700 text-sm mt-1">
+                  Este es un formulario de prueba. Los datos se guardarán en la base de datos.
+                </p>
+              </div>
+
+              <!-- Formulario simple de prueba -->
+              <form id="test-evaluation-form" class="space-y-6">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                      ⚡ Nivel de Energía (1-10)
+                    </label>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="10" 
+                      value="5" 
+                      name="energy_level"
+                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    >
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Muy tranquilo</span>
+                      <span>Muy activo</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                      🤝 Socialización (1-10)
+                    </label>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="10" 
+                      value="5" 
+                      name="sociability_level"
+                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    >
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Tímido</span>
+                      <span>Muy sociable</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                      🎯 Obediencia (1-10)
+                    </label>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="10" 
+                      value="5" 
+                      name="obedience_level"
+                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    >
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                      😰 Ansiedad (1-10)
+                    </label>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="10" 
+                      value="5" 
+                      name="anxiety_level"
+                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    >
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">
+                    📝 Notas del día
+                  </label>
+                  <textarea 
+                    name="notes"
+                    rows="4"
+                    class="w-full p-3 border border-gray-300 rounded-md focus:ring-[#56CCF2] focus:border-[#56CCF2]"
+                    placeholder="¿Cómo estuvo Max hoy?"
+                  ></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-4">
+                  <button 
+                    type="button"
+                    id="cancel-form"
+                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit"
+                    class="px-6 py-2 bg-[#56CCF2] text-white rounded-md hover:bg-[#5B9BD5]"
+                  >
+                    💾 Guardar Evaluación
+                  </button>
+                </div>
+
+              </form>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      formContainer.appendChild(formElement);
+
+      // Event listeners
+      const closeButton = document.getElementById('close-form');
+      if (closeButton) {
+        closeButton.addEventListener('click', () => {
+          formContainer.innerHTML = '';
+        });
+      }
+
+      const cancelButton = document.getElementById('cancel-form');
+      if (cancelButton) {
+        cancelButton.addEventListener('click', () => {
+          formContainer.innerHTML = '';
+        });
+      }
+
+      // Manejar envío del formulario
+      const form = document.getElementById('test-evaluation-form');
+      if (form) {
+        form.addEventListener('submit', async (e: Event) => {
+          e.preventDefault();
+          
+          const target = e.target as HTMLFormElement;
+          if (!target) return;
+          
+          const formData = new FormData(target);
+          const evaluationData = {
+            dog_id: 'test-dog-max', // ID de prueba
+            evaluator_id: userRole === 'padre' ? 'test-user-padre' : 'test-user-profesor',
+            location: userRole === 'padre' ? 'casa' : 'colegio',
+            date: new Date().toISOString().split('T')[0],
+            energy_level: parseInt(formData.get('energy_level') as string || '5'),
+            sociability_level: parseInt(formData.get('sociability_level') as string || '5'),
+            obedience_level: parseInt(formData.get('obedience_level') as string || '5'),
+            anxiety_level: parseInt(formData.get('anxiety_level') as string || '5'),
+            notes: formData.get('notes') as string || ''
+          };
+
+          try {
+            console.log('Guardando evaluación:', evaluationData);
+            
+            // Intentar guardar en Supabase si está disponible
+            try {
+              const module = await import('../lib/supabase.js');
+              const { supabase } = module;
+              
+              const { data, error } = await supabase
+                .from('evaluations')
+                .insert([evaluationData])
+                .select();
+              
+              if (error) throw error;
+              
+              alert('✅ Evaluación guardada exitosamente en la base de datos!');
+              updateDebugInfo('✅ Evaluación guardada en Supabase: ' + JSON.stringify(data));
+              
+            } catch (supabaseError) {
+              console.log('Supabase no disponible, simulando guardado:', supabaseError);
+              alert('✅ Evaluación procesada (modo demo - Supabase no configurado)');
+              updateDebugInfo('⚠️ Evaluación procesada en modo demo');
+            }
+            
+            formContainer.innerHTML = '';
+            
+          } catch (error: unknown) {
+            console.error('Error:', error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            alert('❌ Error al guardar: ' + errorMessage);
+            updateDebugInfo('❌ Error: ' + errorMessage);
+          }
+        });
+      }
+    }
+
+    // Event listeners para los botones principales
+    const parentButton = document.getElementById('open-parent-form');
+    if (parentButton) {
+      parentButton.addEventListener('click', () => {
+        createFormComponent('padre');
+        updateDebugInfo('🏠 Abriendo formulario como padre...');
+      });
+    }
+
+    const teacherButton = document.getElementById('open-teacher-form');
+    if (teacherButton) {
+      teacherButton.addEventListener('click', () => {
+        createFormComponent('profesor');
+        updateDebugInfo('🏫 Abriendo formulario como profesor...');
+      });
+    }
+
+    // Función para actualizar info de debug
+    function updateDebugInfo(message: string): void {
+      const debugDiv = document.getElementById('debug-info');
+      if (debugDiv) {
+        const timestamp = new Date().toLocaleTimeString();
+        debugDiv.innerHTML += `<br/>[${timestamp}] ${message}`;
+      }
+    }
+
+    // Información inicial de debug
+    document.addEventListener('DOMContentLoaded', () => {
+      updateDebugInfo('✅ Página cargada correctamente');
+      updateDebugInfo('📋 Formularios listos para probar');
+      
+      // Verificar que Supabase esté disponible
+      import('../lib/supabase.js')
+        .then(() => {
+          updateDebugInfo('✅ Supabase módulo disponible');
+        })
+        .catch(() => {
+          updateDebugInfo('❌ Supabase no disponible - modo demo');
+        });
+    });
+  </script>
+
+</Layout>

@@ -1,0 +1,122 @@
+---
+// src/pages/app.astro - NUEVA PÁGINA PARA LA APLICACIÓN
+import Layout from '../layouts/Layout.astro';
+import AppEntry from '../components/AppEntry.jsx';
+
+const pageTitle = "Club Canino App | Aplicación Exclusiva para Familias";
+const pageDescription = "Accede a la aplicación móvil de Club Canino Dos Huellitas. Seguimiento en tiempo real, evaluaciones y mucho más.";
+---
+
+<Layout 
+  title={pageTitle}
+  description={pageDescription}
+>
+  <!-- Slot para head adicional específico de PWA -->
+  <slot name="head">
+    <!-- PWA Meta Tags -->
+    <meta name="application-name" content="Club Canino App">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Club Canino">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="msapplication-TileColor" content="#56CCF2">
+    <meta name="msapplication-tap-highlight" content="no">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png">
+    
+    <!-- Splash Screens para iOS -->
+    <link rel="apple-touch-startup-image" href="/icons/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/icons/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
+  </slot>
+  
+  <AppEntry client:load />
+  
+  <!-- Script específico para PWA -->
+  <script>
+    // Registrar Service Worker si está disponible
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('🐕 Club Canino SW registrado:', registration.scope);
+          })
+          .catch((registrationError) => {
+            console.log('❌ SW falló:', registrationError);
+          });
+      });
+    }
+
+    // Manejar instalación de PWA
+    let deferredPrompt;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      
+      // Mostrar banner personalizado de instalación
+      const installBanner = document.createElement('div');
+      installBanner.innerHTML = `
+        <div id="install-banner" class="fixed top-4 left-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 flex items-center justify-between">
+          <div class="flex items-center">
+            <span class="mr-2">📱</span>
+            <span class="font-medium">¡Instala Club Canino App!</span>
+          </div>
+          <button id="install-btn" class="bg-white text-green-500 px-3 py-1 rounded font-medium hover:bg-gray-100">
+            Instalar
+          </button>
+          <button id="dismiss-btn" class="ml-2 text-white hover:text-gray-200">
+            ×
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(installBanner);
+      
+      // Manejar clicks
+      document.getElementById('install-btn').addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log(`🎯 Instalación: ${outcome}`);
+          deferredPrompt = null;
+          document.getElementById('install-banner').remove();
+        }
+      });
+      
+      document.getElementById('dismiss-btn').addEventListener('click', () => {
+        document.getElementById('install-banner').remove();
+      });
+    });
+
+    // Detectar si ya está instalado
+    window.addEventListener('appinstalled', () => {
+      console.log('✅ Club Canino App instalada exitosamente!');
+      
+      // Mostrar notificación de éxito
+      const successMsg = document.createElement('div');
+      successMsg.innerHTML = `
+        <div class="fixed top-4 left-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 text-center">
+          <span class="font-medium">🎉 ¡App instalada! Búscala en tu pantalla de inicio</span>
+        </div>
+      `;
+      document.body.appendChild(successMsg);
+      
+      setTimeout(() => {
+        successMsg.remove();
+      }, 5000);
+    });
+
+    // Manejar updates de PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SW_ACTIVATED') {
+          console.log('📢', event.data.message);
+        }
+      });
+    }
+  </script>
+</Layout>

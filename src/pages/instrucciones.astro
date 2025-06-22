@@ -1,0 +1,283 @@
+---
+// src/pages/instrucciones.astro
+import Layout from '../layouts/Layout.astro';
+import Navbar from '../components/Navbar.jsx';
+import Footer from '../components/Footer.jsx';
+---
+
+<Layout title="Instrucciones | Club Canino Dos Huellitas">
+  <Navbar client:load />
+  
+  <div class="min-h-screen bg-[#FFFBF0] pt-20">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      
+      <!-- Header -->
+      <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-[#2C3E50] mb-4">
+          📋 Cómo Usar el Sistema de Evaluaciones
+        </h1>
+        <p class="text-xl text-gray-600">
+          Guía completa para padres y profesores
+        </p>
+      </div>
+
+      <!-- Para Padres -->
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+        <div class="bg-[#56CCF2] text-white p-6">
+          <h2 class="text-2xl font-bold flex items-center">
+            👨‍👩‍👧‍👦 Para Padres de Familia
+          </h2>
+        </div>
+        
+        <div class="p-6 space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-blue-50 p-4 rounded-lg">
+              <h3 class="font-bold text-[#2C3E50] mb-3">🏠 Evalúa en Casa</h3>
+              <ul class="space-y-2 text-sm text-gray-700">
+                <li>• <strong>Cuándo:</strong> Por las tardes o noches</li>
+                <li>• <strong>Frecuencia:</strong> 2-3 veces por semana</li>
+                <li>• <strong>Enfoque:</strong> Comportamiento en el hogar</li>
+                <li>• <strong>Tiempo:</strong> 5-8 minutos</li>
+              </ul>
+            </div>
+            
+            <div class="bg-green-50 p-4 rounded-lg">
+              <h3 class="font-bold text-[#2C3E50] mb-3">📊 Qué Evaluar</h3>
+              <ul class="space-y-2 text-sm text-gray-700">
+                <li>• <strong>Energía:</strong> ¿Está activo o tranquilo?</li>
+                <li>• <strong>Ansiedad:</strong> ¿Se estresa cuando te vas?</li>
+                <li>• <strong>Obediencia:</strong> ¿Sigue las reglas de casa?</li>
+                <li>• <strong>Hábitos:</strong> Comida, baño, juegos</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <h4 class="font-semibold text-[#2C3E50] mb-2">💡 Consejos para Padres:</h4>
+            <ul class="space-y-1 text-sm text-gray-700">
+              <li>• Evalúa después de pasar tiempo observando a tu perro</li>
+              <li>• Sé honesto - esto ayuda a mejorar el cuidado</li>
+              <li>• Anota comportamientos específicos en las notas</li>
+              <li>• Compara con las evaluaciones del colegio para ver diferencias</li>
+            </ul>
+          </div>
+
+          <div class="bg-white border-2 border-[#56CCF2] rounded-lg p-4">
+            <h4 class="font-semibold text-[#2C3E50] mb-3">🚀 Pasos para Evaluar:</h4>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="text-2xl mb-2">1️⃣</div>
+                <div class="text-sm font-medium">Ir a Dashboard</div>
+              </div>
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="text-2xl mb-2">2️⃣</div>
+                <div class="text-sm font-medium">Clic "Evaluar"</div>
+              </div>
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="text-2xl mb-2">3️⃣</div>
+                <div class="text-sm font-medium">Completar 4 pasos</div>
+              </div>
+              <div class="bg-blue-50 p-3 rounded-lg">
+                <div class="text-2xl mb-2">4️⃣</div>
+                <div class="text-sm font-medium">Guardar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Para Profesores -->
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+        <div class="bg-[#C7EA46] text-[#2C3E50] p-6">
+          <h2 class="text-2xl font-bold flex items-center">
+            👨‍🏫 Para Profesores
+          </h2>
+        </div>
+        
+        <div class="p-6 space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-green-50 p-4 rounded-lg">
+              <h3 class="font-bold text-[#2C3E50] mb-3">🏫 Evalúa en el Colegio</h3>
+              <ul class="space-y-2 text-sm text-gray-700">
+                <li>• <strong>Cuándo:</strong> Al final del día</li>
+                <li>• <strong>Frecuencia:</strong> Cada día que asiste</li>
+                <li>• <strong>Enfoque:</strong> Actividades y socialización</li>
+                <li>• <strong>Tiempo:</strong> 5-10 minutos por perro</li>
+              </ul>
+            </div>
+            
+            <div class="bg-purple-50 p-4 rounded-lg">
+              <h3 class="font-bold text-[#2C3E50] mb-3">🎯 Puntos Clave</h3>
+              <ul class="space-y-2 text-sm text-gray-700">
+                <li>• <strong>Socialización:</strong> Interacción con otros perros</li>
+                <li>• <strong>Actividades:</strong> Participación en juegos</li>
+                <li>• <strong>Entrenamiento:</strong> Respuesta a comandos</li>
+                <li>• <strong>Progreso:</strong> Mejoras observadas</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+            <h4 class="font-semibold text-[#2C3E50] mb-2">🎓 Consejos Profesionales:</h4>
+            <ul class="space-y-1 text-sm text-gray-700">
+              <li>• Evalúa después de las actividades principales del día</li>
+              <li>• Enfócate en cambios y mejoras específicas</li>
+              <li>• Documenta momentos destacados para compartir con padres</li>
+              <li>• Nota cualquier comportamiento que requiera atención</li>
+            </ul>
+          </div>
+
+          <div class="bg-white border-2 border-[#C7EA46] rounded-lg p-4">
+            <h4 class="font-semibold text-[#2C3E50] mb-3">📈 Panel del Profesor:</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="text-center">
+                <div class="bg-[#56CCF2] text-white p-4 rounded-lg mb-2">
+                  <div class="text-2xl">📋</div>
+                </div>
+                <div class="text-sm font-medium">Ver evaluaciones del día</div>
+              </div>
+              <div class="text-center">
+                <div class="bg-[#56CCF2] text-white p-4 rounded-lg mb-2">
+                  <div class="text-2xl">🐕</div>
+                </div>
+                <div class="text-sm font-medium">Lista de perros activos</div>
+              </div>
+              <div class="text-center">
+                <div class="bg-[#56CCF2] text-white p-4 rounded-lg mb-2">
+                  <div class="text-2xl">📊</div>
+                </div>
+                <div class="text-sm font-medium">Estadísticas y progreso</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interpretación de Resultados -->
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+        <div class="bg-[#AB5729] text-white p-6">
+          <h2 class="text-2xl font-bold">
+            📈 Interpretación de Resultados
+          </h2>
+        </div>
+        
+        <div class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div>
+              <h3 class="font-bold text-[#2C3E50] mb-4">🎯 Escalas de Evaluación</h3>
+              <div class="space-y-4">
+                <div class="bg-blue-50 p-3 rounded-lg">
+                  <div class="font-semibold text-blue-800">Energía (1-10)</div>
+                  <div class="text-sm text-gray-700">
+                    1-3: Muy tranquilo | 4-6: Normal | 7-10: Muy activo
+                  </div>
+                </div>
+                
+                <div class="bg-green-50 p-3 rounded-lg">
+                  <div class="font-semibold text-green-800">Socialización (1-10)</div>
+                  <div class="text-sm text-gray-700">
+                    1-3: Tímido | 4-6: Normal | 7-10: Muy sociable
+                  </div>
+                </div>
+                
+                <div class="bg-purple-50 p-3 rounded-lg">
+                  <div class="font-semibold text-purple-800">Obediencia (1-10)</div>
+                  <div class="text-sm text-gray-700">
+                    1-3: Desobediente | 4-6: Normal | 7-10: Muy obediente
+                  </div>
+                </div>
+                
+                <div class="bg-orange-50 p-3 rounded-lg">
+                  <div class="font-semibold text-orange-800">Ansiedad (1-10)</div>
+                  <div class="text-sm text-gray-700">
+                    1-3: Muy relajado | 4-6: Normal | 7-10: Muy ansioso
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 class="font-bold text-[#2C3E50] mb-4">🔍 Qué Buscar</h3>
+              <div class="space-y-4">
+                <div class="bg-green-50 border-l-4 border-green-400 p-3">
+                  <div class="font-semibold text-green-800">✅ Signos Positivos</div>
+                  <ul class="text-sm text-gray-700 mt-1 space-y-1">
+                    <li>• Mejora gradual en obediencia</li>
+                    <li>• Mayor socialización</li>
+                    <li>• Reducción de ansiedad</li>
+                    <li>• Mejor respuesta a comandos</li>
+                  </ul>
+                </div>
+                
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3">
+                  <div class="font-semibold text-yellow-800">⚠️ Áreas de Atención</div>
+                  <ul class="text-sm text-gray-700 mt-1 space-y-1">
+                    <li>• Aumento repentino de ansiedad</li>
+                    <li>• Comportamientos destructivos</li>
+                    <li>• Problemas alimentarios</li>
+                    <li>• Retroceso en entrenamiento</li>
+                  </ul>
+                </div>
+                
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-3">
+                  <div class="font-semibold text-blue-800">📊 Comparación Casa vs Colegio</div>
+                  <ul class="text-sm text-gray-700 mt-1 space-y-1">
+                    <li>• Diferencias en comportamiento</li>
+                    <li>• Adaptación a entornos</li>
+                    <li>• Consistencia en progreso</li>
+                    <li>• Áreas de mejora específicas</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accesos Rápidos -->
+      <div class="bg-white rounded-xl shadow-lg p-6 text-center">
+        <h3 class="text-2xl font-bold text-[#2C3E50] mb-6">🚀 Accesos Rápidos</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <a href="/login" class="bg-[#56CCF2] text-white py-4 px-6 rounded-lg hover:bg-[#5B9BD5] transition-colors">
+            <div class="text-2xl mb-2">👤</div>
+            <div class="font-semibold">Iniciar Sesión</div>
+            <div class="text-sm opacity-90">Acceder al sistema</div>
+          </a>
+          
+          <a href="/dashboard/padre" class="bg-[#C7EA46] text-[#2C3E50] py-4 px-6 rounded-lg hover:bg-[#FFFE8D] transition-colors">
+            <div class="text-2xl mb-2">🏠</div>
+            <div class="font-semibold">Dashboard Padre</div>
+            <div class="text-sm opacity-75">Evaluar en casa</div>
+          </a>
+          
+          <a href="/dashboard/profesor" class="bg-[#5B9BD5] text-white py-4 px-6 rounded-lg hover:bg-[#56CCF2] transition-colors">
+            <div class="text-2xl mb-2">🏫</div>
+            <div class="font-semibold">Dashboard Profesor</div>
+            <div class="text-sm opacity-90">Evaluar en colegio</div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Soporte -->
+      <div class="mt-8 text-center bg-gray-50 rounded-lg p-6">
+        <h4 class="font-bold text-[#2C3E50] mb-2">💬 ¿Necesitas Ayuda?</h4>
+        <p class="text-gray-600 mb-4">
+          Si tienes dudas sobre cómo usar el sistema, no dudes en contactarnos
+        </p>
+        <a 
+          href="https://wa.me/573144329824?text=Hola,%20necesito%20ayuda%20con%20el%20sistema%20de%20evaluaciones" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          class="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+          </svg>
+          Contactar por WhatsApp
+        </a>
+      </div>
+    </div>
+  </div>
+  
+  <Footer />
+</Layout>

@@ -1,0 +1,516 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Crear Datos de Prueba | Club Canino">
+  <div class="min-h-screen bg-[#FFFBF0] py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="bg-white rounded-xl shadow-lg p-8">
+        
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold text-[#2C3E50] mb-4">
+            🛠️ Configuración de Datos de Prueba
+          </h1>
+          <p class="text-gray-600">
+            Crea los datos necesarios para probar el sistema de evaluaciones
+          </p>
+        </div>
+
+        <!-- Estado del proceso -->
+        <div class="mb-8">
+          <div id="process-status" class="p-4 rounded-lg bg-blue-50 border border-blue-200">
+            <div class="flex items-center">
+              <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+              <span class="text-blue-800">Preparando configuración...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Información de lo que se va a crear -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="bg-blue-50 p-6 rounded-xl">
+            <div class="text-3xl mb-3">👥</div>
+            <h3 class="font-bold text-[#2C3E50] mb-2">3 Usuarios</h3>
+            <ul class="text-sm text-gray-700 space-y-1">
+              <li>• María García (Padre)</li>
+              <li>• Carlos Profesor (Profesor)</li>
+              <li>• Juan Pablo Leal (Admin)</li>
+            </ul>
+          </div>
+
+          <div class="bg-green-50 p-6 rounded-xl">
+            <div class="text-3xl mb-3">🐕</div>
+            <h3 class="font-bold text-[#2C3E50] mb-2">3 Perros</h3>
+            <ul class="text-sm text-gray-700 space-y-1">
+              <li>• Max (Golden Retriever)</li>
+              <li>• Luna (Beagle)</li>
+              <li>• Rocky (Pastor Alemán)</li>
+            </ul>
+          </div>
+
+          <div class="bg-purple-50 p-6 rounded-xl">
+            <div class="text-3xl mb-3">📊</div>
+            <h3 class="font-bold text-[#2C3E50] mb-2">5 Evaluaciones</h3>
+            <ul class="text-sm text-gray-700 space-y-1">
+              <li>• Casa y colegio</li>
+              <li>• Datos realistas</li>
+              <li>• Últimos días</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Log del proceso -->
+        <div class="mb-8">
+          <h3 class="text-lg font-semibold text-[#2C3E50] mb-4">📋 Log del Proceso</h3>
+          <div id="process-log" class="bg-gray-100 p-4 rounded-lg h-40 overflow-y-auto font-mono text-sm">
+            <div class="text-gray-600">Esperando inicio del proceso...</div>
+          </div>
+        </div>
+
+        <!-- Botones de acción -->
+        <div class="flex justify-center space-x-4">
+          <button 
+            id="create-data-btn"
+            class="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 font-semibold text-lg"
+          >
+            ✨ Crear Datos de Prueba
+          </button>
+          
+          <button 
+            id="verify-data-btn"
+            class="bg-[#56CCF2] text-white px-8 py-3 rounded-lg hover:bg-[#5B9BD5] font-semibold"
+            disabled
+          >
+            🔍 Verificar Datos
+          </button>
+        </div>
+
+        <!-- Enlaces útiles después de la creación -->
+        <div id="success-links" class="mt-8 hidden">
+          <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+            <h4 class="font-bold text-green-800 mb-4">✅ ¡Datos creados exitosamente!</h4>
+            <p class="text-green-700 mb-4">Ahora puedes probar el sistema:</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <a href="/login" class="bg-green-600 text-white text-center py-3 px-4 rounded-lg hover:bg-green-700 transition-colors">
+                👤 Ir al Login
+              </a>
+              <a href="/dashboard/padre" class="bg-[#56CCF2] text-white text-center py-3 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors">
+                🏠 Dashboard Padre
+              </a>
+              <a href="/dashboard/profesor" class="bg-[#C7EA46] text-[#2C3E50] text-center py-3 px-4 rounded-lg hover:bg-[#FFFE8D] transition-colors">
+                👨‍🏫 Dashboard Profesor
+              </a>
+              <a href="/diagnostico" class="bg-gray-600 text-white text-center py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors">
+                🔧 Diagnóstico
+              </a>
+            </div>
+
+            <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+              <h5 class="font-semibold text-blue-800 mb-2">📧 Usuarios para login:</h5>
+              <div class="text-sm space-y-1">
+                <div><strong>Padre:</strong> maria@gmail.com</div>
+                <div><strong>Profesor:</strong> profesor@clubcanino.com</div>
+                <div><strong>Admin:</strong> admin@clubcanino.com</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let logContainer: HTMLElement;
+    let statusContainer: HTMLElement;
+    let createBtn: HTMLButtonElement;
+    let verifyBtn: HTMLButtonElement;
+    let successLinks: HTMLElement;
+
+    function addLog(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
+      if (!logContainer) return;
+      
+      const timestamp = new Date().toLocaleTimeString();
+      const colors = {
+        info: 'text-blue-600',
+        success: 'text-green-600',
+        error: 'text-red-600'
+      };
+      
+      const logEntry = document.createElement('div');
+      logEntry.className = colors[type];
+      logEntry.innerHTML = `[${timestamp}] ${message}`;
+      
+      logContainer.appendChild(logEntry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function updateStatus(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
+      if (!statusContainer) return;
+      
+      const colors = {
+        info: 'bg-blue-50 border-blue-200 text-blue-800',
+        success: 'bg-green-50 border-green-200 text-green-800',
+        error: 'bg-red-50 border-red-200 text-red-800'
+      };
+      
+      const icons = {
+        info: '🔄',
+        success: '✅',
+        error: '❌'
+      };
+      
+      statusContainer.className = `p-4 rounded-lg border ${colors[type]}`;
+      statusContainer.innerHTML = `
+        <div class="flex items-center">
+          <span class="mr-3 text-xl">${icons[type]}</span>
+          <span>${message}</span>
+        </div>
+      `;
+    }
+
+    async function createTestData() {
+  try {
+    addLog('🚀 Iniciando creación de datos de prueba...', 'info');
+    updateStatus('Conectando a Supabase...', 'info');
+    
+    createBtn.disabled = true;
+    createBtn.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white inline-block mr-2"></div>Creando...';
+    
+    // Importar Supabase
+    addLog('📦 Importando cliente Supabase...', 'info');
+    const module = await import('@supabase/supabase-js');
+    const supabase = module.createClient(
+      import.meta.env.PUBLIC_SUPABASE_URL,
+      import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+    );
+
+    // 1. VERIFICAR Y LIMPIAR DATOS EXISTENTES
+    addLog('🧹 Verificando datos existentes...', 'info');
+    
+    // Limpiar solo usuarios de prueba específicos
+    const testEmails = ['maria@gmail.com', 'profesor@clubcanino.com', 'admin@clubcanino.com'];
+    
+    for (const email of testEmails) {
+      // Buscar usuario existente
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (existingUser) {
+        // Eliminar evaluaciones
+        await supabase.from('evaluations').delete().eq('evaluator_id', existingUser.id);
+        
+        // Eliminar perros
+        await supabase.from('dogs').delete().eq('owner_id', existingUser.id);
+        
+        // Eliminar usuario
+        await supabase.from('users').delete().eq('id', existingUser.id);
+        
+        addLog(`🗑️ Datos eliminados para: ${email}`, 'info');
+      }
+    }
+
+    // 2. Crear usuarios CON INSERT LIMPIO
+    addLog('👥 Creando usuarios de prueba...', 'info');
+    updateStatus('Creando usuarios...', 'info');
+    
+    const usersToCreate = [
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        email: 'maria@gmail.com',
+        name: 'María García',
+        role: 'padre',
+        phone: '3007654321'
+      },
+      {
+        id: '22222222-2222-2222-2222-222222222222',
+        email: 'profesor@clubcanino.com',
+        name: 'Carlos Profesor',
+        role: 'profesor',
+        phone: '3001234567'
+      },
+      {
+        id: '33333333-3333-3333-3333-333333333333',
+        email: 'admin@clubcanino.com',
+        name: 'Juan Pablo Leal',
+        role: 'admin',
+        phone: '3144329824'
+      }
+    ];
+
+    const { data: users, error: userError } = await supabase
+      .from('users')
+      .insert(usersToCreate)
+      .select();
+
+    if (userError) {
+      addLog(`❌ Error creando usuarios: ${userError.message}`, 'error');
+      throw userError;
+    }
+    addLog(`✅ Usuarios creados: ${users?.length || 0}`, 'success');
+
+    // 3. Crear perros CON INSERT LIMPIO
+    addLog('🐕 Creando perros de prueba...', 'info');
+    updateStatus('Creando perros...', 'info');
+    
+    const dogsToCreate = [
+      {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        name: 'Max',
+        owner_id: '11111111-1111-1111-1111-111111111111',
+        breed: 'Golden Retriever',
+        size: 'grande',
+        age: 3,
+        active: true,
+        notes: 'Perro muy sociable y energético'
+      },
+      {
+        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        name: 'Luna',
+        owner_id: '11111111-1111-1111-1111-111111111111',
+        breed: 'Beagle',
+        size: 'mediano',
+        age: 2,
+        active: true,
+        notes: 'Perra curiosa e inteligente'
+      },
+      {
+        id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+        name: 'Rocky',
+        owner_id: '11111111-1111-1111-1111-111111111111',
+        breed: 'Pastor Alemán',
+        size: 'grande',
+        age: 4,
+        active: true,
+        notes: 'Perro protector y leal'
+      }
+    ];
+
+    const { data: dogs, error: dogError } = await supabase
+      .from('dogs')
+      .insert(dogsToCreate)
+      .select();
+
+    if (dogError) {
+      addLog(`❌ Error creando perros: ${dogError.message}`, 'error');
+      throw dogError;
+    }
+    addLog(`✅ Perros creados: ${dogs?.length || 0}`, 'success');
+
+    // 4. Crear evaluaciones CON INSERT (no upsert)
+    addLog('📊 Creando evaluaciones de prueba...', 'info');
+    updateStatus('Creando evaluaciones...', 'info');
+    
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const { data: evaluations, error: evalError } = await supabase
+      .from('evaluations')
+      .insert([
+        // Max - Evaluación profesor HOY
+        {
+          dog_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          evaluator_id: '22222222-2222-2222-2222-222222222222',
+          location: 'colegio',
+          date: today,
+          energy_level: 8,
+          sociability_level: 9,
+          obedience_level: 7,
+          anxiety_level: 4,
+          barks_much: 'poco',
+          begs_food: 'a_veces',
+          destructive: 'nunca',
+          social_with_dogs: 'mucho',
+          follows_everywhere: 'a_veces',
+          window_watching: 'normal',
+          ate_well: 'excelente',
+          bathroom_accidents: 'no',
+          played_with_toys: 'mucho',
+          responded_to_commands: 'bien',
+          highlights: 'Max tuvo un día excelente jugando con otros perros.',
+          concerns: 'Ninguna preocupación significativa.',
+          notes: 'Max demostró excelente adaptación y participó activamente.'
+        },
+        // Max - Evaluación padre AYER
+        {
+          dog_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          evaluator_id: '11111111-1111-1111-1111-111111111111',
+          location: 'casa',
+          date: yesterday,
+          energy_level: 6,
+          sociability_level: 7,
+          obedience_level: 5,
+          anxiety_level: 6,
+          barks_much: 'normal',
+          begs_food: 'siempre',
+          destructive: 'a_veces',
+          social_with_dogs: 'normal',
+          follows_everywhere: 'siempre',
+          window_watching: 'mucho',
+          ate_well: 'normal',
+          bathroom_accidents: 'no',
+          played_with_toys: 'si',
+          responded_to_commands: 'regular',
+          highlights: 'Max estuvo muy cariñoso y juguetón.',
+          concerns: 'Pide mucha comida durante las comidas.',
+          notes: 'En casa Max es más tranquilo pero sigue siendo activo.'
+        },
+        // Luna - Evaluación profesor HOY
+        {
+          dog_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          evaluator_id: '22222222-2222-2222-2222-222222222222',
+          location: 'colegio',
+          date: today,
+          energy_level: 7,
+          sociability_level: 8,
+          obedience_level: 8,
+          anxiety_level: 3,
+          barks_much: 'poco',
+          begs_food: 'nunca',
+          destructive: 'nunca',
+          social_with_dogs: 'normal',
+          follows_everywhere: 'no',
+          window_watching: 'normal',
+          ate_well: 'excelente',
+          bathroom_accidents: 'no',
+          played_with_toys: 'si',
+          responded_to_commands: 'excelente',
+          highlights: 'Luna demostró excelente capacidad de aprendizaje.',
+          concerns: 'Ninguna. Luna es una estudiante modelo.',
+          notes: 'Luna sigue siendo una de las perras más equilibradas.'
+        },
+        // Rocky - Evaluación profesor HOY
+        {
+          dog_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+          evaluator_id: '22222222-2222-2222-2222-222222222222',
+          location: 'colegio',
+          date: today,
+          energy_level: 6,
+          sociability_level: 7,
+          obedience_level: 9,
+          anxiety_level: 2,
+          barks_much: 'poco',
+          begs_food: 'nunca',
+          destructive: 'nunca',
+          social_with_dogs: 'normal',
+          follows_everywhere: 'no',
+          window_watching: 'mucho',
+          ate_well: 'excelente',
+          bathroom_accidents: 'no',
+          played_with_toys: 'poco',
+          responded_to_commands: 'excelente',
+          highlights: 'Rocky mostró excelente obediencia.',
+          concerns: 'Ninguna. Rocky es muy confiable.',
+          notes: 'Rocky es un ejemplo para los otros perros.'
+        },
+        // Max - Evaluación adicional hace 2 días
+        {
+          dog_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          evaluator_id: '22222222-2222-2222-2222-222222222222',
+          location: 'colegio',
+          date: twoDaysAgo,
+          energy_level: 7,
+          sociability_level: 8,
+          obedience_level: 6,
+          anxiety_level: 5,
+          barks_much: 'poco',
+          begs_food: 'a_veces',
+          destructive: 'nunca',
+          social_with_dogs: 'mucho',
+          follows_everywhere: 'a_veces',
+          window_watching: 'poco',
+          ate_well: 'normal',
+          bathroom_accidents: 'no',
+          played_with_toys: 'mucho',
+          responded_to_commands: 'bien',
+          highlights: 'Max jugó muy bien con otros perros.',
+          concerns: 'Se está adaptando muy bien al grupo.',
+          notes: 'Max continúa mostrando mejoras.'
+        }
+      ])
+      .select();
+
+    if (evalError) throw evalError;
+    addLog(`✅ Evaluaciones creadas: ${evaluations?.length || 0}`, 'success');
+
+    // Éxito final
+    addLog('🎉 ¡Datos de prueba creados exitosamente!', 'success');
+    updateStatus('¡Datos de prueba creados exitosamente!', 'success');
+    
+    // Mostrar enlaces de éxito
+    successLinks.classList.remove('hidden');
+    verifyBtn.disabled = false;
+    
+    // Resetear botón
+    createBtn.innerHTML = '✅ Datos Creados';
+    createBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+    createBtn.classList.add('bg-gray-400');
+
+  } catch (error) {
+    const errorMsg = error && typeof error === 'object' && 'message' in error 
+      ? error.message 
+      : String(error);
+    
+    addLog(`❌ Error: ${errorMsg}`, 'error');
+    updateStatus(`Error: ${errorMsg}`, 'error');
+    
+    createBtn.disabled = false;
+    createBtn.innerHTML = '🔄 Reintentar';
+  }
+}
+
+    async function verifyData(): Promise<void> {
+      try {
+        addLog('🔍 Verificando datos creados...', 'info');
+        updateStatus('Verificando datos...', 'info');
+        
+        const module = await import('@supabase/supabase-js');
+        const supabase = module.createClient(
+          import.meta.env.PUBLIC_SUPABASE_URL,
+          import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+        );
+
+        // Verificar usuarios
+        const { data: users } = await supabase.from('users').select('id, name, role');
+        addLog(`👥 Usuarios encontrados: ${users?.length || 0}`, 'info');
+        
+        // Verificar perros  
+        const { data: dogs } = await supabase.from('dogs').select('id, name, breed');
+        addLog(`🐕 Perros encontrados: ${dogs?.length || 0}`, 'info');
+        
+        // Verificar evaluaciones
+        const { data: evaluations } = await supabase.from('evaluations').select('id, location, date');
+        addLog(`📊 Evaluaciones encontradas: ${evaluations?.length || 0}`, 'info');
+
+        updateStatus('Verificación completada', 'success');
+        addLog('✅ Verificación completada - Todo listo para usar', 'success');
+
+      } catch (error: unknown) {
+        const errorMsg = error && typeof error === 'object' && 'message' in error 
+          ? (error as { message: string }).message 
+          : String(error);
+        addLog(`❌ Error en verificación: ${errorMsg}`, 'error');
+        updateStatus(`Error en verificación: ${errorMsg}`, 'error');
+      }
+    }
+
+    // Inicialización
+    document.addEventListener('DOMContentLoaded', () => {
+      logContainer = document.getElementById('process-log')!;
+      statusContainer = document.getElementById('process-status')!;
+      createBtn = document.getElementById('create-data-btn') as HTMLButtonElement;
+      verifyBtn = document.getElementById('verify-data-btn') as HTMLButtonElement;
+      successLinks = document.getElementById('success-links')!;
+
+      updateStatus('Listo para crear datos de prueba', 'info');
+      addLog('🎯 Sistema preparado. Haz clic en "Crear Datos de Prueba" para comenzar.', 'info');
+
+      createBtn.addEventListener('click', createTestData);
+      verifyBtn.addEventListener('click', verifyData);
+    });
+  </script>
+</Layout>

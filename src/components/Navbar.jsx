@@ -9,7 +9,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-[#56CCF2] z-20 shadow-md fixed w-full z-10">
+    <nav className="bg-[#56CCF2] z-20 shadow-md fixed w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex-shrink-0 flex items-center">
@@ -29,6 +29,9 @@ const Navbar = () => {
               <a href="/instalaciones" className="text-[#2C3E50] hover:bg-[#ACF0F4] hover:text-[#2C3E50] px-3 py-2 rounded-md font-medium">Instalaciones</a>
               <a href="/preguntas-frecuentes" className="text-[#2C3E50] hover:bg-[#ACF0F4] hover:text-[#2C3E50] px-3 py-2 rounded-md font-medium">Preguntas Frecuentes</a>
               <a href="/contacto" className="bg-[#C7EA46] text-[#2C3E50] hover:bg-[#FFFE8D] px-3 py-2 rounded-md font-medium">Contáctanos</a>
+              <a href="/login" className="bg-[#C7EA46] text-[#2C3E50] hover:bg-[#FFFE8D] px-3 py-2 rounded-md font-medium">
+  👤 Iniciar Sesión
+</a>
             </div>
           </div>
           
@@ -69,6 +72,9 @@ const Navbar = () => {
           <a href="/instalaciones" className="text-[#2C3E50] hover:bg-[#ACF0F4] block px-3 py-2 rounded-md font-medium">Instalaciones</a>
           <a href="/preguntas-frecuentes" className="text-[#2C3E50] hover:bg-[#ACF0F4] block px-3 py-2 rounded-md font-medium">Preguntas Frecuentes</a>
           <a href="/contacto" className="bg-[#C7EA46] text-[#2C3E50] hover:bg-[#FFFE8D] block px-3 py-2 rounded-md font-medium">Contáctanos</a>
+          <a href="/login" className="bg-[#C7EA46] text-[#2C3E50] hover:bg-[#FFFE8D] block px-3 py-2 rounded-md font-medium">
+  👤 Iniciar Sesión
+</a>
         </div>
       </div>
     </nav>

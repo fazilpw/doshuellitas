@@ -1,0 +1,10 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import TeacherDashboard from '../../components/dashboard/TeacherDashboard.jsx';
+---
+
+<Layout title="Dashboard Profesor | Club Canino">
+  <div class="min-h-screen bg-[#FFFBF0] pt-20">
+    <TeacherDashboard client:load />
+  </div>
+</Layout>
