@@ -1,5 +1,5 @@
 ---
-// src/pages/app.astro - NUEVA PÁGINA PARA LA APLICACIÓN
+// src/pages/app.astro - APLICACIÓN CORREGIDA
 import Layout from '../layouts/Layout.astro';
 import AppEntry from '../components/AppEntry.jsx';
 
@@ -35,8 +35,18 @@ const pageDescription = "Accede a la aplicación móvil de Club Canino Dos Huell
   
   <AppEntry client:load />
   
-  <!-- Script específico para PWA -->
+  <!-- Script corregido para PWA -->
   <script>
+    // Definir tipos para TypeScript
+    interface BeforeInstallPromptEvent extends Event {
+      readonly platforms: string[];
+      readonly userChoice: Promise<{
+        outcome: 'accepted' | 'dismissed';
+        platform: string;
+      }>;
+      prompt(): Promise<void>;
+    }
+
     // Registrar Service Worker si está disponible
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -50,12 +60,12 @@ const pageDescription = "Accede a la aplicación móvil de Club Canino Dos Huell
       });
     }
 
-    // Manejar instalación de PWA
-    let deferredPrompt;
+    // Manejar instalación de PWA con tipos correctos
+    let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
-    window.addEventListener('beforeinstallprompt', (e) => {
+    window.addEventListener('beforeinstallprompt', (e: Event) => {
       e.preventDefault();
-      deferredPrompt = e;
+      deferredPrompt = e as BeforeInstallPromptEvent;
       
       // Mostrar banner personalizado de instalación
       const installBanner = document.createElement('div');
@@ -76,20 +86,37 @@ const pageDescription = "Accede a la aplicación móvil de Club Canino Dos Huell
       
       document.body.appendChild(installBanner);
       
-      // Manejar clicks
-      document.getElementById('install-btn').addEventListener('click', async () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          console.log(`🎯 Instalación: ${outcome}`);
-          deferredPrompt = null;
-          document.getElementById('install-banner').remove();
-        }
-      });
+      // Manejar clicks con null checks
+      const installBtn = document.getElementById('install-btn');
+      const dismissBtn = document.getElementById('dismiss-btn');
+      const banner = document.getElementById('install-banner');
+
+      if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+          if (deferredPrompt) {
+            try {
+              await deferredPrompt.prompt();
+              const { outcome } = await deferredPrompt.userChoice;
+              console.log(`🎯 Instalación: ${outcome}`);
+              deferredPrompt = null;
+              
+              if (banner && banner.parentNode) {
+                banner.parentNode.removeChild(banner);
+              }
+            } catch (error) {
+              console.error('Error durante la instalación:', error);
+            }
+          }
+        });
+      }
       
-      document.getElementById('dismiss-btn').addEventListener('click', () => {
-        document.getElementById('install-banner').remove();
-      });
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', () => {
+          if (banner && banner.parentNode) {
+            banner.parentNode.removeChild(banner);
+          }
+        });
+      }
     });
 
     // Detectar si ya está instalado
@@ -106,7 +133,9 @@ const pageDescription = "Accede a la aplicación móvil de Club Canino Dos Huell
       document.body.appendChild(successMsg);
       
       setTimeout(() => {
-        successMsg.remove();
+        if (successMsg && successMsg.parentNode) {
+          successMsg.parentNode.removeChild(successMsg);
+        }
       }, 5000);
     });
 

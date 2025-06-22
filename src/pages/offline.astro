@@ -1,0 +1,292 @@
+---
+// src/pages/offline.astro - Página para modo offline
+import Layout from '../layouts/Layout.astro';
+
+const pageTitle = "Sin Conexión | Club Canino Dos Huellitas";
+const pageDescription = "Club Canino funciona sin conexión. Algunos datos pueden estar desactualizados.";
+---
+
+<Layout 
+  title={pageTitle} 
+  description={pageDescription}
+>
+  <div class="min-h-screen bg-[#FFFBF0] flex items-center justify-center px-4">
+    <div class="max-w-md w-full text-center">
+      
+      <!-- Icono offline animado -->
+      <div class="mb-8">
+        <div class="relative mx-auto w-32 h-32 bg-gradient-to-br from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center shadow-xl">
+          <div class="animate-pulse">
+            <svg class="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M3.27 1.44L2 2.72l2.05 2.06C1.97 5.74.5 8.25.5 11.25 0 17.45 5.05 22.5 11.25 22.5c2.99 0 5.51-1.47 7.47-3.54L20.28 20.5 21.56 19.22 3.27 1.44zM11.25 20.5C6.15 20.5 2 16.35 2 11.25c0-2.27.82-4.35 2.18-5.97L16.22 17.32c-1.62 1.36-3.7 2.18-5.97 2.18zm8.64-5.18C21.18 13.6 22 11.52 22 9.25 22 3.05 16.95-2 10.75-2c-2.27 0-4.35.82-5.97 2.18l1.42 1.42C7.4 2.82 8.95 2 10.75 2 15.85 2 20 6.15 20 11.25c0 1.8-.82 3.35-2.11 4.07z"/>
+            </svg>
+          </div>
+          
+          <!-- Indicador de estado offline -->
+          <div class="absolute -bottom-2 -right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Título principal -->
+      <h1 class="text-3xl font-bold text-[#2C3E50] mb-4">
+        🐕 Sin Conexión
+      </h1>
+      
+      <p class="text-lg text-gray-600 mb-6">
+        No hay conexión a internet, pero Club Canino sigue funcionando
+      </p>
+
+      <!-- Estado de funcionamiento offline -->
+      <div class="bg-white rounded-xl shadow-lg p-6 mb-6 text-left">
+        <h3 class="font-bold text-[#2C3E50] mb-4">📱 Funciones disponibles offline:</h3>
+        
+        <div class="space-y-3">
+          <div class="flex items-center">
+            <span class="text-green-500 mr-3">✅</span>
+            <span class="text-gray-700">Ver evaluaciones guardadas</span>
+          </div>
+          <div class="flex items-center">
+            <span class="text-green-500 mr-3">✅</span>
+            <span class="text-gray-700">Crear nuevas evaluaciones</span>
+          </div>
+          <div class="flex items-center">
+            <span class="text-green-500 mr-3">✅</span>
+            <span class="text-gray-700">Consultar información básica</span>
+          </div>
+          <div class="flex items-center">
+            <span class="text-green-500 mr-3">✅</span>
+            <span class="text-gray-700">Navegar por la aplicación</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Funciones limitadas -->
+      <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 text-left">
+        <h4 class="font-medium text-yellow-800 mb-2">⚠️ Limitado sin conexión:</h4>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center">
+            <span class="text-yellow-600 mr-2">•</span>
+            <span class="text-yellow-700">Sincronización en tiempo real</span>
+          </div>
+          <div class="flex items-center">
+            <span class="text-yellow-600 mr-2">•</span>
+            <span class="text-yellow-700">Nuevas fotos del día</span>
+          </div>
+          <div class="flex items-center">
+            <span class="text-yellow-600 mr-2">•</span>
+            <span class="text-yellow-700">Tracking GPS del transporte</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="space-y-4">
+        <button 
+          id="retry-connection"
+          class="w-full bg-[#56CCF2] text-white py-3 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors font-medium"
+        >
+          🔄 Reintentar Conexión
+        </button>
+        
+        <button 
+          id="go-dashboard"
+          class="w-full bg-white border-2 border-[#56CCF2] text-[#56CCF2] py-3 px-4 rounded-lg hover:bg-[#56CCF2] hover:text-white transition-colors font-medium"
+        >
+          📊 Ir al Dashboard
+        </button>
+        
+        <button 
+          id="call-support"
+          class="w-full bg-[#C7EA46] text-[#2C3E50] py-3 px-4 rounded-lg hover:bg-[#FFFE8D] transition-colors font-medium"
+        >
+          📞 Llamar al Colegio
+        </button>
+      </div>
+
+      <!-- Información de contacto -->
+      <div class="mt-8 p-4 bg-gray-50 rounded-lg">
+        <div class="text-sm text-gray-600">
+          <p class="font-medium mb-2">📞 Emergencias:</p>
+          <p>Juan Pablo Leal</p>
+          <p class="font-mono">314-432-9824</p>
+        </div>
+      </div>
+
+      <!-- Indicador de estado de la app -->
+      <div class="mt-6 text-xs text-gray-500">
+        <p>Estado de la aplicación: <span id="app-status" class="font-mono">Offline</span></p>
+        <p>Última sincronización: <span id="last-sync" class="font-mono">Verificando...</span></p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts para funcionalidad offline -->
+  <script>
+    // ============================================
+    // 🔄 GESTIÓN DE RECONEXIÓN
+    // ============================================
+    
+    let connectionCheckInterval: ReturnType<typeof setInterval> | undefined;
+    
+    // Verificar conexión periódicamente
+    function startConnectionMonitoring(): void {
+      connectionCheckInterval = setInterval(checkConnection, 5000);
+    }
+    
+    async function checkConnection(): Promise<void> {
+      try {
+        const response = await fetch('/api/health', { 
+          method: 'HEAD',
+          cache: 'no-cache'
+        });
+        
+        if (response.ok) {
+          handleConnectionRestored();
+        }
+      } catch (error) {
+        updateConnectionStatus('offline');
+      }
+    }
+    
+    function handleConnectionRestored(): void {
+      if (connectionCheckInterval !== undefined) {
+        clearInterval(connectionCheckInterval);
+      }
+      
+      // Mostrar notificación de reconexión
+      showConnectionNotification();
+      
+      // Redirigir al dashboard después de 2 segundos
+      setTimeout(() => {
+        window.location.href = '/dashboard/padre';
+      }, 2000);
+    }
+    
+    function showConnectionNotification(): void {
+      const notification = document.createElement('div');
+      notification.innerHTML = `
+        <div class="fixed top-4 left-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg z-50 text-center animate-pulse">
+          <span class="font-medium">🎉 ¡Conexión restaurada! Redirigiendo...</span>
+        </div>
+      `;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 3000);
+    }
+    
+    function updateConnectionStatus(status: 'online' | 'offline'): void {
+      const statusElement = document.getElementById('app-status');
+      if (statusElement) {
+        statusElement.textContent = status === 'online' ? 'Online' : 'Offline';
+        statusElement.className = status === 'online' ? 'text-green-600' : 'text-red-600';
+      }
+    }
+    
+    // ============================================
+    // 📱 EVENT LISTENERS
+    // ============================================
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      // Iniciar monitoreo de conexión
+      startConnectionMonitoring();
+      
+      // Botón reintentar conexión
+      const retryButton = document.getElementById('retry-connection') as HTMLButtonElement;
+      if (retryButton) {
+        retryButton.addEventListener('click', async () => {
+          retryButton.disabled = true;
+          retryButton.textContent = '🔄 Verificando...';
+          
+          await checkConnection();
+          
+          setTimeout(() => {
+            retryButton.disabled = false;
+            retryButton.textContent = '🔄 Reintentar Conexión';
+          }, 2000);
+        });
+      }
+      
+      // Botón ir al dashboard
+      const dashboardButton = document.getElementById('go-dashboard') as HTMLButtonElement;
+      if (dashboardButton) {
+        dashboardButton.addEventListener('click', () => {
+          // Intentar ir al dashboard (funcionará con cache)
+          window.location.href = '/dashboard/padre';
+        });
+      }
+      
+      // Botón llamar soporte
+      const supportButton = document.getElementById('call-support') as HTMLButtonElement;
+      if (supportButton) {
+        supportButton.addEventListener('click', () => {
+          window.location.href = 'tel:+573144329824';
+        });
+      }
+      
+      // Actualizar última sincronización
+      updateLastSyncTime();
+    });
+    
+    // ============================================
+    // 🕒 UTILIDADES
+    // ============================================
+    
+    function updateLastSyncTime(): void {
+      const lastSyncElement = document.getElementById('last-sync');
+      if (lastSyncElement) {
+        const lastSync = localStorage.getItem('club-canino-last-sync');
+        if (lastSync) {
+          const date = new Date(parseInt(lastSync));
+          lastSyncElement.textContent = date.toLocaleString('es-CO');
+        } else {
+          lastSyncElement.textContent = 'No disponible';
+        }
+      }
+    }
+    
+    // Detectar cambios en el estado de conexión
+    window.addEventListener('online', () => {
+      console.log('🌐 Conexión restaurada');
+      handleConnectionRestored();
+    });
+    
+    window.addEventListener('offline', () => {
+      console.log('📱 Modo offline detectado');
+      updateConnectionStatus('offline');
+    });
+    
+    // Escuchar mensajes del Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event: MessageEvent) => {
+        if (event.data && event.data.type === 'SYNC_COMPLETE') {
+          console.log('🔄 Sincronización completada:', event.data.message);
+          updateLastSyncTime();
+        }
+      });
+    }
+  </script>
+
+  <style>
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: .8;
+      }
+    }
+  </style>
+</Layout>
