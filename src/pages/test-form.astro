@@ -1,5 +1,5 @@
 ---
-// src/pages/test-form.astro
+// src/pages/test-form.astro - CORREGIDO
 import Layout from '../layouts/Layout.astro';
 ---
 
@@ -62,116 +62,133 @@ import Layout from '../layouts/Layout.astro';
   <script>
     type UserRole = 'padre' | 'profesor';
 
+    // ✅ TIPOS PARA SUPABASE
+    interface SupabaseResponse<T = any> {
+      data: T | null;
+      error: { message: string } | null;
+    }
+
+    interface SupabaseClient {
+      from: (table: string) => {
+        insert: (data: any[]) => {
+          select: () => Promise<SupabaseResponse>;
+        };
+      };
+    }
+
+    interface SupabaseModule {
+      supabase: SupabaseClient;
+      default: SupabaseClient;
+    }
+
     // Función para crear el formulario dinámicamente
     async function createFormComponent(userRole: UserRole): Promise<void> {
       const formContainer = document.getElementById('form-container');
       if (!formContainer) return;
-      
-      // Crear el elemento del formulario
+
       const formElement = document.createElement('div');
       formElement.innerHTML = `
-        <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div class="bg-white rounded-xl max-w-4xl w-full max-h-[95vh] overflow-y-auto">
+        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div class="p-6">
-              <div class="flex justify-between items-center mb-6">
+              <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-bold text-[#2C3E50]">
-                  Evaluar a Max 🐕 (Prueba)
+                  📝 Evaluación ${userRole === 'padre' ? '(Casa)' : '(Colegio)'}
                 </h2>
-                <button 
-                  id="close-form"
-                  class="text-gray-500 hover:text-gray-700 text-2xl"
-                >
+                <button id="close-form" class="text-gray-400 hover:text-gray-600 text-xl">
                   ×
                 </button>
               </div>
-              
-              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <p class="text-blue-800">
-                  🧪 <strong>Modo de prueba:</strong> ${userRole === 'padre' ? 'Evaluando en casa' : 'Evaluando en colegio'}
-                </p>
-                <p class="text-blue-700 text-sm mt-1">
-                  Este es un formulario de prueba. Los datos se guardarán en la base de datos.
-                </p>
-              </div>
 
-              <!-- Formulario simple de prueba -->
               <form id="test-evaluation-form" class="space-y-6">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <!-- Métricas principales -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                      ⚡ Nivel de Energía (1-10)
+                      ⚡ Nivel de Energía
                     </label>
-                    <input 
-                      type="range" 
-                      min="1" 
-                      max="10" 
-                      value="5" 
-                      name="energy_level"
-                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    >
-                    <div class="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>Muy tranquilo</span>
-                      <span>Muy activo</span>
-                    </div>
+                    <select name="energy_level" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent">
+                      <option value="1">1 - Muy bajo</option>
+                      <option value="2">2 - Bajo</option>
+                      <option value="3">3 - Normal bajo</option>
+                      <option value="4">4 - Normal</option>
+                      <option value="5" selected>5 - Normal</option>
+                      <option value="6">6 - Normal alto</option>
+                      <option value="7">7 - Alto</option>
+                      <option value="8">8 - Muy alto</option>
+                      <option value="9">9 - Hiperactivo</option>
+                      <option value="10">10 - Extremo</option>
+                    </select>
                   </div>
 
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                      🤝 Socialización (1-10)
+                      🐕 Sociabilidad
                     </label>
-                    <input 
-                      type="range" 
-                      min="1" 
-                      max="10" 
-                      value="5" 
-                      name="sociability_level"
-                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    >
-                    <div class="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>Tímido</span>
-                      <span>Muy sociable</span>
-                    </div>
+                    <select name="sociability_level" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent">
+                      <option value="1">1 - Muy tímido</option>
+                      <option value="2">2 - Tímido</option>
+                      <option value="3">3 - Reservado</option>
+                      <option value="4">4 - Normal</option>
+                      <option value="5" selected>5 - Sociable</option>
+                      <option value="6">6 - Muy sociable</option>
+                      <option value="7">7 - Extrovertido</option>
+                      <option value="8">8 - Muy extrovertido</option>
+                      <option value="9">9 - Busca atención</option>
+                      <option value="10">10 - Centro de atención</option>
+                    </select>
                   </div>
 
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                      🎯 Obediencia (1-10)
+                      🎯 Obediencia
                     </label>
-                    <input 
-                      type="range" 
-                      min="1" 
-                      max="10" 
-                      value="5" 
-                      name="obedience_level"
-                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    >
+                    <select name="obedience_level" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent">
+                      <option value="1">1 - No obedece</option>
+                      <option value="2">2 - Rara vez</option>
+                      <option value="3">3 - A veces</option>
+                      <option value="4">4 - Frecuentemente</option>
+                      <option value="5" selected>5 - Normal</option>
+                      <option value="6">6 - Bien</option>
+                      <option value="7">7 - Muy bien</option>
+                      <option value="8">8 - Excelente</option>
+                      <option value="9">9 - Excepcional</option>
+                      <option value="10">10 - Perfecto</option>
+                    </select>
                   </div>
 
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                      😰 Ansiedad (1-10)
+                      😰 Nivel de Ansiedad
                     </label>
-                    <input 
-                      type="range" 
-                      min="1" 
-                      max="10" 
-                      value="5" 
-                      name="anxiety_level"
-                      class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    >
+                    <select name="anxiety_level" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent">
+                      <option value="1">1 - Muy relajado</option>
+                      <option value="2">2 - Relajado</option>
+                      <option value="3">3 - Tranquilo</option>
+                      <option value="4">4 - Normal</option>
+                      <option value="5" selected>5 - Ligeramente ansioso</option>
+                      <option value="6">6 - Ansioso</option>
+                      <option value="7">7 - Muy ansioso</option>
+                      <option value="8">8 - Estresado</option>
+                      <option value="9">9 - Muy estresado</option>
+                      <option value="10">10 - Pánico</option>
+                    </select>
                   </div>
+
                 </div>
 
+                <!-- Notas -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-2">
-                    📝 Notas del día
+                    📝 Notas adicionales
                   </label>
                   <textarea 
-                    name="notes"
-                    rows="4"
-                    class="w-full p-3 border border-gray-300 rounded-md focus:ring-[#56CCF2] focus:border-[#56CCF2]"
-                    placeholder="¿Cómo estuvo Max hoy?"
+                    name="notes" 
+                    rows="4" 
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+                    placeholder="Observaciones sobre el comportamiento, eventos especiales, mejoras notadas, etc."
                   ></textarea>
                 </div>
 
@@ -225,7 +242,7 @@ import Layout from '../layouts/Layout.astro';
           
           const formData = new FormData(target);
           const evaluationData = {
-            dog_id: 'test-dog-max', // ID de prueba
+            dog_id: 'test-dog-max',
             evaluator_id: userRole === 'padre' ? 'test-user-padre' : 'test-user-profesor',
             location: userRole === 'padre' ? 'casa' : 'colegio',
             date: new Date().toISOString().split('T')[0],
@@ -239,22 +256,22 @@ import Layout from '../layouts/Layout.astro';
           try {
             console.log('Guardando evaluación:', evaluationData);
             
-            // Intentar guardar en Supabase si está disponible
+            // ✅ TIPOS CORREGIDOS - Intentar guardar en Supabase si está disponible
             try {
-              const module = await import('../lib/supabase.js');
-              const { supabase } = module;
+              const module = await import('../lib/supabase.js') as SupabaseModule;
+              const supabase: SupabaseClient = module.supabase || module.default;
               
-              const { data, error } = await supabase
+              const result: SupabaseResponse = await supabase
                 .from('evaluations')
                 .insert([evaluationData])
                 .select();
               
-              if (error) throw error;
+              if (result.error) throw new Error(result.error.message);
               
               alert('✅ Evaluación guardada exitosamente en la base de datos!');
-              updateDebugInfo('✅ Evaluación guardada en Supabase: ' + JSON.stringify(data));
+              updateDebugInfo('✅ Evaluación guardada en Supabase: ' + JSON.stringify(result.data));
               
-            } catch (supabaseError) {
+            } catch (supabaseError: unknown) {
               console.log('Supabase no disponible, simulando guardado:', supabaseError);
               alert('✅ Evaluación procesada (modo demo - Supabase no configurado)');
               updateDebugInfo('⚠️ Evaluación procesada en modo demo');
