@@ -164,31 +164,8 @@ const businessSchema = {
   </script>
 
   <!-- PWA SERVICE WORKER REGISTRATION -->
-  <script>
-    // Registrar Service Worker para PWA
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then((registration) => {
-            console.log('SW registrado exitosamente:', registration.scope);
-          })
-          .catch((registrationError) => {
-            console.log('SW falló al registrar:', registrationError);
-          });
-      });
-    }
+  <script src="/sw-registration.js"></script>
 
-    // Solicitar permisos de notificación después de 5 segundos
-    if ('Notification' in window && navigator.serviceWorker) {
-      if (Notification.permission === 'default') {
-        setTimeout(() => {
-          Notification.requestPermission().then((permission) => {
-            console.log('Permisos de notificación:', permission);
-          });
-        }, 5000);
-      }
-    }
-  </script>
 
   <!-- Google Tag Manager script corregido para evitar errores de TypeScript -->
   <script is:inline>
