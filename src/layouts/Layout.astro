@@ -3,6 +3,8 @@
 // Importamos el archivo CSS de Tailwind desde un archivo separado
 import '../styles/tailwind.css';
 import '../styles/base.css';
+import ConfigBanner from '../components/ConfigBanner.jsx';
+
 
 
 // Props para personalizar el SEO por página
@@ -114,7 +116,8 @@ const businessSchema = {
   <noscript>
     <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX" height="0" width="0" style="display:none;visibility:hidden"></iframe>
   </noscript>
-  
+    <ConfigBanner client:load />
+
   <main>
     <slot />
   </main>
