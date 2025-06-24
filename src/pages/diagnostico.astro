@@ -1,428 +1,425 @@
 ---
+// src/pages/diagnostico.astro
+// PÁGINA DE DIAGNÓSTICO PARA VERIFICAR CONFIGURACIÓN
+
+export const prerender = false; // ⚠️ CRÍTICO: Server-side para acceso a variables
+
 import Layout from '../layouts/Layout.astro';
+
+// Variables de entorno para verificación
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+const nodeEnv = import.meta.env.MODE;
+
+// Información de contexto
+const userAgent = Astro.request.headers.get('user-agent') || 'No disponible';
+const hostname = Astro.url.hostname;
+const port = Astro.url.port;
 ---
 
-<Layout title="Diagnóstico Supabase - CORREGIDO">
-  <div class="min-h-screen bg-[#FFFBF0] py-12">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="bg-white rounded-xl shadow-lg p-8">
-        <h1 class="text-3xl font-bold text-[#2C3E50] mb-8">
-          🔍 Diagnóstico de Supabase - VERSIÓN CORREGIDA
+<Layout title="Diagnóstico del Sistema - Club Canino">
+  <div class="min-h-screen bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4] py-8">
+    <div class="container mx-auto px-4">
+      
+      <!-- Header -->
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-[#2C3E50] mb-2">
+          🔍 Diagnóstico del Sistema
         </h1>
+        <p class="text-lg text-[#5B9BD5]">
+          Club Canino Dos Huellitas - Verificación de Configuración
+        </p>
+      </div>
+
+      <!-- Grid de Verificaciones -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         
-        <div class="mb-8">
-          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">📊 Estado General</h2>
-          <div id="general-status" class="p-4 rounded-lg bg-gray-50">
-            🔄 Verificando...
+        <!-- Estado de Astro -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+          <h2 class="text-xl font-semibold mb-4 text-[#2C3E50]">
+            🚀 Configuración de Astro
+          </h2>
+          <div class="space-y-3">
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+              <span>Modo de Renderizado:</span>
+              <span class="badge bg-green-100 text-green-800 px-2 py-1 rounded">Server-side ✅</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+              <span>Entorno:</span>
+              <span class="badge bg-blue-100 text-blue-800 px-2 py-1 rounded">{nodeEnv}</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+              <span>Servidor:</span>
+              <span class="badge bg-purple-100 text-purple-800 px-2 py-1 rounded">{hostname}:{port}</span>
+            </div>
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+              <span>Headers disponibles:</span>
+              <span class="badge bg-green-100 text-green-800 px-2 py-1 rounded">✅ Sí</span>
+            </div>
           </div>
         </div>
 
-        <div class="mb-8">
-          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">🔧 Variables de Entorno</h2>
-          <div id="env-status" class="space-y-2">
-            🔄 Verificando configuración...
+        <!-- Estado de Supabase -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+          <h2 class="text-xl font-semibold mb-4 text-[#2C3E50]">
+            🗄️ Configuración de Supabase
+          </h2>
+          <div class="space-y-3">
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+              <span>URL Configurada:</span>
+              {supabaseUrl ? (
+                <span class="badge bg-green-100 text-green-800 px-2 py-1 rounded">✅ Sí</span>
+              ) : (
+                <span class="badge bg-red-100 text-red-800 px-2 py-1 rounded">❌ No</span>
+              )}
+            </div>
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
+              <span>API Key Configurada:</span>
+              {supabaseKey ? (
+                <span class="badge bg-green-100 text-green-800 px-2 py-1 rounded">✅ Sí</span>
+              ) : (
+                <span class="badge bg-red-100 text-red-800 px-2 py-1 rounded">❌ No</span>
+              )}
+            </div>
+            <div class="p-3 bg-gray-50 rounded">
+              <div class="text-sm">
+                <span class="font-medium">URL:</span> 
+                <span class="font-mono text-xs">
+                  {supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'No configurada'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="mb-8">
-          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">🌐 Pruebas de Conexión</h2>
-          <div id="connection-tests" class="space-y-4">
-            🔄 Ejecutando pruebas...
-          </div>
+      </div>
+
+      <!-- Pruebas en Tiempo Real -->
+      <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 class="text-2xl font-semibold mb-6 text-[#2C3E50]">
+          🔬 Pruebas en Tiempo Real
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <button 
+            id="test-connection" 
+            class="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+          >
+            🔌 Probar Conexión
+          </button>
+          <button 
+            id="test-tables" 
+            class="bg-[#C7EA46] text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors"
+          >
+            🗄️ Verificar Tablas
+          </button>
+          <button 
+            id="test-auth" 
+            class="bg-[#AB5729] text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
+          >
+            🔐 Probar Auth
+          </button>
         </div>
 
-        <div class="mb-8">
-          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">🗄️ Estado de las Tablas</h2>
-          <div id="tables-status" class="space-y-2">
-            🔄 Verificando tablas...
-          </div>
-        </div>
-
-        <div class="mb-8">
-          <h2 class="text-xl font-semibent text-[#2C3E50] mb-4">📋 Datos de Muestra</h2>
-          <div id="sample-data" class="bg-gray-50 p-4 rounded-lg">
-            🔄 Cargando datos...
-          </div>
-        </div>
-
-        <div class="mb-8">
-          <h2 class="text-xl font-semibold text-[#2C3E50] mb-4">🛠️ Acciones Rápidas</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button 
-              id="create-test-data" 
-              class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium"
-            >
-              ✨ Crear Datos de Prueba
-            </button>
-            <button 
-              id="reload-test" 
-              class="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] font-medium"
-            >
-              🔄 Recargar Diagnóstico
-            </button>
-          </div>
-        </div>
-
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 class="font-bold text-[#2C3E50] mb-2">🔧 Si hay errores:</h3>
-          <div class="space-y-2 text-sm">
-            <p><strong>1.</strong> Ejecuta el script SQL de corrección en Supabase</p>
-            <p><strong>2.</strong> Verifica que las variables de entorno estén configuradas</p>
-            <p><strong>3.</strong> Reinicia el servidor de desarrollo</p>
-            <p><strong>4.</strong> Prueba los dashboards: <a href="/dashboard/padre" class="text-blue-600 underline">/dashboard/padre</a></p>
+        <!-- Resultados de las Pruebas -->
+        <div id="test-results" class="space-y-4">
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <p class="text-gray-600">Haz clic en los botones para ejecutar las pruebas...</p>
           </div>
         </div>
       </div>
+
+      <!-- Información del Sistema -->
+      <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-xl font-semibold mb-4 text-[#2C3E50]">
+          📱 Información del Cliente
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-3 bg-gray-50 rounded">
+            <span class="font-medium">User Agent:</span>
+            <p class="text-sm font-mono mt-1 break-all">{userAgent}</p>
+          </div>
+          <div class="p-3 bg-gray-50 rounded">
+            <span class="font-medium">Timestamp:</span>
+            <p class="text-sm font-mono mt-1">{new Date().toISOString()}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="text-center mt-8 space-x-4">
+        <a 
+          href="/login" 
+          class="bg-[#2C3E50] text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors inline-block"
+        >
+          🔑 Ir al Login
+        </a>
+        <a 
+          href="/crear-datos-prueba" 
+          class="bg-[#5B9BD5] text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors inline-block"
+        >
+          📊 Crear Datos de Prueba
+        </a>
+        <a 
+          href="/" 
+          class="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-blue-400 transition-colors inline-block"
+        >
+          🏠 Volver al Inicio
+        </a>
+      </div>
     </div>
   </div>
-
-  <script>
-    type StatusType = 'info' | 'success' | 'error' | 'warning';
-
-    function updateGeneralStatus(message: string, type: StatusType = 'info'): void {
-      const element = document.getElementById('general-status');
-      if (element) {
-        const colorClasses: Record<StatusType, string> = {
-          info: 'bg-blue-50 border border-blue-200 text-blue-700',
-          success: 'bg-green-50 border border-green-200 text-green-700',
-          error: 'bg-red-50 border border-red-200 text-red-700',
-          warning: 'bg-yellow-50 border border-yellow-200 text-yellow-700'
-        };
-        const className = colorClasses[type] || colorClasses.info;
-        element.className = 'p-4 rounded-lg ' + className;
-        element.innerHTML = message;
-      }
-    }
-
-    function checkEnvironmentVariables(): void {
-      const envStatus = document.getElementById('env-status');
-      if (!envStatus) return;
-
-      const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-      const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-      
-      const results = [
-        {
-          name: 'PUBLIC_SUPABASE_URL',
-          status: supabaseUrl ? '✅' : '❌',
-          message: supabaseUrl ? 'Configurada correctamente' : 'No configurada',
-          value: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'No definida'
-        },
-        {
-          name: 'PUBLIC_SUPABASE_ANON_KEY',
-          status: supabaseKey ? '✅' : '❌',
-          message: supabaseKey ? 'Configurada correctamente' : 'No configurada',
-          value: supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'No definida'
-        }
-      ];
-
-      const html = results.map(function(result) {
-        return '<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">' +
-          '<div>' +
-          '<span class="font-medium">' + result.name + '</span>' +
-          '<p class="text-sm text-gray-600">' + result.message + '</p>' +
-          '<p class="text-xs text-gray-500">' + result.value + '</p>' +
-          '</div>' +
-          '<span class="text-lg">' + result.status + '</span>' +
-          '</div>';
-      }).join('');
-
-      envStatus.innerHTML = html;
-
-      if (supabaseUrl && supabaseKey) {
-        updateGeneralStatus('✅ Variables de entorno configuradas correctamente', 'success');
-      } else {
-        updateGeneralStatus('❌ Variables de entorno faltantes. Configura tu archivo .env', 'error');
-      }
-    }
-
-    async function testConnection(): Promise<void> {
-      const connectionTests = document.getElementById('connection-tests');
-      if (!connectionTests) return;
-
-      connectionTests.innerHTML = '<div class="text-blue-600">🔄 Probando conexión...</div>';
-
-      try {
-        const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-        const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-
-        if (!supabaseUrl || !supabaseKey) {
-          throw new Error('Variables de entorno no configuradas');
-        }
-
-        const module = await import('@supabase/supabase-js');
-        const supabase = module.createClient(supabaseUrl, supabaseKey);
-
-        // ✅ CONSULTA CORREGIDA - Sin count(*)
-        const result = await supabase
-          .from('users')
-          .select('id, email, name, role')
-          .limit(5);
-
-        let connectionResult = '';
-        if (result.error) {
-          if (result.error.message.includes('relation "users" does not exist')) {
-            connectionResult = '<div class="p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">' +
-              '<p class="font-medium">⚠️ Conexión OK, pero tabla \'users\' no existe</p>' +
-              '<p class="text-sm">La conexión a Supabase funciona, pero necesitas ejecutar el script SQL.</p>' +
-              '</div>';
-          } else {
-            throw result.error;
-          }
-        } else {
-          connectionResult = '<div class="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">' +
-            '<p class="font-medium">✅ Conexión exitosa</p>' +
-            '<p class="text-sm">Supabase responde correctamente. Usuarios encontrados: ' + (result.data?.length || 0) + '</p>' +
-            '</div>';
-        }
-
-        connectionTests.innerHTML = connectionResult;
-
-      } catch (error: unknown) {
-        const errorMsg = error && typeof error === 'object' && 'message' in error 
-          ? (error as { message: string }).message 
-          : String(error);
-        connectionTests.innerHTML = '<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">' +
-          '<p class="font-medium">❌ Error de conexión</p>' +
-          '<p class="text-sm">' + errorMsg + '</p>' +
-          '</div>';
-      }
-    }
-
-    async function checkTables(): Promise<void> {
-      const tablesStatus = document.getElementById('tables-status');
-      if (!tablesStatus) return;
-
-      const tables = ['users', 'dogs', 'evaluations'];
-      let html = '';
-
-      try {
-        const module = await import('@supabase/supabase-js');
-        const supabase = module.createClient(
-          import.meta.env.PUBLIC_SUPABASE_URL,
-          import.meta.env.PUBLIC_SUPABASE_ANON_KEY
-        );
-
-        for (const tableName of tables) {
-          try {
-            // ✅ CONSULTA SIMPLE SIN COUNT
-            const result = await supabase
-              .from(tableName)
-              .select('id')
-              .limit(3);
-
-            if (result.error) {
-              html += '<div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">' +
-                '<span class="font-medium">' + tableName + '</span>' +
-                '<span class="text-red-600">❌ ' + result.error.message + '</span>' +
-                '</div>';
-            } else {
-              const recordCount = result.data?.length || 0;
-              html += '<div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">' +
-                '<span class="font-medium">' + tableName + '</span>' +
-                '<span class="text-green-600">✅ Funciona (' + recordCount + ' registros)</span>' +
-                '</div>';
-            }
-          } catch (err: unknown) {
-            const errorMsg = err && typeof err === 'object' && 'message' in err 
-              ? (err as { message: string }).message 
-              : 'Error desconocido';
-            html += '<div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">' +
-              '<span class="font-medium">' + tableName + '</span>' +
-              '<span class="text-red-600">❌ ' + errorMsg + '</span>' +
-              '</div>';
-          }
-        }
-
-        tablesStatus.innerHTML = html;
-
-      } catch (error: unknown) {
-        const errorMsg = error && typeof error === 'object' && 'message' in error 
-          ? (error as { message: string }).message 
-          : String(error);
-        tablesStatus.innerHTML = '<div class="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">' +
-          'No se pudo verificar el estado de las tablas: ' + errorMsg +
-          '</div>';
-      }
-    }
-
-    async function loadSampleData(): Promise<void> {
-      const sampleData = document.getElementById('sample-data');
-      if (!sampleData) return;
-
-      try {
-        const module = await import('@supabase/supabase-js');
-        const supabase = module.createClient(
-          import.meta.env.PUBLIC_SUPABASE_URL,
-          import.meta.env.PUBLIC_SUPABASE_ANON_KEY
-        );
-
-        // ✅ CONSULTAS CORREGIDAS
-        const usersResult = await supabase
-          .from('users')
-          .select('id, email, name, role')
-          .limit(3);
-
-        const dogsResult = await supabase
-          .from('dogs')
-          .select('id, name, breed, size')
-          .limit(3);
-
-        const evaluationsResult = await supabase
-          .from('evaluations')
-          .select('id, location, date, energy_level')
-          .limit(3);
-
-        if (usersResult.error) {
-          sampleData.innerHTML = '<div class="text-red-600">' +
-            '❌ No se pudieron cargar datos: ' + usersResult.error.message +
-            '</div>';
-        } else {
-          const summary = {
-            usuarios: usersResult.data?.length || 0,
-            perros: dogsResult.data?.length || 0,
-            evaluaciones: evaluationsResult.data?.length || 0,
-            muestra_usuarios: usersResult.data || [],
-            muestra_perros: dogsResult.data || [],
-            muestra_evaluaciones: evaluationsResult.data || []
-          };
-
-          sampleData.innerHTML = '<div class="space-y-4">' +
-            '<div class="grid grid-cols-3 gap-4 text-center">' +
-            '<div class="bg-blue-100 p-3 rounded"><div class="font-bold">' + summary.usuarios + '</div><div class="text-sm">Usuarios</div></div>' +
-            '<div class="bg-green-100 p-3 rounded"><div class="font-bold">' + summary.perros + '</div><div class="text-sm">Perros</div></div>' +
-            '<div class="bg-purple-100 p-3 rounded"><div class="font-bold">' + summary.evaluaciones + '</div><div class="text-sm">Evaluaciones</div></div>' +
-            '</div>' +
-            '<pre class="overflow-x-auto text-xs bg-gray-100 p-3 rounded">' + 
-            JSON.stringify(summary, null, 2) + 
-            '</pre>' +
-            '</div>';
-        }
-
-      } catch (error: unknown) {
-        const errorMsg = error && typeof error === 'object' && 'message' in error 
-          ? (error as { message: string }).message 
-          : String(error);
-        sampleData.innerHTML = '<div class="text-red-600">' +
-          '❌ Error cargando datos: ' + errorMsg +
-          '</div>';
-      }
-    }
-
-    async function createTestData(): Promise<void> {
-      try {
-        updateGeneralStatus('🔄 Creando datos de prueba...', 'info');
-        
-        const module = await import('@supabase/supabase-js');
-        const supabase = module.createClient(
-          import.meta.env.PUBLIC_SUPABASE_URL,
-          import.meta.env.PUBLIC_SUPABASE_ANON_KEY
-        );
-
-        // Crear usuarios de prueba con IDs fijos
-        const { data: users, error: userError } = await supabase
-          .from('users')
-          .upsert([
-            {
-              id: '11111111-1111-1111-1111-111111111111',
-              email: 'maria@gmail.com',
-              name: 'María García',
-              role: 'padre',
-              phone: '3007654321'
-            },
-            {
-              id: '22222222-2222-2222-2222-222222222222',
-              email: 'profesor@clubcanino.com',
-              name: 'Carlos Profesor',
-              role: 'profesor',
-              phone: '3001234567'
-            }
-          ], { onConflict: 'email' })
-          .select();
-
-        if (userError) throw userError;
-
-        // Crear perros de prueba
-        const { data: dogs, error: dogError } = await supabase
-          .from('dogs')
-          .upsert([
-            {
-              id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-              name: 'Max',
-              owner_id: '11111111-1111-1111-1111-111111111111',
-              breed: 'Golden Retriever',
-              size: 'grande',
-              age: 3,
-              active: true,
-              notes: 'Perro muy sociable y energético'
-            }
-          ], { onConflict: 'id' })
-          .select();
-
-        if (dogError) throw dogError;
-
-        // Crear evaluaciones de prueba
-        const today = new Date().toISOString().split('T')[0];
-
-        const { data: evaluations, error: evalError } = await supabase
-          .from('evaluations')
-          .upsert([
-            {
-              dog_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-              evaluator_id: '22222222-2222-2222-2222-222222222222',
-              location: 'colegio',
-              date: today,
-              energy_level: 8,
-              sociability_level: 9,
-              obedience_level: 7,
-              anxiety_level: 4,
-              barks_much: 'poco',
-              begs_food: 'a_veces',
-              highlights: 'Max tuvo un día excelente',
-              notes: 'Max demostró excelente adaptación'
-            }
-          ], { onConflict: 'dog_id,date,location' })
-          .select();
-
-        if (evalError) throw evalError;
-
-        updateGeneralStatus('✅ Datos de prueba creados exitosamente! Recarga para ver los cambios.', 'success');
-        
-        // Recargar diagnóstico
-        setTimeout(() => {
-          runDiagnostic();
-        }, 1000);
-
-      } catch (error: unknown) {
-        const errorMsg = error && typeof error === 'object' && 'message' in error 
-          ? (error as { message: string }).message 
-          : String(error);
-        updateGeneralStatus('❌ Error creando datos de prueba: ' + errorMsg, 'error');
-      }
-    }
-
-    async function runDiagnostic(): Promise<void> {
-      console.log('🔍 Iniciando diagnóstico completo...');
-      
-      updateGeneralStatus('🔄 Ejecutando diagnóstico...', 'info');
-      checkEnvironmentVariables();
-      await testConnection();
-      await checkTables();
-      await loadSampleData();
-      
-      console.log('✅ Diagnóstico completado');
-    }
-
-    document.addEventListener('DOMContentLoaded', runDiagnostic);
-
-    const reloadButton = document.getElementById('reload-test');
-    if (reloadButton) {
-      reloadButton.addEventListener('click', runDiagnostic);
-    }
-
-    const createDataButton = document.getElementById('create-test-data');
-    if (createDataButton) {
-      createDataButton.addEventListener('click', createTestData);
-    }
-  </script>
 </Layout>
+
+<script>
+  // ===============================================
+  // 🧪 SCRIPTS DE PRUEBA DEL SISTEMA
+  // ===============================================
+
+  import { createClient } from '@supabase/supabase-js';
+
+  // Inicializar Supabase
+  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+  const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+  
+  let supabase = null;
+  
+  if (supabaseUrl && supabaseKey) {
+    supabase = createClient(supabaseUrl, supabaseKey);
+  }
+
+  // Elementos DOM
+  const testResults = document.getElementById('test-results');
+  const testConnection = document.getElementById('test-connection');
+  const testTables = document.getElementById('test-tables');
+  const testAuth = document.getElementById('test-auth');
+
+  // ===============================================
+  // 🔧 FUNCIONES DE PRUEBA
+  // ===============================================
+
+  function addResult(title, status, message, details = null) {
+    const resultDiv = document.createElement('div');
+    resultDiv.className = `p-4 rounded-lg border-l-4 ${
+      status === 'success' ? 'bg-green-50 border-green-400' :
+      status === 'error' ? 'bg-red-50 border-red-400' :
+      'bg-yellow-50 border-yellow-400'
+    }`;
+    
+    resultDiv.innerHTML = `
+      <h3 class="font-semibold ${
+        status === 'success' ? 'text-green-800' :
+        status === 'error' ? 'text-red-800' :
+        'text-yellow-800'
+      }">${title}</h3>
+      <p class="text-sm mt-1 ${
+        status === 'success' ? 'text-green-700' :
+        status === 'error' ? 'text-red-700' :
+        'text-yellow-700'
+      }">${message}</p>
+      ${details ? `<pre class="text-xs mt-2 p-2 bg-gray-100 rounded overflow-auto">${details}</pre>` : ''}
+    `;
+    
+    testResults.appendChild(resultDiv);
+  }
+
+  function clearResults() {
+    testResults.innerHTML = '';
+  }
+
+  // ===============================================
+  // 🔌 PRUEBA DE CONEXIÓN
+  // ===============================================
+
+  async function testConnectionFunction() {
+    clearResults();
+    
+    if (!supabase) {
+      addResult(
+        '❌ Configuración Faltante',
+        'error',
+        'Variables de entorno SUPABASE_URL o SUPABASE_ANON_KEY no están configuradas'
+      );
+      return;
+    }
+
+    try {
+      // Probar conexión básica
+      const { data, error } = await supabase.from('profiles').select('count').limit(1);
+      
+      if (error) {
+        addResult(
+          '❌ Error de Conexión',
+          'error',
+          `No se pudo conectar a Supabase: ${error.message}`,
+          JSON.stringify(error, null, 2)
+        );
+      } else {
+        addResult(
+          '✅ Conexión Exitosa',
+          'success',
+          'Supabase está conectado y respondiendo correctamente'
+        );
+      }
+    } catch (error) {
+      addResult(
+        '❌ Error de Red',
+        'error',
+        `Error de conexión de red: ${error.message}`,
+        error.stack
+      );
+    }
+  }
+
+  // ===============================================
+  // 🗄️ PRUEBA DE TABLAS
+  // ===============================================
+
+  async function testTablesFunction() {
+    clearResults();
+    
+    if (!supabase) {
+      addResult('❌ Supabase no inicializado', 'error', 'Configurar variables de entorno primero');
+      return;
+    }
+
+    const tables = ['profiles', 'dogs', 'evaluations', 'photos', 'notifications'];
+    
+    for (const table of tables) {
+      try {
+        const { data, error } = await supabase.from(table).select('*').limit(1);
+        
+        if (error) {
+          addResult(
+            `❌ Tabla ${table}`,
+            'error',
+            `Error: ${error.message}`,
+            `Código: ${error.code}\nDetalles: ${error.details}`
+          );
+        } else {
+          addResult(
+            `✅ Tabla ${table}`,
+            'success',
+            `Tabla existe y es accesible. ${data.length} registros encontrados en la muestra.`
+          );
+        }
+      } catch (error) {
+        addResult(
+          `❌ Tabla ${table}`,
+          'error',
+          `Error de conexión: ${error.message}`
+        );
+      }
+    }
+  }
+
+  // ===============================================
+  // 🔐 PRUEBA DE AUTENTICACIÓN
+  // ===============================================
+
+  async function testAuthFunction() {
+    clearResults();
+    
+    if (!supabase) {
+      addResult('❌ Supabase no inicializado', 'error', 'Configurar variables de entorno primero');
+      return;
+    }
+
+    try {
+      // Verificar sesión actual
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        addResult(
+          '❌ Error de Sesión',
+          'error',
+          `Error obteniendo sesión: ${sessionError.message}`
+        );
+      } else if (sessionData.session) {
+        addResult(
+          '✅ Usuario Autenticado',
+          'success',
+          `Usuario: ${sessionData.session.user.email}`,
+          JSON.stringify({
+            userId: sessionData.session.user.id,
+            email: sessionData.session.user.email,
+            lastSignIn: sessionData.session.user.last_sign_in_at
+          }, null, 2)
+        );
+      } else {
+        addResult(
+          '⚠️ Sin Sesión Activa',
+          'warning',
+          'No hay usuario autenticado actualmente. Esto es normal si no has iniciado sesión.'
+        );
+      }
+
+      // Verificar configuración de auth
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      
+      if (authError && authError.status !== 401) {
+        addResult(
+          '❌ Error de Auth',
+          'error',
+          `Error en configuración de auth: ${authError.message}`
+        );
+      } else {
+        addResult(
+          '✅ Auth Configurado',
+          'success',
+          'Sistema de autenticación está funcionando correctamente'
+        );
+      }
+
+    } catch (error) {
+      addResult(
+        '❌ Error de Auth',
+        'error',
+        `Error inesperado: ${error.message}`,
+        error.stack
+      );
+    }
+  }
+
+  // ===============================================
+  // 📡 EVENT LISTENERS
+  // ===============================================
+
+  testConnection?.addEventListener('click', testConnectionFunction);
+  testTables?.addEventListener('click', testTablesFunction);
+  testAuth?.addEventListener('click', testAuthFunction);
+
+  // ===============================================
+  // 🚀 EJECUTAR PRUEBA INICIAL
+  // ===============================================
+
+  document.addEventListener('DOMContentLoaded', () => {
+    addResult(
+      '🔄 Sistema Iniciado',
+      'warning',
+      'Página de diagnóstico cargada. Haz clic en los botones para ejecutar las pruebas.'
+    );
+  });
+</script>
+
+<style>
+  .badge {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  
+  pre {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+</style>

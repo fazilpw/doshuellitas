@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Diagnóstico DB - Club Canino Fase 1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .status-loading { @apply bg-blue-50 text-blue-700 border-blue-200; }
+        .status-success { @apply bg-green-50 text-green-700 border-green-200; }
+        .status-error { @apply bg-red-50 text-red-700 border-red-200; }
+        .status-warning { @apply bg-yellow-50 text-yellow-700 border-yellow-200; }
+        .table-exists { @apply bg-green-100 text-green-800; }
+        .table-missing { @apply bg-red-100 text-red-800; }
+        .table-inconsistent { @apply bg-yellow-100 text-yellow-800; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-4">
+                🔍 DIAGNÓSTICO COMPLETO - FASE 1
+            </h1>
+            <p class="text-gray-600">
+                Analizando estado actual de la base de datos Supabase para Club Canino
+            </p>
+            <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            <strong>Objetivo:</strong> Identificar inconsistencias entre esquema esperado vs real
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estado General -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">📊 Estado General</h2>
+                <div id="general-status" class="space-y-3">
+                    <div class="border rounded-lg p-3 status-loading">
+                        🔄 Iniciando diagnóstico...
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">🔧 Variables de Entorno</h2>
+                <div id="env-status" class="space-y-2">
+                    🔄 Verificando configuración...
+                </div>
+            </div>
+        </div>
+
+        <!-- Análisis de Tablas -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-6">🗄️ ANÁLISIS CRÍTICO DE TABLAS</h2>
+            
+            <!-- Tablas Esperadas vs Reales -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <h3 class="text-lg font-medium mb-3">📋 Esperadas por el Código</h3>
+                    <div id="expected-tables" class="space-y-2">
+                        <div class="p-3 border rounded-lg">
+                            <strong>users</strong> - Usado en crear-datos-prueba.astro
+                        </div>
+                        <div class="p-3 border rounded-lg">
+                            <strong>profiles</strong> - Usado en middleware y getDogEvaluations
+                        </div>
+                        <div class="p-3 border rounded-lg">
+                            <strong>dogs</strong> - Perros del club
+                        </div>
+                        <div class="p-3 border rounded-lg">
+                            <strong>evaluations</strong> - Evaluaciones de comportamiento
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-medium mb-3">✅ Encontradas en Supabase</h3>
+                    <div id="found-tables" class="space-y-2">
+                        🔄 Escaneando base de datos...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inconsistencias Detectadas -->
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <h3 class="text-lg font-medium text-red-800 mb-3">⚠️ INCONSISTENCIAS CRÍTICAS DETECTADAS</h3>
+                <div id="inconsistencies" class="space-y-2">
+                    🔄 Analizando inconsistencias...
+                </div>
+            </div>
+        </div>
+
+        <!-- Estructura de Cada Tabla -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-6">🔍 ESTRUCTURA DE TABLAS</h2>
+            <div id="table-structures" class="space-y-6">
+                🔄 Obteniendo estructura de tablas...
+            </div>
+        </div>
+
+        <!-- Datos de Muestra -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-6">📋 DATOS DE MUESTRA</h2>
+            <div id="sample-data" class="space-y-6">
+                🔄 Cargando datos de muestra...
+            </div>
+        </div>
+
+        <!-- Consultas que Fallan -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-6">❌ CONSULTAS QUE FALLAN</h2>
+            <div id="failing-queries" class="space-y-4">
+                🔄 Probando consultas del código actual...
+            </div>
+        </div>
+
+        <!-- Recomendaciones -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-6">💡 RECOMENDACIONES</h2>
+            <div id="recommendations" class="space-y-4">
+                🔄 Generando recomendaciones...
+            </div>
+        </div>
+
+        <!-- Controles -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">🛠️ Acciones</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button 
+                    id="run-diagnosis" 
+                    class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium"
+                >
+                    🔄 Ejecutar Diagnóstico
+                </button>
+                <button 
+                    id="export-report" 
+                    class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium"
+                    disabled
+                >
+                    📄 Exportar Reporte
+                </button>
+                <button 
+                    id="proceed-phase2" 
+                    class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 font-medium"
+                    disabled
+                >
+                    ➡️ Ir a Fase 2
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tipos TypeScript para el navegador
+        interface SupabaseClient {
+            from: (table: string) => {
+                select: (columns: string) => {
+                    eq?: (column: string, value: any) => any;
+                    limit?: (count: number) => Promise<{data: any, error: any}>;
+                } & Promise<{data: any, error: any}>;
+            };
+        }
+
+        interface DiagnosisData {
+            foundTables?: string[];
+            issues?: Array<{
+                type: string;
+                title: string;
+                description: string;
+                impact: string;
+            }>;
+        }
+
+        interface ElementsMap {
+            generalStatus: HTMLElement | null;
+            envStatus: HTMLElement | null;
+            foundTables: HTMLElement | null;
+            inconsistencies: HTMLElement | null;
+            tableStructures: HTMLElement | null;
+            sampleData: HTMLElement | null;
+            failingQueries: HTMLElement | null;
+            recommendations: HTMLElement | null;
+            runDiagnosis: HTMLButtonElement | null;
+            exportReport: HTMLButtonElement | null;
+            proceedPhase2: HTMLButtonElement | null;
+        }
+
+        // Variables globales tipadas
+        let supabase: SupabaseClient | null = null;
+        let diagnosisData: DiagnosisData = {};
+
+        // Elementos DOM tipados
+        const elements: ElementsMap = {
+            generalStatus: document.getElementById('general-status'),
+            envStatus: document.getElementById('env-status'),
+            foundTables: document.getElementById('found-tables'),
+            inconsistencies: document.getElementById('inconsistencies'),
+            tableStructures: document.getElementById('table-structures'),
+            sampleData: document.getElementById('sample-data'),
+            failingQueries: document.getElementById('failing-queries'),
+            recommendations: document.getElementById('recommendations'),
+            runDiagnosis: document.getElementById('run-diagnosis') as HTMLButtonElement,
+            exportReport: document.getElementById('export-report') as HTMLButtonElement,
+            proceedPhase2: document.getElementById('proceed-phase2') as HTMLButtonElement
+        };
+
+        // Utilidades tipadas
+        function updateElement(elementId: keyof ElementsMap, content: string, status: string = 'loading'): void {
+            const element = elements[elementId];
+            if (element) {
+                element.innerHTML = content;
+                element.className = element.className.replace(/status-\w+/, '');
+                element.classList.add(`status-${status}`);
+            }
+        }
+
+        function addToElement(elementId: keyof ElementsMap, content: string, cssClass: string = ''): void {
+            const element = elements[elementId];
+            if (element) {
+                const div = document.createElement('div');
+                div.innerHTML = content;
+                if (cssClass) div.className = cssClass;
+                element.appendChild(div);
+            }
+        }
+
+        // Configurar variables de entorno
+        async function checkEnvironment(): Promise<{SUPABASE_URL: string, SUPABASE_ANON_KEY: string}> {
+            const env = {
+                SUPABASE_URL: 'http://localhost:54321', // Cambia por tu URL real
+                SUPABASE_ANON_KEY: 'tu-anon-key-aqui' // Cambia por tu key real
+            };
+
+            let envHtml = '';
+            
+            if (env.SUPABASE_URL) {
+                envHtml += '<div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">';
+                envHtml += '<span>📍 URL Supabase</span>';
+                envHtml += '<span class="text-green-600">✅ Configurada</span>';
+                envHtml += '</div>';
+            } else {
+                envHtml += '<div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">';
+                envHtml += '<span>📍 URL Supabase</span>';
+                envHtml += '<span class="text-red-600">❌ Faltante</span>';
+                envHtml += '</div>';
+            }
+
+            if (env.SUPABASE_ANON_KEY) {
+                envHtml += '<div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">';
+                envHtml += '<span>🔑 Anon Key</span>';
+                envHtml += '<span class="text-green-600">✅ Configurada</span>';
+                envHtml += '</div>';
+            } else {
+                envHtml += '<div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">';
+                envHtml += '<span>🔑 Anon Key</span>';
+                envHtml += '<span class="text-red-600">❌ Faltante</span>';
+                envHtml += '</div>';
+            }
+
+            const envElement = elements.envStatus;
+            if (envElement) {
+                envElement.innerHTML = envHtml;
+            }
+            return env;
+        }
+
+        // Inicializar Supabase
+        async function initializeSupabase(env: {SUPABASE_URL: string, SUPABASE_ANON_KEY: string}): Promise<boolean> {
+            try {
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-loading">📦 Importando Supabase...</div>');
+                
+                // Para testing, usar CDN
+                if (typeof (window as any).supabase === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/@supabase/supabase-js@2';
+                    document.head.appendChild(script);
+                    
+                    await new Promise<void>(resolve => {
+                        script.onload = () => resolve();
+                    });
+                }
+
+                supabase = (window as any).supabase.createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY) as SupabaseClient;
+                
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-success">✅ Cliente Supabase inicializado</div>');
+                return true;
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                updateElement('generalStatus', `<div class="border rounded-lg p-3 status-error">❌ Error: ${errorMessage}</div>`);
+                return false;
+            }
+        }
+
+        // Escanear tablas existentes
+        async function scanExistingTables(): Promise<string[]> {
+            if (!supabase) throw new Error('Supabase no inicializado');
+            
+            const expectedTables = ['users', 'profiles', 'dogs', 'evaluations'];
+            const foundTables: string[] = [];
+            let tablesHtml = '';
+
+            for (const table of expectedTables) {
+                try {
+                    const { data, error } = await supabase
+                        .from(table)
+                        .select('*')
+                        .limit(1);
+
+                    if (!error) {
+                        foundTables.push(table);
+                        tablesHtml += `<div class="p-3 border rounded-lg table-exists">✅ <strong>${table}</strong> - Existe</div>`;
+                    } else {
+                        tablesHtml += `<div class="p-3 border rounded-lg table-missing">❌ <strong>${table}</strong> - No existe</div>`;
+                    }
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : String(err);
+                    tablesHtml += `<div class="p-3 border rounded-lg table-missing">❌ <strong>${table}</strong> - Error: ${errorMessage}</div>`;
+                }
+            }
+
+            const foundElement = elements.foundTables;
+            if (foundElement) {
+                foundElement.innerHTML = tablesHtml;
+            }
+            diagnosisData.foundTables = foundTables;
+            return foundTables;
+        }
+
+        // Detectar inconsistencias críticas
+        async function detectInconsistencies(foundTables: string[]): Promise<void> {
+            const issues: Array<{type: string; title: string; description: string; impact: string}> = [];
+            let inconsistenciesHtml = '';
+
+            // Issue 1: users vs profiles
+            const hasUsers = foundTables.includes('users');
+            const hasProfiles = foundTables.includes('profiles');
+
+            if (hasUsers && hasProfiles) {
+                issues.push({
+                    type: 'critical',
+                    title: 'CONFLICTO: Tabla users Y profiles existen',
+                    description: 'El código usa ambas tablas inconsistentemente. Necesitas elegir una.',
+                    impact: 'ALTO - Queries fallan en producción'
+                });
+            } else if (hasUsers && !hasProfiles) {
+                issues.push({
+                    type: 'warning',
+                    title: 'Solo existe tabla users',
+                    description: 'El middleware y getDogEvaluations() esperan tabla profiles.',
+                    impact: 'ALTO - Middleware fallará'
+                });
+            } else if (!hasUsers && hasProfiles) {
+                issues.push({
+                    type: 'warning',
+                    title: 'Solo existe tabla profiles',
+                    description: 'crear-datos-prueba.astro intenta insertar en users.',
+                    impact: 'MEDIO - Creación de datos fallará'
+                });
+            } else {
+                issues.push({
+                    type: 'critical',
+                    title: 'CRÍTICO: Ni users ni profiles existen',
+                    description: 'No hay tabla de usuarios. El sistema no puede funcionar.',
+                    impact: 'CRÍTICO - Sistema completamente inoperativo'
+                });
+            }
+
+            // Issue 2: Tablas faltantes
+            const expectedTables = ['users', 'profiles', 'dogs', 'evaluations'];
+            const missingTables = expectedTables.filter(table => !foundTables.includes(table));
+            
+            if (missingTables.length > 0) {
+                issues.push({
+                    type: 'error',
+                    title: `Tablas faltantes: ${missingTables.join(', ')}`,
+                    description: 'Funcionalidad del Club Canino estará limitada.',
+                    impact: `${missingTables.length} características no funcionarán`
+                });
+            }
+
+            // Renderizar issues
+            issues.forEach(issue => {
+                const color = {
+                    critical: 'red',
+                    error: 'red',
+                    warning: 'yellow'
+                }[issue.type] || 'red';
+
+                inconsistenciesHtml += `
+                    <div class="p-4 border border-${color}-300 bg-${color}-50 rounded-lg">
+                        <div class="font-semibold text-${color}-800">${issue.title}</div>
+                        <div class="text-${color}-700 mt-1">${issue.description}</div>
+                        <div class="text-sm text-${color}-600 mt-2"><strong>Impacto:</strong> ${issue.impact}</div>
+                    </div>
+                `;
+            });
+
+            const inconsistenciesElement = elements.inconsistencies;
+            if (inconsistenciesElement) {
+                inconsistenciesElement.innerHTML = inconsistenciesHtml || '<div class="text-green-600">✅ No se detectaron inconsistencias</div>';
+            }
+            diagnosisData.issues = issues;
+        }
+
+        // Obtener estructura de tablas
+        async function getTableStructures(foundTables: string[]): Promise<void> {
+            if (!supabase) return;
+            
+            let structuresHtml = '';
+
+            for (const table of foundTables) {
+                try {
+                    // Obtener algunos registros para inferir estructura
+                    const { data, error } = await supabase
+                        .from(table)
+                        .select('*')
+                        .limit(1);
+
+                    structuresHtml += `<div class="border rounded-lg p-4">`;
+                    structuresHtml += `<h3 class="text-lg font-medium mb-3">📋 Tabla: <code>${table}</code></h3>`;
+
+                    if (error) {
+                        structuresHtml += `<div class="text-red-600">❌ Error: ${error.message}</div>`;
+                    } else if (data && data.length > 0) {
+                        const columns = Object.keys(data[0]);
+                        structuresHtml += '<div class="grid grid-cols-2 md:grid-cols-4 gap-2">';
+                        columns.forEach(col => {
+                            structuresHtml += `<div class="bg-gray-100 p-2 rounded text-sm"><code>${col}</code></div>`;
+                        });
+                        structuresHtml += '</div>';
+                    } else {
+                        structuresHtml += '<div class="text-gray-500">📋 Tabla vacía</div>';
+                    }
+
+                    structuresHtml += '</div>';
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : String(err);
+                    structuresHtml += `<div class="border rounded-lg p-4 bg-red-50">`;
+                    structuresHtml += `<h3 class="text-lg font-medium mb-3">❌ Error en: <code>${table}</code></h3>`;
+                    structuresHtml += `<div class="text-red-600">${errorMessage}</div>`;
+                    structuresHtml += '</div>';
+                }
+            }
+
+            const structuresElement = elements.tableStructures;
+            if (structuresElement) {
+                structuresElement.innerHTML = structuresHtml || '<div class="text-gray-500">No hay tablas para analizar</div>';
+            }
+        }
+
+        // Probar consultas que pueden fallar
+        async function testFailingQueries(): Promise<void> {
+            if (!supabase) return;
+            
+            const queries = [
+                {
+                    name: 'getDogEvaluations() - JOIN con profiles',
+                    query: async () => {
+                        return await supabase!
+                            .from('evaluations')
+                            .select(`*, dogs(name), profiles(full_name, role)`)
+                            .limit(1);
+                    }
+                },
+                {
+                    name: 'getCurrentUserProfile() - SELECT profiles',
+                    query: async () => {
+                        return await supabase!
+                            .from('profiles')
+                            .select('*')
+                            .limit(1);
+                    }
+                },
+                {
+                    name: 'createTestData() - INSERT users',
+                    query: async () => {
+                        return await supabase!
+                            .from('users')
+                            .select('email, role')
+                            .limit(1);
+                    }
+                }
+            ];
+
+            let queriesHtml = '';
+
+            for (const queryTest of queries) {
+                try {
+                    const result = await queryTest.query();
+                    
+                    if (result.error) {
+                        queriesHtml += `
+                            <div class="p-4 border border-red-300 bg-red-50 rounded-lg">
+                                <div class="font-semibold text-red-800">❌ ${queryTest.name}</div>
+                                <div class="text-red-700 mt-1 text-sm">${result.error.message}</div>
+                            </div>
+                        `;
+                    } else {
+                        queriesHtml += `
+                            <div class="p-4 border border-green-300 bg-green-50 rounded-lg">
+                                <div class="font-semibold text-green-800">✅ ${queryTest.name}</div>
+                                <div class="text-green-700 mt-1 text-sm">Funciona correctamente</div>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    queriesHtml += `
+                        <div class="p-4 border border-red-300 bg-red-50 rounded-lg">
+                            <div class="font-semibold text-red-800">❌ ${queryTest.name}</div>
+                            <div class="text-red-700 mt-1 text-sm">Error: ${errorMessage}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            const queriesElement = elements.failingQueries;
+            if (queriesElement) {
+                queriesElement.innerHTML = queriesHtml;
+            }
+        }
+
+        // Generar recomendaciones
+        function generateRecommendations(): void {
+            const { foundTables = [], issues = [] } = diagnosisData;
+            let recommendationsHtml = '';
+
+            // Recomendación principal: usar profiles
+            recommendationsHtml += `
+                <div class="p-4 border border-blue-300 bg-blue-50 rounded-lg">
+                    <div class="font-semibold text-blue-800">💡 RECOMENDACIÓN PRINCIPAL</div>
+                    <div class="text-blue-700 mt-2">
+                        <strong>Estandarizar en tabla <code>profiles</code></strong>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li>Mejor práctica Supabase: auth.users para autenticación, profiles para datos app</li>
+                            <li>Tu middleware ya está configurado para profiles</li>
+                            <li>Permite roles personalizados del Club Canino</li>
+                            <li>Facilita escalabilidad futura</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+
+            // Acciones específicas basadas en estado actual
+            if (!foundTables.includes('profiles')) {
+                recommendationsHtml += `
+                    <div class="p-4 border border-orange-300 bg-orange-50 rounded-lg">
+                        <div class="font-semibold text-orange-800">🔧 ACCIÓN URGENTE</div>
+                        <div class="text-orange-700 mt-2">
+                            Crear tabla <code>profiles</code> con el esquema correcto del Club Canino
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (foundTables.includes('users') && foundTables.includes('profiles')) {
+                recommendationsHtml += `
+                    <div class="p-4 border border-yellow-300 bg-yellow-50 rounded-lg">
+                        <div class="font-semibold text-yellow-800">⚠️ CONFLICTO DETECTADO</div>
+                        <div class="text-yellow-700 mt-2">
+                            Tienes ambas tablas. Debes migrar datos de <code>users</code> a <code>profiles</code> y eliminar referencias a <code>users</code>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Plan de fases
+            recommendationsHtml += `
+                <div class="p-4 border border-green-300 bg-green-50 rounded-lg">
+                    <div class="font-semibold text-green-800">📋 PLAN DE FASES SIGUIENTE</div>
+                    <div class="text-green-700 mt-2">
+                        <ol class="list-decimal list-inside space-y-1">
+                            <li><strong>Fase 2:</strong> Crear/corregir esquema profiles unificado</li>
+                            <li><strong>Fase 3:</strong> Migrar datos existentes si es necesario</li>
+                            <li><strong>Fase 4:</strong> Actualizar código para usar profiles exclusivamente</li>
+                            <li><strong>Fase 5:</strong> Probar autenticación y dashboards</li>
+                        </ol>
+                    </div>
+                </div>
+            `;
+
+            const recommendationsElement = elements.recommendations;
+            if (recommendationsElement) {
+                recommendationsElement.innerHTML = recommendationsHtml;
+            }
+        }
+
+        // Función principal de diagnóstico
+        async function runDiagnosis(): Promise<void> {
+            try {
+                const runButton = elements.runDiagnosis;
+                const exportButton = elements.exportReport;
+                const proceedButton = elements.proceedPhase2;
+                
+                if (runButton) {
+                    runButton.disabled = true;
+                    runButton.textContent = '🔄 Ejecutando...';
+                }
+
+                // Paso 1: Verificar entorno
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-loading">🔧 Verificando entorno...</div>');
+                const env = await checkEnvironment();
+
+                // Paso 2: Inicializar Supabase
+                const supabaseReady = await initializeSupabase(env);
+                if (!supabaseReady) {
+                    throw new Error('No se pudo inicializar Supabase');
+                }
+
+                // Paso 3: Escanear tablas
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-loading">🔍 Escaneando tablas...</div>');
+                const foundTables = await scanExistingTables();
+
+                // Paso 4: Detectar inconsistencias
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-loading">⚠️ Detectando inconsistencias...</div>');
+                await detectInconsistencies(foundTables);
+
+                // Paso 5: Analizar estructura
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-loading">📋 Analizando estructura...</div>');
+                await getTableStructures(foundTables);
+
+                // Paso 6: Probar queries
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-loading">🧪 Probando consultas...</div>');
+                await testFailingQueries();
+
+                // Paso 7: Generar recomendaciones
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-loading">💡 Generando recomendaciones...</div>');
+                generateRecommendations();
+
+                // Completado
+                updateElement('generalStatus', '<div class="border rounded-lg p-3 status-success">✅ Diagnóstico completado</div>', 'success');
+                
+                if (exportButton) exportButton.disabled = false;
+                if (proceedButton) proceedButton.disabled = false;
+                if (runButton) runButton.textContent = '✅ Diagnóstico Completo';
+
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                updateElement('generalStatus', `<div class="border rounded-lg p-3 status-error">❌ Error: ${errorMessage}</div>`, 'error');
+                
+                const runButton = elements.runDiagnosis;
+                if (runButton) {
+                    runButton.disabled = false;
+                    runButton.textContent = '🔄 Reintentar Diagnóstico';
+                }
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🔍 Página de diagnóstico cargada');
+            console.log('💡 Haz clic en "Ejecutar Diagnóstico" para comenzar');
+            
+            // Event listeners con verificación de nulos
+            const runButton = elements.runDiagnosis;
+            if (runButton) {
+                runButton.addEventListener('click', runDiagnosis);
+            }
+
+            const exportButton = elements.exportReport;
+            if (exportButton) {
+                exportButton.addEventListener('click', () => {
+                    const report = JSON.stringify(diagnosisData, null, 2);
+                    const blob = new Blob([report], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'club-canino-diagnosis-report.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+            }
+
+            const proceedButton = elements.proceedPhase2;
+            if (proceedButton) {
+                proceedButton.addEventListener('click', () => {
+                    alert('🚀 Fase 2: Implementación de solución\n\nCon base en este diagnóstico, procederemos a:\n\n1. Crear esquema profiles estándar\n2. Migrar datos existentes\n3. Corregir inconsistencias de código\n4. Validar funcionamiento completo');
+                });
+            }
+            
+            // Mostrar advertencia sobre configuración
+            updateElement('generalStatus', `
+                <div class="border rounded-lg p-3 status-warning">
+                    ⚠️ CONFIGURA TUS CREDENCIALES SUPABASE
+                    <div class="text-sm mt-2">
+                        Edita las variables SUPABASE_URL y SUPABASE_ANON_KEY en el código antes de ejecutar.
+                    </div>
+                </div>
+            `, 'warning');
+        });
+    </script>
+</body>
+</html>

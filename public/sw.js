@@ -112,6 +112,11 @@ self.addEventListener('fetch', (event) => {
 function shouldIgnoreMobileRequest(request) {
   const url = request.url;
   
+  // SOLO AÑADIR ESTAS 3 LÍNEAS:
+  if (url.includes('supabase') || url.includes('/rest/') || url.includes('/auth/')) {
+    return true; // Nunca cachear Supabase
+  }
+  
   // Ignorar TODO excepto navegación principal
   return (
     !url.startsWith('http') ||                    // Solo HTTP
@@ -122,7 +127,6 @@ function shouldIgnoreMobileRequest(request) {
     url.includes('.png') ||                       // No imágenes
     url.includes('.jpg') ||                       // No imágenes
     url.includes('.svg') ||                       // No SVG
-    url.includes('supabase') ||                   // No Supabase
     url.includes('analytics') ||                  // No analytics
     url.includes('font') ||                       // No fonts
     request.method !== 'GET' ||                   // Solo GET

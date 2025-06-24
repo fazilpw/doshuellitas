@@ -1,162 +1,493 @@
-// src/lib/supabase.js - VERSIÓN BUILD-SAFE
-import { createClient } from '@supabase/supabase-js'
+// src/lib/supabase.js - CON FUNCIÓN DE PROMEDIOS AGREGADA
+import { createClient } from '@supabase/supabase-js';
 
-// ✅ CONFIGURACIÓN SEGURA PARA BUILD
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key';
+// ============================================
+// 🔧 CONFIGURACIÓN BÁSICA
+// ============================================
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
-// Verificar si está realmente configurado
-const isConfigured = import.meta.env.PUBLIC_SUPABASE_URL && import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-
-let supabase;
-
-if (isConfigured) {
-  // ✅ Configuración real
-  console.log('✅ Supabase configurado correctamente');
-  supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      persistSession: false,
-    }
-  });
-} else {
-  // ✅ Cliente dummy para modo demo (no falla el build)
-  console.warn('⚠️ Supabase no configurado - funcionando en modo demo');
-  
-  supabase = {
-    from: (table) => ({
-      select: (query) => Promise.resolve({ 
-        data: [], 
-        error: { message: `Supabase no configurado - tabla: ${table}` } 
-      }),
-      insert: (data) => Promise.resolve({ 
-        data: null, 
-        error: { message: 'Supabase no configurado - no se puede insertar' } 
-      }),
-      update: (data) => Promise.resolve({ 
-        data: null, 
-        error: { message: 'Supabase no configurado - no se puede actualizar' } 
-      }),
-      delete: () => Promise.resolve({ 
-        data: null, 
-        error: { message: 'Supabase no configurado - no se puede eliminar' } 
-      }),
-      eq: function(column, value) {
-        return {
-          select: () => this.select(),
-          single: () => Promise.resolve({ 
-            data: null, 
-            error: { message: 'Supabase no configurado' } 
-          })
-        };
-      },
-      single: () => Promise.resolve({ 
-        data: null, 
-        error: { message: 'Supabase no configurado' } 
-      })
-    })
-  };
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
 }
 
-// ✅ FUNCIONES HELPER SEGURAS
-export const db = {
-  isConfigured: () => isConfigured,
-  
-  getUsers: () => {
-    if (!isConfigured) {
-      return Promise.resolve({ 
-        data: [], 
-        error: { message: 'Supabase no configurado' } 
-      });
+// Cliente principal de Supabase
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// ============================================
+// 🎯 FUNCIONES DE DATOS PARA CLUB CANINO
+// ============================================
+
+/**
+ * Obtiene los perros de un usuario específico
+ */
+export async function getUserDogs(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('dogs')
+      .select(`
+        *,
+        profiles!dogs_owner_id_fkey(full_name, email, phone)
+      `)
+      .eq('owner_id', userId)
+      .eq('active', true)
+      .order('name');
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching user dogs:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * 📊 NUEVA: Obtiene promedios/estadísticas de un perro específico
+ */
+export async function getDogAverages(dogId) {
+  try {
+    const { data, error } = await supabase
+      .from('evaluations')
+      .select('energy_level, sociability_level, obedience_level, anxiety_level, location, date')
+      .eq('dog_id', dogId)
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return {
+        data: {
+          energy_percentage: 0,
+          sociability_percentage: 0,
+          obedience_percentage: 0,
+          anxiety_percentage: 0,
+          total_evaluations: 0,
+          casa_evaluations: 0,
+          colegio_evaluations: 0,
+          last_evaluation_date: null,
+          trend: 'sin_datos'
+        },
+        error: null
+      };
     }
-    return supabase.from('users').select('*');
-  },
-  
-  getDogs: () => {
-    if (!isConfigured) {
-      return Promise.resolve({ 
-        data: [], 
-        error: { message: 'Supabase no configurado' } 
-      });
+
+    // Calcular promedios generales
+    const totalEvaluations = data.length;
+    
+    const averages = {
+      energy: Math.round(data.reduce((sum, item) => sum + (item.energy_level || 0), 0) / totalEvaluations),
+      sociability: Math.round(data.reduce((sum, item) => sum + (item.sociability_level || 0), 0) / totalEvaluations),
+      obedience: Math.round(data.reduce((sum, item) => sum + (item.obedience_level || 0), 0) / totalEvaluations),
+      anxiety: Math.round(data.reduce((sum, item) => sum + (item.anxiety_level || 0), 0) / totalEvaluations)
+    };
+
+    // Convertir a porcentajes (1-10 → 0-100%)
+    const percentages = {
+      energy_percentage: Math.round((averages.energy / 10) * 100),
+      sociability_percentage: Math.round((averages.sociability / 10) * 100),
+      obedience_percentage: Math.round((averages.obedience / 10) * 100),
+      anxiety_percentage: Math.round((averages.anxiety / 10) * 100)
+    };
+
+    // Contar evaluaciones por ubicación
+    const casaEvaluations = data.filter(item => item.location === 'casa').length;
+    const colegioEvaluations = data.filter(item => item.location === 'colegio').length;
+
+    // Calcular tendencia (comparar últimas 3 vs anteriores)
+    let trend = 'estable';
+    if (totalEvaluations >= 6) {
+      const recent = data.slice(0, 3);
+      const older = data.slice(3, 6);
+      
+      const recentAvg = recent.reduce((sum, item) => sum + (item.obedience_level || 0), 0) / 3;
+      const olderAvg = older.reduce((sum, item) => sum + (item.obedience_level || 0), 0) / 3;
+      
+      if (recentAvg > olderAvg + 0.5) trend = 'mejorando';
+      else if (recentAvg < olderAvg - 0.5) trend = 'empeorando';
     }
-    return supabase.from('dogs').select('*');
-  },
-  
-  getEvaluations: () => {
-    if (!isConfigured) {
-      return Promise.resolve({ 
-        data: [], 
-        error: { message: 'Supabase no configurado' } 
-      });
+
+    return {
+      data: {
+        ...percentages,
+        total_evaluations: totalEvaluations,
+        casa_evaluations: casaEvaluations,
+        colegio_evaluations: colegioEvaluations,
+        last_evaluation_date: data[0]?.date || null,
+        trend,
+        // Datos en escala 1-10 para gráficos
+        raw_averages: averages
+      },
+      error: null
+    };
+
+  } catch (error) {
+    console.error('Error calculating dog averages:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * 📊 NUEVA: Obtiene promedios de múltiples perros de una vez
+ */
+export async function getMultipleDogsAverages(dogIds) {
+  try {
+    const results = {};
+    
+    // Procesar cada perro
+    for (const dogId of dogIds) {
+      const { data, error } = await getDogAverages(dogId);
+      if (!error && data) {
+        results[dogId] = data;
+      }
     }
-    return supabase.from('evaluations').select(`
-      *,
-      dogs(name, breed),
-      users!evaluations_evaluator_id_fkey(name, role)
-    `);
-  },
-  
-  createEvaluation: (evaluationData) => {
-    if (!isConfigured) {
-      console.warn('📝 Evaluación no guardada - Supabase no configurado:', evaluationData);
-      return Promise.resolve({ 
-        data: { ...evaluationData, id: Date.now() }, 
-        error: null // ✅ No error para que la UI funcione
-      });
+
+    return { data: results, error: null };
+  } catch (error) {
+    console.error('Error fetching multiple dog averages:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene evaluaciones recientes de perros
+ */
+export async function getRecentEvaluations(dogIds, days = 7) {
+  try {
+    if (!dogIds || dogIds.length === 0) {
+      return { data: [], error: null };
     }
-    return supabase
+
+    const dateFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0];
+
+    const { data, error } = await supabase
+      .from('evaluations')
+      .select(`
+        *,
+        dogs(id, name, breed, size),
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
+      .in('dog_id', dogIds)
+      .gte('date', dateFrom)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching recent evaluations:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene todas las evaluaciones de un perro específico
+ */
+export async function getDogEvaluations(dogId, limit = 50) {
+  try {
+    const { data, error } = await supabase
+      .from('evaluations')
+      .select(`
+        *,
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
+      .eq('dog_id', dogId)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching dog evaluations:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Crea una nueva evaluación
+ */
+export async function createEvaluation(evaluationData) {
+  try {
+    const { data, error } = await supabase
       .from('evaluations')
       .insert([evaluationData])
-      .select()
+      .select(`
+        *,
+        dogs(name, breed),
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
       .single();
-  }
-};
 
-// ✅ FUNCIÓN DE PRUEBA DE CONEXIÓN
-export const testConnection = async () => {
-  if (!isConfigured) {
-    return { 
-      success: false, 
-      error: 'Variables de entorno no configuradas',
-      needsConfig: true 
-    };
-  }
-  
-  try {
-    const { data, error } = await supabase.from('users').select('count').limit(1);
-    
-    if (error) {
-      return { success: false, error: error.message };
-    }
-    
-    return { success: true, message: 'Conexión exitosa' };
+    if (error) throw error;
+    return { data, error: null };
   } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-
-// ✅ LOG DE ESTADO
-if (typeof window !== 'undefined') {
-  // Solo en el cliente
-  if (isConfigured) {
-    console.log('🚀 Supabase listo para usar');
-  } else {
-    console.log(`
-🎭 MODO DEMO ACTIVADO
-
-⚠️  Supabase no configurado. Para habilitar todas las funcionalidades:
-
-1️⃣  Ve a https://app.netlify.com
-2️⃣  Selecciona tu sitio 
-3️⃣  Ve a Site settings → Environment variables
-4️⃣  Agrega estas variables:
-    • PUBLIC_SUPABASE_URL
-    • PUBLIC_SUPABASE_ANON_KEY
-5️⃣  Redeploy el sitio
-
-📍 Encuentra tus credenciales en: https://supabase.com/dashboard
-    `);
+    console.error('Error creating evaluation:', error);
+    return { data: null, error };
   }
 }
 
-export { supabase };
+/**
+ * Obtiene estadísticas rápidas para un profesor
+ */
+export async function getTeacherStats(teacherId) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Contar perros totales activos
+    const { count: totalDogs, error: dogsError } = await supabase
+      .from('dogs')
+      .select('*', { count: 'exact', head: true })
+      .eq('active', true);
+
+    if (dogsError) throw dogsError;
+
+    // Contar evaluaciones del profesor hoy
+    const { count: evaluationsToday, error: evalError } = await supabase
+      .from('evaluations')
+      .select('*', { count: 'exact', head: true })
+      .eq('evaluator_id', teacherId)
+      .eq('date', today)
+      .eq('location', 'colegio');
+
+    if (evalError) throw evalError;
+
+    const pendingToday = (totalDogs || 0) - (evaluationsToday || 0);
+
+    return {
+      data: {
+        total_dogs: totalDogs || 0,
+        evaluations_today: evaluationsToday || 0,
+        pending_today: Math.max(0, pendingToday)
+      },
+      error: null
+    };
+  } catch (error) {
+    console.error('Error fetching teacher stats:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene estadísticas rápidas para un padre
+ */
+export async function getParentStats(parentId) {
+  try {
+    // Contar perros del padre
+    const { count: myDogs, error: dogsError } = await supabase
+      .from('dogs')
+      .select('*', { count: 'exact', head: true })
+      .eq('owner_id', parentId)
+      .eq('active', true);
+
+    if (dogsError) throw dogsError;
+
+    // Contar evaluaciones totales de los perros del padre
+    const { data: dogIds, error: dogIdsError } = await supabase
+      .from('dogs')
+      .select('id')
+      .eq('owner_id', parentId)
+      .eq('active', true);
+
+    if (dogIdsError) throw dogIdsError;
+
+    let totalEvaluations = 0;
+    let weekEvaluations = 0;
+
+    if (dogIds && dogIds.length > 0) {
+      const dogIdsList = dogIds.map(dog => dog.id);
+      
+      // Evaluaciones totales
+      const { count: total, error: totalError } = await supabase
+        .from('evaluations')
+        .select('*', { count: 'exact', head: true })
+        .in('dog_id', dogIdsList);
+
+      if (!totalError) totalEvaluations = total || 0;
+
+      // Evaluaciones de esta semana
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0];
+      
+      const { count: week, error: weekError } = await supabase
+        .from('evaluations')
+        .select('*', { count: 'exact', head: true })
+        .in('dog_id', dogIdsList)
+        .gte('date', weekAgo);
+
+      if (!weekError) weekEvaluations = week || 0;
+    }
+
+    return {
+      data: {
+        my_dogs: myDogs || 0,
+        total_evaluations: totalEvaluations,
+        week_evaluations: weekEvaluations
+      },
+      error: null
+    };
+  } catch (error) {
+    console.error('Error fetching parent stats:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Busca un usuario por email y rol
+ */
+export async function getUserByEmailAndRole(email, role) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .eq('role', role)
+      .eq('active', true)
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching user by email and role:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene todos los perros activos (para profesores/admin)
+ */
+export async function getAllDogs() {
+  try {
+    const { data, error } = await supabase
+      .from('dogs')
+      .select(`
+        *,
+        profiles!dogs_owner_id_fkey(full_name, email, phone)
+      `)
+      .eq('active', true)
+      .order('name');
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching all dogs:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene evaluaciones de hoy para una ubicación específica
+ */
+export async function getTodayEvaluations(location, evaluatorId = null) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    let query = supabase
+      .from('evaluations')
+      .select(`
+        *,
+        dogs(name, id, breed, size),
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
+      .eq('date', today)
+      .eq('location', location)
+      .order('created_at', { ascending: false });
+
+    if (evaluatorId) {
+      query = query.eq('evaluator_id', evaluatorId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching today evaluations:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Función de diagnóstico - verifica conexión con Supabase
+ */
+export async function testSupabaseConnection() {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('count')
+      .limit(1);
+
+    if (error) throw error;
+    
+    return { 
+      success: true, 
+      message: '✅ Conexión exitosa con Supabase',
+      data 
+    };
+  } catch (error) {
+    console.error('Error testing Supabase connection:', error);
+    return { 
+      success: false, 
+      message: '❌ Error de conexión con Supabase: ' + error.message,
+      error 
+    };
+  }
+}
+
+/**
+ * Función de diagnóstico - verifica estructura de tablas
+ */
+export async function checkTablesStructure() {
+  const tables = ['profiles', 'dogs', 'evaluations'];
+  const results = {};
+
+  for (const table of tables) {
+    try {
+      const { count, error } = await supabase
+        .from(table)
+        .select('*', { count: 'exact', head: true });
+
+      results[table] = {
+        exists: !error,
+        count: count || 0,
+        error: error?.message || null
+      };
+    } catch (err) {
+      results[table] = {
+        exists: false,
+        count: 0,
+        error: err.message
+      };
+    }
+  }
+
+  return results;
+}
+
+// ============================================
+// 🎯 CONSTANTES ÚTILES
+// ============================================
+export const ROLES = {
+  PADRE: 'padre',
+  PROFESOR: 'profesor',
+  ADMIN: 'admin'
+};
+
+export const LOCATIONS = {
+  CASA: 'casa',
+  COLEGIO: 'colegio'
+};
+
+export const DOG_SIZES = {
+  PEQUEÑO: 'pequeño',
+  MEDIANO: 'mediano',
+  GRANDE: 'grande',
+  GIGANTE: 'gigante'
+};
+
+// ============================================
+// 🚀 EXPORTACIÓN PRINCIPAL
+// ============================================
 export default supabase;

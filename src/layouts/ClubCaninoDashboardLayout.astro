@@ -1,0 +1,166 @@
+---
+// src/layouts/ClubCaninoDashboardLayout.astro
+import Layout from './Layout.astro';
+import PadreSidebar from '../components/dashboard/PadreSidebar.jsx';
+import { ProfesorSidebar } from '../components/dashboard/ProfesorSidebar.jsx';
+import { AdminSidebar } from '../components/dashboard/AdminSidebar.jsx';
+
+// Obtener datos del usuario desde middleware
+const { profile } = Astro.locals;
+
+// Configuración por defecto si no hay perfil
+const defaultConfig = {
+  sidebar: PadreSidebar,
+  title: 'Club Canino Dashboard',
+  sections: ['dashboard']
+};
+
+// Función para obtener configuración del dashboard por rol
+function getDashboardConfig(role: string | undefined) {
+  switch (role) {
+    case 'admin':
+      return {
+        sidebar: AdminSidebar,
+        title: 'Panel de Administración - Club Canino',
+        sections: ['usuarios', 'reportes', 'configuracion']
+      };
+    case 'profesor':
+      return {
+        sidebar: ProfesorSidebar,
+        title: 'Panel del Profesor - Club Canino',
+        sections: ['estudiantes', 'evaluaciones', 'clases']
+      };
+    case 'padre':
+      return {
+        sidebar: PadreSidebar,
+        title: 'Mi Panel - Club Canino',
+        sections: ['mis-mascotas', 'progreso', 'citas']
+      };
+    default:
+      return defaultConfig;
+  }
+}
+
+const config = getDashboardConfig(profile?.role);
+const SidebarComponent = config.sidebar;
+
+// Props para el SEO
+export interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = config.title,
+  description = `Dashboard personalizado para ${profile?.role || 'usuario'} en Club Canino Dos Huellitas`
+} = Astro.props;
+---
+
+<Layout 
+  title={title}
+  description={description}
+>
+  <div class="flex min-h-screen bg-gray-50">
+    <!-- Sidebar -->
+    <div class="hidden lg:flex lg:flex-shrink-0">
+      <SidebarComponent sections={config.sections} client:load />
+    </div>
+    
+    <!-- Contenido principal -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Header móvil -->
+      <div class="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <img class="h-8 w-auto" src="/images/logo.png" alt="Club Canino" />
+            <span class="ml-2 text-lg font-semibold text-[#2C3E50]">
+              {profile?.role === 'admin' ? 'Admin' : 
+               profile?.role === 'profesor' ? 'Profesor' : 'Mi Panel'}
+            </span>
+          </div>
+          <button 
+            id="mobile-menu-button"
+            type="button" 
+            class="text-gray-500 hover:text-[#56CCF2] transition-colors"
+          >
+            <span class="sr-only">Abrir menú</span>
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Área de contenido -->
+      <main class="flex-1 overflow-y-auto">
+        <div class="py-6">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Bienvenida -->
+            <div class="mb-6">
+              <h1 class="text-2xl font-bold text-gray-900">
+                ¡Hola {profile?.full_name || 'Usuario'}! 👋
+              </h1>
+              <p class="mt-1 text-sm text-gray-600">
+                Bienvenido al panel de {profile?.role || 'usuario'} de Club Canino Dos Huellitas
+              </p>
+            </div>
+            
+            <!-- Contenido del slot -->
+            <slot />
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Menú móvil overlay (oculto por defecto) -->
+  <div 
+    id="mobile-menu-overlay" 
+    class="lg:hidden fixed inset-0 z-40 hidden"
+  >
+    <div class="fixed inset-0 bg-gray-600 bg-opacity-75"></div>
+    <div class="fixed inset-y-0 left-0 flex flex-col w-64 bg-white">
+      <SidebarComponent sections={config.sections} client:load />
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // Script para el menú móvil
+  document.addEventListener('DOMContentLoaded', () => {
+    const menuButton = document.getElementById('mobile-menu-button');
+    const menuOverlay = document.getElementById('mobile-menu-overlay');
+    
+    if (menuButton && menuOverlay) {
+      menuButton.addEventListener('click', () => {
+        menuOverlay.classList.toggle('hidden');
+      });
+      
+      // Cerrar al hacer clic en el overlay
+      menuOverlay.addEventListener('click', (e) => {
+        if (e.target === menuOverlay) {
+          menuOverlay.classList.add('hidden');
+        }
+      });
+    }
+  });
+</script>
+
+<style>
+  /* Asegurar que el sidebar tenga la altura completa */
+  .min-h-screen {
+    min-height: 100vh;
+  }
+  
+  /* Animaciones suaves */
+  .transition-colors {
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+  }
+  
+  /* Responsive */
+  @media (max-width: 1023px) {
+    .lg\:hidden {
+      display: none !important;
+    }
+  }
+</style>

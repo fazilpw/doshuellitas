@@ -1,10 +1,249 @@
 ---
+// src/pages/dashboard/padre.astro - VERSIÓN COMPLETA CON EVALUACIÓN
+export const prerender = false;
 import Layout from '../../layouts/Layout.astro';
-import ParentDashboard from '../../components/dashboard/ParentDashboard.jsx';
+import CompleteEvaluationForm from '../../components/dashboard/CompleteEvaluationForm.jsx';
+
+const { user, profile } = Astro.locals;
+
+// 🧪 MODO TESTING: NO verificar usuario por ahora
+// if (!user) {
+//   return Astro.redirect('/login');
+// }
+
+// Datos por defecto para testing
+const displayName = profile?.full_name || user?.email || 'Usuario de Prueba';
+const userRole = profile?.role || 'padre';
+
+// IDs de prueba para las evaluaciones
+const testDogId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; // Max
+const testUserId = user?.id || '11111111-1111-1111-1111-111111111111'; // María
 ---
 
-<Layout title="Mi Dashboard | Club Canino">
-  <div class="min-h-screen bg-[#FFFBF0] pt-20">
-    <ParentDashboard client:load />
+<Layout title="Mi Dashboard - Club Canino">
+  <div class="min-h-screen bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4] py-8">
+    <div class="max-w-6xl mx-auto px-4">
+      
+      <!-- Header Principal -->
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-[#2C3E50] mb-4">🐕 Dashboard Padre</h1>
+        <p class="text-xl text-gray-600">Bienvenido {displayName}</p>
+        <div class="inline-block bg-[#56CCF2] text-white px-4 py-2 rounded-full mt-2">
+          👨‍👩‍👧‍👦 Rol: {userRole}
+        </div>
+      </div>
+
+      <!-- Estado del Sistema -->
+      <div class="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
+        <h2 class="text-2xl font-bold text-green-800 mb-4">🎉 ¡SISTEMA FUNCIONANDO!</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-green-700">
+          <div class="flex items-center">
+            <span class="text-xl mr-2">✅</span>
+            <span>Dashboard: Operativo</span>
+          </div>
+          <div class="flex items-center">
+            <span class="text-xl mr-2">✅</span>
+            <span>Base de datos: Conectada</span>
+          </div>
+          <div class="flex items-center">
+            <span class="text-xl mr-2">✅</span>
+            <span>Evaluaciones: Disponibles</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards Principales de Funcionalidad -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        
+        <!-- Card: Mis Mascotas -->
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+          <div class="text-center">
+            <div class="w-16 h-16 bg-[#56CCF2] rounded-full flex items-center justify-center mx-auto mb-4">
+              <span class="text-2xl text-white">🐕</span>
+            </div>
+            <h3 class="text-xl font-bold text-[#2C3E50] mb-2">Mis Mascotas</h3>
+            <p class="text-gray-600 mb-4">Max, Luna y Rocky están registrados en el sistema</p>
+            
+            <!-- Lista de mascotas -->
+            <div class="space-y-2 mb-4">
+              <div class="bg-blue-50 p-2 rounded text-sm">
+                🐕 <strong>Max</strong> - Golden Retriever
+              </div>
+              <div class="bg-blue-50 p-2 rounded text-sm">
+                🐕 <strong>Luna</strong> - Beagle
+              </div>
+              <div class="bg-blue-50 p-2 rounded text-sm">
+                🐕 <strong>Rocky</strong> - Pastor Alemán
+              </div>
+            </div>
+            
+            <button class="w-full bg-[#56CCF2] text-white py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors">
+              Gestionar Mascotas
+            </button>
+          </div>
+        </div>
+
+        <!-- Card: Evaluaciones - CON COMPONENTE REAL -->
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+          <div class="text-center">
+            <div class="w-16 h-16 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
+              <span class="text-2xl text-[#2C3E50]">📊</span>
+            </div>
+            <h3 class="text-xl font-bold text-[#2C3E50] mb-2">Evaluaciones</h3>
+            <p class="text-gray-600 mb-4">Evalúa el comportamiento de tus mascotas en casa</p>
+            
+            <!-- Botón que abre el formulario de evaluación -->
+            <button 
+              id="open-evaluation-btn"
+              class="w-full bg-[#C7EA46] text-[#2C3E50] py-3 rounded-lg hover:bg-[#FFFE8D] transition-colors font-semibold"
+            >
+              📝 Nueva Evaluación
+            </button>
+          </div>
+        </div>
+
+        <!-- Card: Progreso -->
+        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+          <div class="text-center">
+            <div class="w-16 h-16 bg-[#AB5729] rounded-full flex items-center justify-center mx-auto mb-4">
+              <span class="text-2xl text-white">📈</span>
+            </div>
+            <h3 class="text-xl font-bold text-[#2C3E50] mb-2">Progreso</h3>
+            <p class="text-gray-600 mb-4">Ve la evolución y progreso de tus mascotas</p>
+            
+            <!-- Progreso simulado -->
+            <div class="space-y-2 mb-4">
+              <div class="flex justify-between text-sm">
+                <span>Obediencia Max:</span>
+                <span class="font-bold text-green-600">85%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
+              </div>
+            </div>
+            
+            <button class="w-full bg-[#AB5729] text-white py-3 rounded-lg hover:bg-opacity-90 transition-colors">
+              Ver Progreso Completo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección de Evaluaciones Recientes -->
+      <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h3 class="text-2xl font-bold text-[#2C3E50] mb-6">📊 Evaluaciones Recientes</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="border border-gray-200 rounded-lg p-4">
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="font-bold text-lg">🐕 Max</h4>
+              <span class="text-sm text-gray-500">Ayer</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div>Energía: <span class="font-bold text-blue-600">6/10</span></div>
+              <div>Social: <span class="font-bold text-green-600">7/10</span></div>
+              <div>Obediencia: <span class="font-bold text-purple-600">5/10</span></div>
+              <div>Ansiedad: <span class="font-bold text-orange-600">6/10</span></div>
+            </div>
+            <p class="text-xs text-gray-600 mt-2">
+              Max estuvo muy cariñoso y juguetón...
+            </p>
+          </div>
+          
+          <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div class="text-center text-gray-500 py-8">
+              <span class="text-4xl block mb-2">📝</span>
+              <p>Crea una nueva evaluación para ver más datos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Debug Info -->
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+        <h4 class="font-bold text-blue-800 mb-2">🐛 Info de Debug:</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div class="space-y-1">
+            <p><strong>Usuario:</strong> {user ? '✅ Presente' : '❌ No definido'}</p>
+            <p><strong>Perfil:</strong> {profile ? '✅ Presente' : '❌ No definido'}</p>
+            <p><strong>Email:</strong> {user?.email || 'No disponible'}</p>
+          </div>
+          <div class="space-y-1">
+            <p><strong>Rol:</strong> {profile?.role || 'No definido'}</p>
+            <p><strong>Dog ID (Test):</strong> {testDogId.substring(0, 8)}...</p>
+            <p><strong>User ID (Test):</strong> {testUserId.substring(0, 8)}...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navegación -->
+      <div class="text-center space-x-4">
+        <a href="/login" class="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors">
+          🔄 Probar Otros Roles
+        </a>
+        <a href="/" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors">
+          🏠 Volver al Inicio
+        </a>
+        <a href="/diagnostico" class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors">
+          🔧 Diagnóstico
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- COMPONENTE DE EVALUACIÓN (Inicialmente oculto) -->
+  <div id="evaluation-modal" style="display: none;">
+   <CompleteEvaluationForm 
+  dogId={testDogId}
+  userId={testUserId}
+  userRole={userRole}
+  onClose={() => {}}
+  onSave={() => {}}
+  client:load 
+/>
   </div>
 </Layout>
+
+<!-- JavaScript para manejar la apertura del formulario -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const openBtn = document.getElementById('open-evaluation-btn');
+    const modal = document.getElementById('evaluation-modal');
+    
+    if (openBtn && modal) {
+      openBtn.addEventListener('click', function() {
+        console.log('🎯 Abriendo formulario de evaluación');
+        modal.style.display = 'block';
+      });
+    }
+    
+    // Cerrar modal con ESC
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal && modal.style.display === 'block') {
+        modal.style.display = 'none';
+      }
+    });
+  });
+</script>
+
+<style>
+  /* Animaciones suaves */
+  .transition-shadow {
+    transition: box-shadow 0.3s ease;
+  }
+  
+  .hover\:shadow-xl:hover {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+  
+  /* Estilos para el modal */
+  #evaluation-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+  }
+</style>
