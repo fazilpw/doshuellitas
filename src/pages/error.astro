@@ -1,10 +1,14 @@
 ---
-// src/pages/error.astro
+// src/pages/error.astro - CORREGIDO PARA BUILD ESTÁTICO
 import Layout from '../layouts/Layout.astro';
 
 const url = Astro.url;
 const errorType = url.searchParams.get('type') || 'unknown';
 const message = url.searchParams.get('message') || '';
+
+// ✅ CORREGIDO: Verificar si locals existe (solo en tiempo de ejecución)
+const isStaticBuild = typeof Astro.locals === 'undefined';
+const profile = isStaticBuild ? null : Astro.locals?.profile;
 
 const errorInfo = {
   auth: {
@@ -25,6 +29,12 @@ const errorInfo = {
     icon: '📡',
     color: 'blue'
   },
+  middleware: {
+    title: 'Error del Sistema',
+    description: 'Hubo un problema en el procesamiento del sistema',
+    icon: '⚙️',
+    color: 'purple'
+  },
   unknown: {
     title: 'Error Inesperado',
     description: 'Ocurrió un error inesperado en el sistema',
@@ -44,7 +54,7 @@ const error = errorInfo[errorType] || errorInfo.unknown;
     <div class="max-w-md w-full space-y-8 text-center">
       <!-- Icono de error -->
       <div class="flex justify-center">
-        <div class={`w-24 h-24 rounded-full flex items-center justify-center bg-${error.color}-100`}>
+        <div class={`w-24 h-24 rounded-full flex items-center justify-center bg-${error.color}-100 border-2 border-${error.color}-200`}>
           <span class="text-4xl">{error.icon}</span>
         </div>
       </div>
@@ -59,10 +69,24 @@ const error = errorInfo[errorType] || errorInfo.unknown;
         </p>
         {message && (
           <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p class="text-sm text-yellow-800">{message}</p>
+            <p class="text-sm text-yellow-800 font-medium">Detalles:</p>
+            <p class="text-sm text-yellow-700 mt-1">{message}</p>
           </div>
         )}
       </div>
+
+      <!-- Info de debugging (solo si no es build estático) -->
+      {!isStaticBuild && import.meta.env.DEV && (
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+          <p class="text-xs text-blue-800 font-medium mb-2">🔍 Debug Info:</p>
+          <ul class="text-xs text-blue-700 space-y-1">
+            <li>• Error Type: {errorType}</li>
+            <li>• User Role: {profile?.role || 'No profile'}</li>
+            <li>• Current URL: {url.pathname}</li>
+            <li>• Timestamp: {new Date().toISOString()}</li>
+          </ul>
+        </div>
+      )}
 
       <!-- Acciones -->
       <div class="space-y-4">
@@ -72,13 +96,13 @@ const error = errorInfo[errorType] || errorInfo.unknown;
               href="/login"
               class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-[#56CCF2] hover:bg-[#5B9BD5] transition-colors"
             >
-              Iniciar Sesión Nuevamente
+              🔑 Iniciar Sesión Nuevamente
             </a>
             <a
               href="/"
               class="w-full flex justify-center py-3 px-4 border border-[#56CCF2] rounded-lg text-sm font-medium text-[#56CCF2] bg-white hover:bg-gray-50 transition-colors"
             >
-              Volver al Inicio
+              🏠 Volver al Inicio
             </a>
           </div>
         )}
@@ -86,214 +110,75 @@ const error = errorInfo[errorType] || errorInfo.unknown;
         {errorType === 'permission' && (
           <div class="space-y-3">
             <a
-              href="/dashboard"
+              href="/login"
               class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-[#56CCF2] hover:bg-[#5B9BD5] transition-colors"
             >
-              Ir a Mi Dashboard
+              🔑 Iniciar Sesión
             </a>
             <a
-              href="https://wa.me/573144329824"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/"
               class="w-full flex justify-center py-3 px-4 border border-[#56CCF2] rounded-lg text-sm font-medium text-[#56CCF2] bg-white hover:bg-gray-50 transition-colors"
             >
-              Contactar Soporte
+              🏠 Volver al Inicio
             </a>
           </div>
         )}
 
-        {(errorType === 'network' || errorType === 'unknown') && (
+        {errorType === 'network' && (
           <div class="space-y-3">
             <button
               onclick="window.location.reload()"
               class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-[#56CCF2] hover:bg-[#5B9BD5] transition-colors"
             >
-              Intentar Nuevamente
+              🔄 Reintentar
             </button>
             <a
               href="/"
               class="w-full flex justify-center py-3 px-4 border border-[#56CCF2] rounded-lg text-sm font-medium text-[#56CCF2] bg-white hover:bg-gray-50 transition-colors"
             >
-              Volver al Inicio
+              🏠 Volver al Inicio
+            </a>
+          </div>
+        )}
+
+        {(errorType === 'middleware' || errorType === 'unknown') && (
+          <div class="space-y-3">
+            <a
+              href="/"
+              class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-[#56CCF2] hover:bg-[#5B9BD5] transition-colors"
+            >
+              🏠 Volver al Inicio
+            </a>
+            <a
+              href="/contacto"
+              class="w-full flex justify-center py-3 px-4 border border-[#56CCF2] rounded-lg text-sm font-medium text-[#56CCF2] bg-white hover:bg-gray-50 transition-colors"
+            >
+              📞 Contactar Soporte
             </a>
           </div>
         )}
       </div>
 
-      <!-- Información de contacto -->
-      <div class="pt-6 border-t border-gray-200">
-        <p class="text-sm text-gray-500 mb-3">
-          ¿Necesitas ayuda adicional?
-        </p>
-        <div class="flex justify-center space-x-4">
-          <a
-            href="https://wa.me/573144329824"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-[#56CCF2] hover:text-[#5B9BD5] transition-colors"
-          >
-            <span class="sr-only">WhatsApp</span>
-            💬 WhatsApp
-          </a>
-          <a
-            href="mailto:clubcaninodoshuellitas@gmail.com"
-            class="text-[#56CCF2] hover:text-[#5B9BD5] transition-colors"
-          >
-            <span class="sr-only">Email</span>
-            📧 Email
-          </a>
-        </div>
+      <!-- Footer informativo -->
+      <div class="pt-6 text-xs text-gray-500">
+        <p>Club Canino Dos Huellitas</p>
+        <p>Si el problema persiste, contacta al administrador</p>
       </div>
     </div>
   </div>
 </Layout>
 
----
-// src/pages/unauthorized.astro
-import Layout from '../layouts/Layout.astro';
-
-// Obtener información del usuario si existe
-const { locals } = Astro;
-const userRole = locals.profile?.role || 'desconocido';
-const userName = locals.profile?.full_name || locals.user?.email || 'Usuario';
----
-
-<Layout 
-  title="Acceso No Autorizado | Club Canino Dos Huellitas"
-  description="No tienes permisos para acceder a esta página del Club Canino Dos Huellitas"
->
-  <div class="min-h-screen bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-lg w-full space-y-8 text-center">
-      <!-- Icono de acceso denegado -->
-      <div class="flex justify-center">
-        <div class="w-24 h-24 rounded-full flex items-center justify-center bg-red-100">
-          <span class="text-4xl">🚫</span>
-        </div>
-      </div>
-
-      <!-- Información -->
-      <div class="space-y-4">
-        <h1 class="text-3xl font-bold text-[#2C3E50]">
-          Acceso No Autorizado
-        </h1>
-        <p class="text-lg text-gray-600">
-          No tienes permisos para acceder a esta página
-        </p>
-        
-        {locals.user && (
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p class="text-sm text-blue-800">
-              <strong>Usuario:</strong> {userName}<br>
-              <strong>Rol:</strong> {userRole}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <!-- Explicación por rol -->
-      <div class="bg-white rounded-lg p-6 text-left">
-        <h3 class="font-semibold text-[#2C3E50] mb-3">
-          Accesos disponibles para tu rol:
-        </h3>
-        
-        {userRole === 'padre' && (
-          <ul class="space-y-2 text-sm text-gray-600">
-            <li>✅ Dashboard personal</li>
-            <li>✅ Ver tus mascotas</li>
-            <li>✅ Crear evaluaciones de casa</li>
-            <li>✅ Ver fotos de tus mascotas</li>
-            <li>✅ Progreso y reportes personales</li>
-          </ul>
-        )}
-
-        {userRole === 'profesor' && (
-          <ul class="space-y-2 text-sm text-gray-600">
-            <li>✅ Dashboard del profesor</li>
-            <li>✅ Ver todos los estudiantes</li>
-            <li>✅ Crear evaluaciones del colegio</li>
-            <li>✅ Subir fotos</li>
-            <li>✅ Generar reportes</li>
-            <li>❌ Funciones administrativas</li>
-          </ul>
-        )}
-
-        {userRole === 'admin' && (
-          <div class="text-yellow-600">
-            <p class="text-sm">
-              Como administrador deberías tener acceso a todo. 
-              Esto puede ser un error del sistema.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <!-- Acciones -->
-      <div class="space-y-4">
-        {userRole === 'padre' && (
-          <a
-            href="/dashboard/padre"
-            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-[#56CCF2] hover:bg-[#5B9BD5] transition-colors"
-          >
-            Ir a Mi Dashboard
-          </a>
-        )}
-
-        {userRole === 'profesor' && (
-          <a
-            href="/dashboard/profesor"
-            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-[#56CCF2] hover:bg-[#5B9BD5] transition-colors"
-          >
-            Ir al Dashboard del Profesor
-          </a>
-        )}
-
-        {userRole === 'admin' && (
-          <a
-            href="/dashboard/admin"
-            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-[#56CCF2] hover:bg-[#5B9BD5] transition-colors"
-          >
-            Ir al Dashboard Admin
-          </a>
-        )}
-
-        <a
-          href="/"
-          class="w-full flex justify-center py-3 px-4 border border-[#56CCF2] rounded-lg text-sm font-medium text-[#56CCF2] bg-white hover:bg-gray-50 transition-colors"
-        >
-          Volver al Inicio
-        </a>
-
-        <div class="pt-4">
-          <p class="text-sm text-gray-500 mb-3">
-            ¿Crees que esto es un error?
-          </p>
-          <a
-            href="https://wa.me/573144329824"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center text-[#56CCF2] hover:text-[#5B9BD5] transition-colors"
-          >
-            💬 Contactar Soporte por WhatsApp
-          </a>
-        </div>
-      </div>
-
-      <!-- Información de logout -->
-      {locals.user && (
-        <div class="pt-6 border-t border-gray-200">
-          <p class="text-sm text-gray-500 mb-3">
-            ¿Quieres cambiar de cuenta?
-          </p>
-          <form action="/api/auth/logout" method="post" style="display: inline;">
-            <button
-              type="submit"
-              class="text-red-600 hover:text-red-800 transition-colors text-sm"
-            >
-              🚪 Cerrar Sesión
-            </button>
-          </form>
-        </div>
-      )}
-    </div>
-  </div>
-</Layout>
+<style>
+  /* Estilos para colores dinámicos */
+  .bg-red-100 { background-color: #fee2e2; }
+  .bg-orange-100 { background-color: #fed7aa; }
+  .bg-blue-100 { background-color: #dbeafe; }
+  .bg-purple-100 { background-color: #ede9fe; }
+  .bg-gray-100 { background-color: #f3f4f6; }
+  
+  .border-red-200 { border-color: #fecaca; }
+  .border-orange-200 { border-color: #fed7aa; }
+  .border-blue-200 { border-color: #bfdbfe; }
+  .border-purple-200 { border-color: #ddd6fe; }
+  .border-gray-200 { border-color: #e5e7eb; }
+</style>
