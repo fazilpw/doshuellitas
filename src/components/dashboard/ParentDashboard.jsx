@@ -1,8 +1,8 @@
-// src/components/dashboard/ParentDashboard.jsx - CON MODAL DE PROGRESO COMPLETO
+// src/components/dashboard/ParentDashboard.jsx - VERSIÓN CORREGIDA ✅
 import { useState, useEffect } from 'react';
 import supabase, { getDogAverages, getMultipleDogsAverages } from '../../lib/supabase.js';
 import CompleteEvaluationForm from './CompleteEvaluationForm.jsx';
-import DogProgressModal from './DogProgressModal.jsx'; // ✅ Debe terminar en .jsx
+import DogProgressModal from './DogProgressModal.jsx';
 
 const ParentDashboard = () => {
   const [dogs, setDogs] = useState([]);
@@ -13,7 +13,7 @@ const ParentDashboard = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [dogAverages, setDogAverages] = useState({});
   
-  // 📊 NUEVO: Estados para el modal de progreso
+  // 📊 Estados para el modal de progreso
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [selectedDogForProgress, setSelectedDogForProgress] = useState(null);
 
@@ -23,11 +23,10 @@ const ParentDashboard = () => {
 
   const initializeDashboard = async () => {
     try {
-      // Buscar en tabla 'profiles' usando ID fijo de María
       const { data: user, error: userError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', '11111111-1111-1111-1111-111111111111') // ID específico de María
+        .eq('id', '11111111-1111-1111-1111-111111111111')
         .eq('role', 'padre')
         .single();
 
@@ -39,8 +38,6 @@ const ParentDashboard = () => {
 
       setCurrentUser(user);
       console.log('✅ Usuario padre encontrado:', user);
-
-      // Buscar perros del usuario
       await fetchUserDogs(user.id);
       
     } catch (error) {
@@ -66,7 +63,6 @@ const ParentDashboard = () => {
       console.log('✅ Perros del usuario:', data);
       setDogs(data || []);
       
-      // Cargar promedios de todos los perros
       if (data && data.length > 0) {
         await Promise.all([
           fetchRecentEvaluations(data.map(dog => dog.id)),
@@ -82,7 +78,6 @@ const ParentDashboard = () => {
     }
   };
 
-  // Cargar promedios de perros
   const fetchDogsAverages = async (dogIds) => {
     try {
       console.log('📊 Calculando promedios para perros:', dogIds);
@@ -130,17 +125,14 @@ const ParentDashboard = () => {
     }
   };
 
-  // Función mejorada: Actualizar después de nueva evaluación
   const handleEvaluationSaved = async (newEvaluation) => {
     console.log('✅ Nueva evaluación guardada:', newEvaluation);
     
     try {
-      // Recargar evaluaciones
       if (dogs.length > 0) {
         await fetchRecentEvaluations(dogs.map(dog => dog.id));
       }
       
-      // Recalcular promedios del perro específico
       if (newEvaluation.dog_id) {
         console.log('📊 Recalculando promedios para:', newEvaluation.dog_id);
         
@@ -160,75 +152,35 @@ const ParentDashboard = () => {
     }
   };
 
-  // 📊 NUEVA FUNCIÓN: Abrir modal de progreso
+  // 📊 FUNCIÓN CORREGIDA: Abrir modal de progreso
   const openProgressModal = (dog) => {
-  console.log('📊 === DEBUG MODAL PROGRESO ===');
-  console.log('📊 Perro seleccionado:', dog);
-  console.log('📊 ID del perro:', dog?.id);
-  console.log('📊 Nombre del perro:', dog?.name);
-  // Verificar si DogProgressModal está importado correctamente
-  console.log('📊 DogProgressModal componente:', DogProgressModal);
-  console.log('📊 Tipo de DogProgressModal:', typeof DogProgressModal);
-  
-  // Verificar estados actuales
-  console.log('📊 Estado showProgressModal antes:', showProgressModal);
-  console.log('📊 Estado selectedDogForProgress antes:', selectedDogForProgress);
-  
-  try {
-    setSelectedDogForProgress(dog);
-    setShowProgressModal(true);
+    console.log('📊 === DEBUG MODAL PROGRESO ===');
+    console.log('📊 Perro seleccionado:', dog);
+    console.log('📊 ID del perro:', dog?.id);
+    console.log('📊 Nombre del perro:', dog?.name);
+    console.log('📊 DogProgressModal componente:', DogProgressModal);
+    console.log('📊 Tipo de DogProgressModal:', typeof DogProgressModal);
     
-    console.log('✅ Estados actualizados correctamente');
-    console.log('📊 selectedDogForProgress después:', dog);
-    console.log('📊 showProgressModal después:', true);
+    console.log('📊 Estado showProgressModal antes:', showProgressModal);
+    console.log('📊 Estado selectedDogForProgress antes:', selectedDogForProgress);
     
-  } catch (error) {
-    console.error('❌ Error al actualizar estados:', error);
-  }
-  
-  // Verificar después de un pequeño delay
-  setTimeout(() => {
-    console.log('📊 === VERIFICACIÓN POST-ACTUALIZACIÓN ===');
-    console.log('📊 showProgressModal final:', showProgressModal);
-    console.log('📊 selectedDogForProgress final:', selectedDogForProgress);
-  }, 100);
-};
-
-// VERIFICACIÓN DE IMPORTS EN LA CONSOLA
-console.log('📊 === VERIFICACIÓN DE IMPORTS ===');
-console.log('📊 DogProgressModal:', DogProgressModal);
-console.log('📊 getDogEvaluations:', getDogEvaluations);
-console.log('📊 getDogAverages:', getDogAverages);
-
-  // VERIFICACIÓN DEL RENDER DEL MODAL
-{/* 📊 MODAL DE PROGRESO CON DEBUG */}
-{showProgressModal && selectedDogForProgress && (
-  <div>
-    {/* Debug en el DOM */}
-    <div style={{
-      position: 'fixed',
-      top: '10px',
-      right: '10px',
-      background: 'black',
-      color: 'white',
-      padding: '10px',
-      borderRadius: '5px',
-      fontSize: '12px',
-      zIndex: 9999
-    }}>
-      DEBUG: Modal abierto para {selectedDogForProgress?.name}
-    </div>
+    try {
+      setSelectedDogForProgress(dog);
+      setShowProgressModal(true);
+      
+      console.log('✅ Estados actualizados correctamente');
+      
+    } catch (error) {
+      console.error('❌ Error al actualizar estados:', error);
+    }
     
-    <DogProgressModal
-      dog={selectedDogForProgress}
-      isOpen={showProgressModal}
-      onClose={closeProgressModal}
-    />
-  </div>
-)}
+    setTimeout(() => {
+      console.log('📊 === VERIFICACIÓN POST-ACTUALIZACIÓN ===');
+      console.log('📊 showProgressModal final:', showProgressModal);
+      console.log('📊 selectedDogForProgress final:', selectedDogForProgress);
+    }, 100);
+  };
 
-
-  // 📊 NUEVA FUNCIÓN: Cerrar modal de progreso
   const closeProgressModal = () => {
     console.log('📊 Cerrando modal de progreso');
     setShowProgressModal(false);
@@ -241,11 +193,8 @@ console.log('📊 getDogAverages:', getDogAverages);
       .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
   };
 
-  // Función mejorada: Usar promedios reales
   const getDogStats = (dogId) => {
     const dogEvaluations = evaluations.filter(evaluation => evaluation.dog_id === dogId);
-    
-    // Usar promedios calculados si están disponibles
     const averagesData = dogAverages[dogId];
     
     if (averagesData) {
@@ -254,7 +203,6 @@ console.log('📊 getDogAverages:', getDogAverages);
         avg_sociability: averagesData.raw_averages?.sociability || 0,
         avg_obedience: averagesData.raw_averages?.obedience || 0,
         total_evaluations: averagesData.total_evaluations || 0,
-        // Porcentajes reales
         energy_percentage: averagesData.energy_percentage || 0,
         sociability_percentage: averagesData.sociability_percentage || 0,
         obedience_percentage: averagesData.obedience_percentage || 0,
@@ -263,7 +211,6 @@ console.log('📊 getDogAverages:', getDogAverages);
       };
     }
     
-    // Fallback si no hay promedios calculados
     if (dogEvaluations.length === 0) {
       return { 
         avg_energy: 0, 
@@ -295,7 +242,6 @@ console.log('📊 getDogAverages:', getDogAverages);
       avg_sociability,
       avg_obedience,
       total_evaluations: dogEvaluations.length,
-      // Convertir a porcentajes
       energy_percentage: Math.round((avg_energy / 10) * 100),
       sociability_percentage: Math.round((avg_sociability / 10) * 100),
       obedience_percentage: Math.round((avg_obedience / 10) * 100),
@@ -423,7 +369,7 @@ console.log('📊 getDogAverages:', getDogAverages);
             </div>
           </div>
 
-          {/* Sección de Progreso con porcentajes reales */}
+          {/* Sección de Progreso */}
           <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
             <h2 className="text-xl font-bold text-[#2C3E50] mb-6">
               📈 Progreso de tus Peluditos
@@ -456,222 +402,67 @@ console.log('📊 getDogAverages:', getDogAverages);
                       </div>
                     </div>
 
-                    {/* Mostrar porcentajes reales */}
-                    {true ? (
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>Obediencia</span>
-                            <span className="font-bold text-[#56CCF2]">{stats.obedience_percentage}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-[#56CCF2] h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${stats.obedience_percentage}%` }}
-                            ></div>
-                          </div>
+                    {/* ✅ CONDICIÓN CORREGIDA: Siempre muestra el botón */}
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Obediencia</span>
+                          <span className="font-bold text-[#56CCF2]">{stats.obedience_percentage}%</span>
                         </div>
-
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>Sociabilidad</span>
-                            <span className="font-bold text-[#C7EA46]">{stats.sociability_percentage}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-[#C7EA46] h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${stats.sociability_percentage}%` }}
-                            ></div>
-                          </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-[#56CCF2] h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${stats.obedience_percentage}%` }}
+                          ></div>
                         </div>
-
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span>Energía</span>
-                            <span className="font-bold text-[#FFFE8D]">{stats.energy_percentage}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-[#FFFE8D] h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${stats.energy_percentage}%` }}
-                            ></div>
-                          </div>
-                        </div>
-
-                        <div className="text-xs text-gray-500 pt-2 border-t">
-                          {stats.total_evaluations} evaluaciones • Última: {
-                            dogAverages[dog.id]?.last_evaluation_date ? 
-                            new Date(dogAverages[dog.id].last_evaluation_date).toLocaleDateString('es-CO') :
-                            'Sin datos'
-                          }
-                        </div>
-
-                        {/* 📊 BOTÓN CORREGIDO: Abrir modal de progreso */}
-                        <button 
-                          onClick={() => openProgressModal(dog)}
-                          className="w-full text-[#56CCF2] hover:text-white text-sm font-medium py-2 border border-[#56CCF2] rounded-lg hover:bg-[#56CCF2] transition-colors"
-                        >
-                          📈 Ver Progreso Completo
-                        </button>
                       </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-500">
-                        <div className="text-2xl mb-2">📝</div>
-                        <p className="text-sm">Sin evaluaciones</p>
-                        <button
-                          onClick={() => {
-                            setSelectedDog(dog);
-                            setShowEvaluationForm(true);
-                          }}
-                          className="mt-2 text-[#56CCF2] hover:text-[#5B9BD5] text-sm font-medium"
-                        >
-                          Crear primera evaluación
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Mis Perros - Sección simplificada */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h2 className="text-xl font-bold text-[#2C3E50] mb-6">
-              🐾 Mis Peluditos
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {dogs.map((dog) => {
-                const stats = getDogStats(dog.id);
-                const lastHomeEval = getLastEvaluation(dog.id, 'casa');
-                const lastSchoolEval = getLastEvaluation(dog.id, 'colegio');
-                
-                return (
-                  <div key={dog.id} className="border rounded-xl p-6 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-4">
-                      <div className="w-16 h-16 bg-gradient-to-br from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center text-white font-bold text-2xl">
-                        {dog.name.charAt(0)}
-                      </div>
-                      <div className="ml-4">
-                        <h3 className="text-lg font-bold text-gray-900">{dog.name}</h3>
-                        <p className="text-sm text-gray-600">{dog.breed}</p>
-                        <p className="text-xs text-gray-500">{dog.size} • {dog.age} años</p>
-                      </div>
-                    </div>
-
-                    {/* Últimas evaluaciones */}
-                    <div className="space-y-2 mb-4">
-                      {lastHomeEval && (
-                        <div className="text-xs">
-                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                            🏠 Casa: {new Date(lastHomeEval.date).toLocaleDateString('es-CO')}
-                          </span>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Sociabilidad</span>
+                          <span className="font-bold text-[#C7EA46]">{stats.sociability_percentage}%</span>
                         </div>
-                      )}
-                      {lastSchoolEval && (
-                        <div className="text-xs">
-                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
-                            🏫 Colegio: {new Date(lastSchoolEval.date).toLocaleDateString('es-CO')}
-                          </span>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-[#C7EA46] h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${stats.sociability_percentage}%` }}
+                          ></div>
                         </div>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Acciones */}
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => {
-                          setSelectedDog(dog);
-                          setShowEvaluationForm(true);
-                        }}
-                        className="flex-1 bg-[#56CCF2] text-white py-2 px-3 rounded-lg text-sm hover:bg-[#5B9BD5] transition-colors"
-                      >
-                        📝 Evaluar en Casa
-                      </button>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Energía</span>
+                          <span className="font-bold text-[#FFFE8D]">{stats.energy_percentage}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-[#FFFE8D] h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${stats.energy_percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-gray-500 pt-2 border-t">
+                        {stats.total_evaluations} evaluaciones • Última: {
+                          dogAverages[dog.id]?.last_evaluation_date ? 
+                          new Date(dogAverages[dog.id].last_evaluation_date).toLocaleDateString('es-CO') :
+                          'Sin datos'
+                        }
+                      </div>
+
+                      {/* 📊 BOTÓN SIEMPRE VISIBLE */}
                       <button 
                         onClick={() => openProgressModal(dog)}
-                        className="bg-gray-100 text-gray-700 py-2 px-3 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                        className="w-full text-[#56CCF2] hover:text-white text-sm font-medium py-2 border border-[#56CCF2] rounded-lg hover:bg-[#56CCF2] transition-colors"
                       >
-                        📊
+                        📈 Ver Progreso Completo
                       </button>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-
-          {/* Evaluaciones Recientes */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h2 className="text-xl font-bold text-[#2C3E50] mb-6">
-              📋 Evaluaciones Recientes
-            </h2>
-            
-            {evaluations.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-4">📝</div>
-                <p>No hay evaluaciones registradas</p>
-                <p className="text-sm mt-2">¡Empieza evaluando a tus peluditos!</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {evaluations.slice(0, 5).map((evaluation) => (
-                  <div key={evaluation.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-bold text-gray-900 flex items-center">
-                          {evaluation.dogs?.name || 'Perro desconocido'}
-                          <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                            evaluation.location === 'casa' 
-                              ? 'bg-blue-100 text-blue-700' 
-                              : 'bg-green-100 text-green-700'
-                          }`}>
-                            {evaluation.location === 'casa' ? '🏠 Casa' : '🏫 Colegio'}
-                          </span>
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          Evaluado por: {
-                            evaluation.profiles?.role === 'padre' 
-                              ? 'Ti' 
-                              : evaluation.profiles?.full_name || 'Profesor'
-                          }
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(evaluation.date).toLocaleDateString('es-CO')} • {new Date(evaluation.created_at).toLocaleTimeString('es-CO')}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm space-y-1">
-                          <div>⚡ Energía: {evaluation.energy_level}/10</div>
-                          <div>🤝 Social: {evaluation.sociability_level}/10</div>
-                          <div>🎯 Obediencia: {evaluation.obedience_level}/10</div>
-                          <div>😰 Ansiedad: {evaluation.anxiety_level}/10</div>
-                        </div>
-                      </div>
-                    </div>
-                    {evaluation.notes && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded text-sm text-gray-700">
-                        <strong>Notas:</strong> {evaluation.notes}
-                      </div>
-                    )}
-                    {evaluation.highlights && (
-                      <div className="mt-2 p-3 bg-green-50 rounded text-sm text-green-700">
-                        <strong>✨ Destacados:</strong> {evaluation.highlights}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                
-                {evaluations.length > 5 && (
-                  <div className="text-center pt-4">
-                    <button className="text-[#56CCF2] hover:text-[#5B9BD5] font-medium">
-                      Ver todas las evaluaciones →
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Acciones Rápidas */}
@@ -740,13 +531,30 @@ console.log('📊 getDogAverages:', getDogAverages);
         />
       )}
 
-      {/* 📊 NUEVO: Modal de progreso completo */}
+      {/* 📊 MODAL DE PROGRESO COMPLETO - BIEN UBICADO */}
       {showProgressModal && selectedDogForProgress && (
-        <DogProgressModal
-          dog={selectedDogForProgress}
-          isOpen={showProgressModal}
-          onClose={closeProgressModal}
-        />
+        <div>
+          {/* Debug visual */}
+          <div style={{
+            position: 'fixed',
+            top: '10px',
+            right: '10px',
+            background: 'black',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '5px',
+            fontSize: '12px',
+            zIndex: 9999
+          }}>
+            DEBUG: Modal abierto para {selectedDogForProgress?.name}
+          </div>
+          
+          <DogProgressModal
+            dog={selectedDogForProgress}
+            isOpen={showProgressModal}
+            onClose={closeProgressModal}
+          />
+        </div>
       )}
     </div>
   );

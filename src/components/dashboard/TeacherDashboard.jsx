@@ -1,28 +1,38 @@
-// src/components/dashboard/TeacherDashboard.jsx - ERRORES DE 'eval' CORREGIDOS
+// src/components/dashboard/TeacherDashboard.jsx - VERSIÓN COMPLETA ✅
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase.js';
+import supabase, { getDogAverages } from '../../lib/supabase.js';
+import DogProgressModal from './DogProgressModal.jsx';
 import CompleteEvaluationForm from './CompleteEvaluationForm.jsx';
 
 const TeacherDashboard = () => {
   const [dogs, setDogs] = useState([]);
-  const [selectedDog, setSelectedDog] = useState(null);
-  const [evaluations, setEvaluations] = useState([]);
+  const [todayEvaluations, setTodayEvaluations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showEvaluationForm, setShowEvaluationForm] = useState(false);
-  const [view, setView] = useState('today');
   const [currentUser, setCurrentUser] = useState(null);
+  const [stats, setStats] = useState({
+    totalDogs: 0,
+    evaluatedToday: 0,
+    pendingToday: 0,
+    weeklyProgress: 0
+  });
+  
+  // Estados para modales
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [selectedDogForProgress, setSelectedDogForProgress] = useState(null);
+  const [showQuickEval, setShowQuickEval] = useState(false);
+  const [selectedDogForEval, setSelectedDogForEval] = useState(null);
 
   useEffect(() => {
-    initializeDashboard();
+    initializeTeacherDashboard();
   }, []);
 
-  const initializeDashboard = async () => {
+  const initializeTeacherDashboard = async () => {
     try {
-      // Buscar en tabla 'profiles' en lugar de 'users'
+      // Buscar usuario profesor
       const { data: user, error: userError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('email', 'profesor@clubcanino.com')
+        .eq('id', '22222222-2222-2222-2222-222222222222') // ID específico del profesor
         .eq('role', 'profesor')
         .single();
 
@@ -33,12 +43,13 @@ const TeacherDashboard = () => {
       }
 
       setCurrentUser(user);
-      console.log('✅ Profesor encontrado:', user);
+      console.log('✅ Usuario profesor encontrado:', user);
 
-      // Cargar datos del dashboard
+      // Cargar datos
       await Promise.all([
         fetchAllDogs(),
-        fetchTodayEvaluations()
+        fetchTodayEvaluations(),
+        calculateStats()
       ]);
       
     } catch (error) {
@@ -49,7 +60,6 @@ const TeacherDashboard = () => {
 
   const fetchAllDogs = async () => {
     try {
-      // Usar 'profiles' en lugar de 'users'
       const { data, error } = await supabase
         .from('dogs')
         .select(`
@@ -59,19 +69,14 @@ const TeacherDashboard = () => {
         .eq('active', true)
         .order('name');
 
-      if (error) {
-        console.error('❌ Error fetching dogs:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('✅ Perros cargados:', data);
+      console.log('✅ Perros cargados:', data?.length || 0);
       setDogs(data || []);
       
     } catch (error) {
       console.error('❌ Error fetching dogs:', error);
       setDogs([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -83,60 +88,111 @@ const TeacherDashboard = () => {
         .from('evaluations')
         .select(`
           *,
-          dogs(name, id),
-          profiles!evaluations_evaluator_id_fkey(full_name, email)
+          dogs(id, name, breed),
+          profiles!evaluations_evaluator_id_fkey(full_name, role)
         `)
         .eq('date', today)
         .eq('location', 'colegio')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('❌ Error fetching today evaluations:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('✅ Evaluaciones de hoy:', data);
-      setEvaluations(data || []);
+      console.log('✅ Evaluaciones de hoy:', data?.length || 0);
+      setTodayEvaluations(data || []);
       
     } catch (error) {
-      console.error('❌ Error fetching evaluations:', error);
-      setEvaluations([]);
+      console.error('❌ Error fetching today evaluations:', error);
+      setTodayEvaluations([]);
     }
   };
 
-  const handleEvaluationSaved = async (newEvaluation) => {
-    console.log('✅ Nueva evaluación guardada:', newEvaluation);
-    
-    // Recargar evaluaciones de hoy
-    await fetchTodayEvaluations();
-    
-    // Mostrar mensaje de éxito
-    alert('✅ Evaluación guardada exitosamente');
+  const calculateStats = async () => {
+    try {
+      // Total de perros activos
+      const { count: totalDogs } = await supabase
+        .from('dogs')
+        .select('*', { count: 'exact', head: true })
+        .eq('active', true);
+
+      // Evaluaciones de hoy en colegio
+      const today = new Date().toISOString().split('T')[0];
+      const { count: evaluatedToday } = await supabase
+        .from('evaluations')
+        .select('*', { count: 'exact', head: true })
+        .eq('date', today)
+        .eq('location', 'colegio');
+
+      // Evaluaciones de esta semana
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const { count: weeklyEvals } = await supabase
+        .from('evaluations')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', weekAgo)
+        .eq('location', 'colegio');
+
+      setStats({
+        totalDogs: totalDogs || 0,
+        evaluatedToday: evaluatedToday || 0,
+        pendingToday: (totalDogs || 0) - (evaluatedToday || 0),
+        weeklyProgress: Math.round(((weeklyEvals || 0) / (totalDogs || 1) / 7) * 100)
+      });
+
+    } catch (error) {
+  console.error('❌ Error calculating stats:', error);
+} finally {
+  setLoading(false);
+}
+};
+
+// Verificar si un perro fue evaluado hoy
+const isEvaluatedToday = (dogId) => {
+  return todayEvaluations.some(evaluation => evaluation.dogs?.id === dogId);
+};
+
+// Abrir modal de progreso específico para profesores
+const openProgressModal = (dog) => {
+  console.log('📊 Abriendo progreso del profesor para:', dog.name);
+  setSelectedDogForProgress(dog);
+  setShowProgressModal(true);
+};
+
+const closeProgressModal = () => {
+  setShowProgressModal(false);
+  setSelectedDogForProgress(null);
+};
+
+  // Abrir evaluación rápida
+  const openQuickEvaluation = (dog) => {
+    console.log('📝 Abriendo evaluación rápida para:', dog.name);
+    setSelectedDogForEval(dog);
+    setShowQuickEval(true);
   };
 
-  const getQuickStats = () => {
-    const totalDogs = dogs.length;
-    const evaluatedToday = evaluations.length;
-    const pendingToday = totalDogs - evaluatedToday;
-    
-    return { totalDogs, evaluatedToday, pendingToday };
+  const closeQuickEvaluation = () => {
+    setShowQuickEval(false);
+    setSelectedDogForEval(null);
   };
 
-  // 🔧 CORREGIDO: eval → evaluation
-  const isDogEvaluatedToday = (dogId) => {
-    return evaluations.some(evaluation => evaluation.dog_id === dogId);
+  // Manejar evaluación guardada
+  const handleEvaluationSaved = async () => {
+    console.log('✅ Evaluación guardada, recargando datos...');
+    await Promise.all([
+      fetchTodayEvaluations(),
+      calculateStats()
+    ]);
+    closeQuickEvaluation();
   };
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#56CCF2] mx-auto mb-4"></div>
           <h2 className="text-xl font-bold text-[#2C3E50] mb-2">
             Cargando Dashboard del Profesor
           </h2>
           <p className="text-gray-600">
-            Obteniendo datos de los peluditos...
+            Preparando información de los peluditos...
           </p>
         </div>
       </div>
@@ -147,55 +203,47 @@ const TeacherDashboard = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">🔧</div>
+          <div className="text-6xl mb-4">👨‍🏫</div>
           <h2 className="text-xl font-bold text-[#2C3E50] mb-2">
             Usuario profesor no encontrado
           </h2>
           <p className="text-gray-600 mb-6">
             Necesitas crear los datos de prueba para usar el dashboard del profesor
           </p>
-          <div className="space-x-4">
-            <a 
-              href="/crear-datos-prueba" 
-              className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              ✨ Crear Datos de Prueba
-            </a>
-            <a 
-              href="/diagnostico" 
-              className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              🔧 Diagnóstico
-            </a>
-          </div>
+          <a 
+            href="/crear-datos-prueba" 
+            className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            ✨ Crear Datos de Prueba
+          </a>
         </div>
       </div>
     );
   }
 
-  const { totalDogs, evaluatedToday, pendingToday } = getQuickStats();
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[#2C3E50]">
-          Panel del Profesor {currentUser.full_name || 'Carlos'} 👨‍🏫
+          ¡Hola {currentUser.full_name || currentUser.email}! 👨‍🏫
         </h1>
         <p className="text-gray-600 mt-2">
-          Gestiona las evaluaciones y el progreso de los peluditos
+          Dashboard del Profesor - Evalúa y rastrea el progreso de los peluditos
         </p>
       </div>
 
       {/* Estadísticas Rápidas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center">
             <div className="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center">
               <span className="text-xl text-white">🐕</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Perros Total</p>
-              <p className="text-2xl font-bold text-[#2C3E50]">{totalDogs}</p>
+              <p className="text-sm font-medium text-gray-500">Total Perros</p>
+              <p className="text-2xl font-bold text-[#2C3E50]">{stats.totalDogs}</p>
             </div>
           </div>
         </div>
@@ -206,8 +254,8 @@ const TeacherDashboard = () => {
               <span className="text-xl text-[#2C3E50]">✅</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Evaluadas Hoy</p>
-              <p className="text-2xl font-bold text-[#2C3E50]">{evaluatedToday}</p>
+              <p className="text-sm font-medium text-gray-500">Evaluados Hoy</p>
+              <p className="text-2xl font-bold text-[#2C3E50]">{stats.evaluatedToday}</p>
             </div>
           </div>
         </div>
@@ -218,212 +266,223 @@ const TeacherDashboard = () => {
               <span className="text-xl text-[#2C3E50]">⏳</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Pendientes</p>
-              <p className="text-2xl font-bold text-[#2C3E50]">{pendingToday}</p>
+              <p className="text-sm font-medium text-gray-500">Pendientes Hoy</p>
+              <p className="text-2xl font-bold text-[#2C3E50]">{stats.pendingToday}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-[#AB5729] rounded-full flex items-center justify-center">
+              <span className="text-xl text-white">📊</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Progreso Semanal</p>
+              <p className="text-2xl font-bold text-[#2C3E50]">{stats.weeklyProgress}%</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navegación de vistas */}
+      {/* Perros para Evaluar Hoy */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-        <div className="flex space-x-4 mb-6">
-          <button
-            onClick={() => setView('today')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              view === 'today'
-                ? 'bg-[#56CCF2] text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            📅 Hoy ({pendingToday} pendientes)
-          </button>
-          <button
-            onClick={() => setView('evaluations')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              view === 'evaluations'
-                ? 'bg-[#56CCF2] text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            📊 Historial
-          </button>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-[#2C3E50]">
+            🎯 Perros para Evaluar Hoy
+          </h2>
+          <div className="text-sm text-gray-600">
+            {stats.evaluatedToday}/{stats.totalDogs} completados
+          </div>
         </div>
 
-        {/* Vista de evaluaciones de hoy */}
-        {view === 'today' && (
-          <div>
-            <h2 className="text-xl font-bold text-[#2C3E50] mb-6">
-              Perros para evaluar hoy 📝
-            </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {dogs.map((dog) => {
+            const evaluatedToday = isEvaluatedToday(dog.id);
             
-            {dogs.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-4">🐕</div>
-                <p>No hay perros registrados</p>
-                <p className="text-sm mt-2">Crea datos de prueba para empezar</p>
-                <a 
-                  href="/crear-datos-prueba" 
-                  className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors mt-4"
-                >
-                  ✨ Crear Datos de Prueba
-                </a>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {dogs.map((dog) => {
-                  const hasEvaluationToday = isDogEvaluatedToday(dog.id);
-                  
-                  return (
-                    <div key={dog.id} className="border rounded-xl p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center mb-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center text-white font-bold text-lg">
-                          {dog.name.charAt(0)}
-                        </div>
-                        <div className="ml-3 flex-1">
-                          <h3 className="font-bold text-gray-900">{dog.name}</h3>
-                          <p className="text-sm text-gray-600">
-                            {dog.breed} • {dog.size}
-                          </p>
-                          {dog.profiles && (
-                            <p className="text-xs text-gray-500">
-                              Dueño: {dog.profiles.full_name || dog.profiles.email}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="mb-3">
-                        <span className={`
-                          inline-block px-2 py-1 rounded-full text-xs font-medium
-                          ${hasEvaluationToday 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-yellow-100 text-yellow-700'
-                          }
-                        `}>
-                          {hasEvaluationToday ? '✅ Evaluado hoy' : '⏳ Pendiente'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => {
-                            setSelectedDog(dog);
-                            setShowEvaluationForm(true);
-                          }}
-                          className="flex-1 bg-[#56CCF2] text-white py-2 px-3 rounded-md text-sm hover:bg-[#5B9BD5] transition-colors"
-                        >
-                          📝 Evaluar
-                        </button>
-                        <button className="bg-gray-100 text-gray-700 py-2 px-3 rounded-md text-sm hover:bg-gray-200 transition-colors">
-                          📊 Historial
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Vista de historial */}
-        {view === 'evaluations' && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-[#2C3E50] mb-6">
-              Historial de Evaluaciones
-            </h2>
-            
-            {evaluations.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="text-4xl mb-4">📊</div>
-                <p>No hay evaluaciones registradas hoy</p>
-                <p className="text-sm mt-2">Las evaluaciones aparecerán aquí una vez que comiences a evaluar</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {evaluations.map((evaluation) => (
-                  <div key={evaluation.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-bold text-gray-900">
-                          {evaluation.dogs?.name || 'Perro desconocido'}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          Evaluado por: {evaluation.profiles?.full_name || evaluation.profiles?.email || 'Evaluador desconocido'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(evaluation.created_at).toLocaleString('es-CO')}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm space-y-1">
-                          <div>Energía: {evaluation.energy_level}/10</div>
-                          <div>Sociabilidad: {evaluation.sociability_level}/10</div>
-                          <div>Obediencia: {evaluation.obedience_level}/10</div>
-                        </div>
-                      </div>
-                    </div>
-                    {evaluation.notes && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded text-sm text-gray-700">
-                        <strong>Notas:</strong> {evaluation.notes}
-                      </div>
-                    )}
+            return (
+              <div 
+                key={dog.id} 
+                className={`border rounded-xl p-6 transition-all ${
+                  evaluatedToday 
+                    ? 'border-green-300 bg-green-50' 
+                    : 'border-gray-200 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center mb-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
+                    evaluatedToday ? 'bg-green-500' : 'bg-gradient-to-br from-[#56CCF2] to-[#5B9BD5]'
+                  }`}>
+                    {evaluatedToday ? '✅' : dog.name.charAt(0)}
                   </div>
-                ))}
+                  <div className="ml-3">
+                    <h3 className="font-bold text-gray-900">{dog.name}</h3>
+                    <p className="text-sm text-gray-600">{dog.breed}</p>
+                    <p className="text-xs text-gray-500">
+                      Dueño: {dog.profiles?.full_name || 'Sin dueño'}
+                    </p>
+                  </div>
+                </div>
+
+                {evaluatedToday ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center text-green-700">
+                      <span className="text-sm font-medium">✅ Evaluado hoy</span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => openProgressModal(dog)}
+                        className="flex-1 bg-green-100 text-green-700 py-2 px-3 rounded-lg text-sm hover:bg-green-200 transition-colors"
+                      >
+                        📊 Ver Progreso
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="text-sm text-gray-600">
+                      ⏳ Pendiente de evaluación
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => openQuickEvaluation(dog)}
+                        className="flex-1 bg-[#56CCF2] text-white py-2 px-3 rounded-lg text-sm hover:bg-[#5B9BD5] transition-colors"
+                      >
+                        📝 Evaluar Ahora
+                      </button>
+                      <button 
+                        onClick={() => openProgressModal(dog)}
+                        className="bg-gray-100 text-gray-700 py-2 px-3 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                      >
+                        📊
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Evaluaciones de Hoy */}
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <h2 className="text-xl font-bold text-[#2C3E50] mb-6">
+          📋 Evaluaciones Completadas Hoy
+        </h2>
+        
+        {todayEvaluations.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <div className="text-4xl mb-4">📝</div>
+            <p>No hay evaluaciones completadas hoy</p>
+            <p className="text-sm mt-2">¡Empieza evaluando a los peluditos!</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {todayEvaluations.map((evalItem) => (
+              <div key={evalItem.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-bold text-gray-900 flex items-center">
+                      {evalItem.dogs?.name || 'Perro desconocido'}
+                      <span className="ml-2 px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
+                        🏫 Colegio
+                      </span>
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Evaluado por: {evalItem.profiles?.full_name || 'Profesor'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(evalItem.created_at).toLocaleTimeString('es-CO')}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm space-y-1">
+                      <div>⚡ Energía: {evalItem.energy_level}/10</div>
+                      <div>🤝 Social: {evalItem.sociability_level}/10</div>
+                      <div>🎯 Obediencia: {evalItem.obedience_level}/10</div>
+                      <div>😰 Ansiedad: {evalItem.anxiety_level}/10</div>
+                    </div>
+                  </div>
+                </div>
+                {evalItem.notes && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded text-sm text-gray-700">
+                    <strong>Notas:</strong> {evalItem.notes}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Acciones rápidas */}
+      {/* Acciones Rápidas */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <h3 className="text-xl font-bold text-[#2C3E50] mb-4">
           🚀 Acciones Rápidas
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button 
-            onClick={() => setView('today')}
+            onClick={() => {
+              const pendingDog = dogs.find(dog => !isEvaluatedToday(dog.id));
+              if (pendingDog) {
+                openQuickEvaluation(pendingDog);
+              } else {
+                alert('¡Excelente! Ya evaluaste todos los perros hoy 🎉');
+              }
+            }}
             className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-left"
           >
             <div className="text-2xl mb-2">⚡</div>
-            <div className="font-semibold">Evaluar Ahora</div>
-            <div className="text-sm opacity-90">Ver perros pendientes</div>
+            <div className="font-semibold">Evaluar Siguiente</div>
+            <div className="text-sm opacity-90">Siguiente perro pendiente</div>
+          </button>
+
+          <button 
+            onClick={() => {
+              const completedDog = dogs.find(dog => isEvaluatedToday(dog.id));
+              if (completedDog) {
+                openProgressModal(completedDog);
+              } else {
+                alert('Aún no has evaluado ningún perro hoy');
+              }
+            }}
+            className="bg-[#C7EA46] text-[#2C3E50] p-4 rounded-lg hover:bg-[#FFFE8D] transition-colors text-left"
+          >
+            <div className="text-2xl mb-2">📈</div>
+            <div className="font-semibold">Ver Progreso</div>
+            <div className="text-sm opacity-90">Analíticas de cualquier perro</div>
           </button>
 
           <a 
-            href="/reportes"
-            className="bg-[#C7EA46] text-[#2C3E50] p-4 rounded-lg hover:bg-[#FFFE8D] transition-colors text-left block"
-          >
-            <div className="text-2xl mb-2">📈</div>
-            <div className="font-semibold">Reportes</div>
-            <div className="text-sm opacity-90">Ver estadísticas</div>
-          </a>
-
-          <a 
-            href="https://wa.me/573144329824?text=Hola%20Juan%20Pablo%2C%20necesito%20ayuda%20con%20el%20sistema%20de%20evaluaciones"
+            href="https://wa.me/573144329824?text=Hola%20Juan%20Pablo%2C%20reporte%20del%20día%20desde%20el%20dashboard%20del%20profesor"
             target="_blank" 
             rel="noopener noreferrer"
             className="bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 transition-colors text-left block"
           >
-            <div className="text-2xl mb-2">💬</div>
-            <div className="font-semibold">Contactar Admin</div>
-            <div className="text-sm opacity-90">WhatsApp Juan Pablo</div>
+            <div className="text-2xl mb-2">📱</div>
+            <div className="font-semibold">Reportar</div>
+            <div className="text-sm opacity-90">WhatsApp con Juan Pablo</div>
           </a>
         </div>
       </div>
 
-      {/* Modal de evaluación */}
-      {showEvaluationForm && selectedDog && currentUser && (
+      {/* Modal de Progreso para Profesores */}
+      {showProgressModal && selectedDogForProgress && (
+        <DogProgressModal
+          dog={selectedDogForProgress}
+          isOpen={showProgressModal}
+          onClose={closeProgressModal}
+        />
+      )}
+
+      {/* Modal de Evaluación Rápida */}
+      {showQuickEval && selectedDogForEval && currentUser && (
         <CompleteEvaluationForm
-          dogId={selectedDog.id}
+          dogId={selectedDogForEval.id}
           userId={currentUser.id}
           userRole="profesor"
-          onClose={() => {
-            setShowEvaluationForm(false);
-            setSelectedDog(null);
-          }}
+          onClose={closeQuickEvaluation}
           onSave={handleEvaluationSaved}
         />
       )}

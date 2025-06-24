@@ -6,10 +6,9 @@ import node from '@astrojs/node'; // ✅ Descomentado
 
 export default defineConfig({
   // 🖥️ SSR activado
-  output: 'server', // ✅ Descomentado - CRÍTICO para middleware
-  adapter: node({
-    mode: 'standalone'
-  }),
+output: 'hybrid',
+  adapter: netlify(),
+  
 
   // 🎨 Integraciones
   integrations: [

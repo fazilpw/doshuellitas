@@ -1,4 +1,4 @@
-// src/lib/supabase.js - CON FUNCIÓN DE PROMEDIOS AGREGADA
+// src/lib/supabase.js - VERSIÓN COMPLETA CON TODAS LAS FUNCIONES ✅
 import { createClient } from '@supabase/supabase-js';
 
 // ============================================
@@ -42,7 +42,7 @@ export async function getUserDogs(userId) {
 }
 
 /**
- * 📊 NUEVA: Obtiene promedios/estadísticas de un perro específico
+ * 📊 Obtiene promedios/estadísticas de un perro específico
  */
 export async function getDogAverages(dogId) {
   try {
@@ -127,7 +127,7 @@ export async function getDogAverages(dogId) {
 }
 
 /**
- * 📊 NUEVA: Obtiene promedios de múltiples perros de una vez
+ * 📊 Obtiene promedios de múltiples perros de una vez
  */
 export async function getMultipleDogsAverages(dogIds) {
   try {
@@ -144,6 +144,30 @@ export async function getMultipleDogsAverages(dogIds) {
     return { data: results, error: null };
   } catch (error) {
     console.error('Error fetching multiple dog averages:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * 🔍 FUNCIÓN QUE FALTABA: Obtiene todas las evaluaciones de un perro específico
+ */
+export async function getDogEvaluations(dogId, limit = 50) {
+  try {
+    const { data, error } = await supabase
+      .from('evaluations')
+      .select(`
+        *,
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
+      .eq('dog_id', dogId)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching dog evaluations:', error);
     return { data: null, error };
   }
 }
@@ -177,30 +201,6 @@ export async function getRecentEvaluations(dogIds, days = 7) {
     return { data, error: null };
   } catch (error) {
     console.error('Error fetching recent evaluations:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Obtiene todas las evaluaciones de un perro específico
- */
-export async function getDogEvaluations(dogId, limit = 50) {
-  try {
-    const { data, error } = await supabase
-      .from('evaluations')
-      .select(`
-        *,
-        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
-      `)
-      .eq('dog_id', dogId)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error fetching dog evaluations:', error);
     return { data: null, error };
   }
 }
@@ -434,36 +434,6 @@ export async function testSupabaseConnection() {
       error 
     };
   }
-}
-
-/**
- * Función de diagnóstico - verifica estructura de tablas
- */
-export async function checkTablesStructure() {
-  const tables = ['profiles', 'dogs', 'evaluations'];
-  const results = {};
-
-  for (const table of tables) {
-    try {
-      const { count, error } = await supabase
-        .from(table)
-        .select('*', { count: 'exact', head: true });
-
-      results[table] = {
-        exists: !error,
-        count: count || 0,
-        error: error?.message || null
-      };
-    } catch (err) {
-      results[table] = {
-        exists: false,
-        count: 0,
-        error: err.message
-      };
-    }
-  }
-
-  return results;
 }
 
 // ============================================

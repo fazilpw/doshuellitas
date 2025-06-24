@@ -1,0 +1,447 @@
+---
+// src/pages/progreso-debug.astro - DEBUG DE DATOS
+const dogId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; // ID de Max
+const dogName = 'Max';
+---
+
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Progreso - {dogName}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .json-display {
+      background: #1f2937;
+      color: #10b981;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  
+  <div class="max-w-6xl mx-auto p-6">
+    
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">
+        🔍 Debug Progreso de {dogName}
+      </h1>
+      <p class="text-gray-600">
+        Verificando datos de Supabase paso a paso
+      </p>
+      <div class="mt-4 text-sm text-gray-500">
+        <strong>Dog ID:</strong> {dogId}
+      </div>
+    </div>
+
+    <!-- Botones de Test -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-900 mb-4">🎯 Tests Disponibles</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <button 
+          id="test-connection"
+          class="bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 transition-colors"
+        >
+          🔌 Test Conexión
+        </button>
+        
+        <button 
+          id="test-dog-data"
+          class="bg-green-500 text-white px-4 py-3 rounded-lg hover:bg-green-600 transition-colors"
+        >
+          🐕 Ver Datos del Perro
+        </button>
+        
+        <button 
+          id="test-evaluations"
+          class="bg-purple-500 text-white px-4 py-3 rounded-lg hover:bg-purple-600 transition-colors"
+        >
+          📊 Ver Evaluaciones
+        </button>
+        
+        <button 
+          id="test-averages"
+          class="bg-orange-500 text-white px-4 py-3 rounded-lg hover:bg-orange-600 transition-colors"
+        >
+          📈 Ver Promedios
+        </button>
+      </div>
+    </div>
+
+    <!-- Panel de Resultados -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-900 mb-4">📋 Resultados</h2>
+      
+      <!-- Status -->
+      <div id="status" class="mb-4 p-4 rounded-lg bg-gray-50 border border-gray-200">
+        <div class="flex items-center text-gray-600">
+          <span class="mr-2">⏳</span>
+          <span>Listo para hacer tests...</span>
+        </div>
+      </div>
+      
+      <!-- Results Display -->
+      <div id="results" class="json-display p-4 rounded-lg min-h-32 border border-gray-300">
+        // Los resultados de los tests aparecerán aquí...
+      </div>
+    </div>
+
+    <!-- Test de Modal -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+      <h2 class="text-xl font-bold text-gray-900 mb-4">🎭 Test Modal React</h2>
+      <div class="space-y-4">
+        <p class="text-gray-600">
+          Una vez verificados los datos, probar el modal React:
+        </p>
+        <div id="modal-test-container"></div>
+        <button 
+          id="test-modal"
+          class="bg-indigo-500 text-white px-6 py-3 rounded-lg hover:bg-indigo-600 transition-colors"
+        >
+          🎭 Probar Modal React
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script type="module">
+    // ============================================
+    // 🔧 CONFIGURACIÓN
+    // ============================================
+    const DOG_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    
+    let supabase = null;
+    let supabaseConfig = null;
+    
+    // ============================================
+    // 🎯 FUNCIONES DE UTILIDAD
+    // ============================================
+    function updateStatus(message, type = 'info') {
+      const statusEl = document.getElementById('status');
+      const colors = {
+        info: 'bg-blue-50 border-blue-200 text-blue-800',
+        success: 'bg-green-50 border-green-200 text-green-800',
+        error: 'bg-red-50 border-red-200 text-red-800',
+        warning: 'bg-yellow-50 border-yellow-200 text-yellow-800'
+      };
+      
+      const icons = {
+        info: '🔄',
+        success: '✅',
+        error: '❌',
+        warning: '⚠️'
+      };
+      
+      statusEl.className = `mb-4 p-4 rounded-lg border ${colors[type]}`;
+      statusEl.innerHTML = `
+        <div class="flex items-center">
+          <span class="mr-2">${icons[type]}</span>
+          <span>${message}</span>
+        </div>
+      `;
+    }
+
+    function displayResults(data, title = 'Resultado') {
+      const resultsEl = document.getElementById('results');
+      const timestamp = new Date().toLocaleTimeString();
+      
+      resultsEl.textContent = `// ${title} - ${timestamp}\n\n${JSON.stringify(data, null, 2)}`;
+    }
+
+    // ============================================
+    // 🔌 TEST 1: CONEXIÓN A SUPABASE
+    // ============================================
+    async function testConnection() {
+      try {
+        updateStatus('Probando conexión a Supabase...', 'info');
+        
+        // Importar Supabase
+        const { createClient } = await import('@supabase/supabase-js');
+        
+        // Configurar cliente
+        supabaseConfig = {
+          url: import.meta.env.PUBLIC_SUPABASE_URL,
+          key: import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+        };
+        
+        if (!supabaseConfig.url || !supabaseConfig.key) {
+          throw new Error('Faltan variables de entorno de Supabase');
+        }
+        
+        supabase = createClient(supabaseConfig.url, supabaseConfig.key);
+        
+        // Test simple: contar profiles
+        const { count, error } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+          
+        if (error) throw error;
+        
+        updateStatus(`✅ Conexión exitosa - ${count} profiles encontrados`, 'success');
+        displayResults({
+          connection: 'SUCCESS',
+          profiles_count: count,
+          supabase_url: supabaseConfig.url.substring(0, 30) + '...',
+          timestamp: new Date().toISOString()
+        }, 'Test Conexión');
+        
+      } catch (error) {
+        updateStatus(`❌ Error de conexión: ${error.message}`, 'error');
+        displayResults({
+          connection: 'FAILED',
+          error: error.message,
+          stack: error.stack
+        }, 'Error Conexión');
+      }
+    }
+
+    // ============================================
+    // 🐕 TEST 2: DATOS DEL PERRO
+    // ============================================
+    async function testDogData() {
+      try {
+        if (!supabase) {
+          throw new Error('Primero ejecuta "Test Conexión"');
+        }
+        
+        updateStatus('Obteniendo datos del perro...', 'info');
+        
+        const { data, error } = await supabase
+          .from('dogs')
+          .select(`
+            *,
+            profiles!dogs_owner_id_fkey(full_name, email, role)
+          `)
+          .eq('id', DOG_ID)
+          .single();
+          
+        if (error) throw error;
+        
+        if (!data) {
+          throw new Error(`No se encontró perro con ID: ${DOG_ID}`);
+        }
+        
+        updateStatus(`✅ Perro encontrado: ${data.name}`, 'success');
+        displayResults(data, 'Datos del Perro');
+        
+      } catch (error) {
+        updateStatus(`❌ Error obteniendo datos del perro: ${error.message}`, 'error');
+        displayResults({
+          error: error.message,
+          dog_id: DOG_ID
+        }, 'Error Datos Perro');
+      }
+    }
+
+    // ============================================
+    // 📊 TEST 3: EVALUACIONES
+    // ============================================
+    async function testEvaluations() {
+      try {
+        if (!supabase) {
+          throw new Error('Primero ejecuta "Test Conexión"');
+        }
+        
+        updateStatus('Obteniendo evaluaciones...', 'info');
+        
+        const { data, error } = await supabase
+          .from('evaluations')
+          .select(`
+            *,
+            profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+          `)
+          .eq('dog_id', DOG_ID)
+          .order('date', { ascending: false })
+          .limit(10);
+          
+        if (error) throw error;
+        
+        updateStatus(`✅ ${data?.length || 0} evaluaciones encontradas`, 'success');
+        displayResults({
+          total_evaluations: data?.length || 0,
+          evaluations: data || []
+        }, 'Evaluaciones');
+        
+      } catch (error) {
+        updateStatus(`❌ Error obteniendo evaluaciones: ${error.message}`, 'error');
+        displayResults({
+          error: error.message,
+          dog_id: DOG_ID
+        }, 'Error Evaluaciones');
+      }
+    }
+
+    // ============================================
+    // 📈 TEST 4: PROMEDIOS (FUNCIÓN PERSONALIZADA)
+    // ============================================
+    async function testAverages() {
+      try {
+        if (!supabase) {
+          throw new Error('Primero ejecuta "Test Conexión"');
+        }
+        
+        updateStatus('Calculando promedios...', 'info');
+        
+        // Obtener evaluaciones para calcular promedios
+        const { data: evaluations, error } = await supabase
+          .from('evaluations')
+          .select('energy_level, sociability_level, obedience_level, anxiety_level, location, date')
+          .eq('dog_id', DOG_ID)
+          .order('date', { ascending: false });
+
+        if (error) throw error;
+
+        if (!evaluations || evaluations.length === 0) {
+          updateStatus('⚠️ No hay evaluaciones para calcular promedios', 'warning');
+          displayResults({
+            message: 'Sin evaluaciones disponibles',
+            dog_id: DOG_ID
+          }, 'Promedios');
+          return;
+        }
+
+        // Calcular promedios manualmente
+        const totalEvaluations = evaluations.length;
+        
+        const averages = {
+          energy: Math.round(evaluations.reduce((sum, item) => sum + (item.energy_level || 0), 0) / totalEvaluations),
+          sociability: Math.round(evaluations.reduce((sum, item) => sum + (item.sociability_level || 0), 0) / totalEvaluations),
+          obedience: Math.round(evaluations.reduce((sum, item) => sum + (item.obedience_level || 0), 0) / totalEvaluations),
+          anxiety: Math.round(evaluations.reduce((sum, item) => sum + (item.anxiety_level || 0), 0) / totalEvaluations)
+        };
+
+        // Convertir a porcentajes
+        const percentages = {
+          energy_percentage: Math.round((averages.energy / 10) * 100),
+          sociability_percentage: Math.round((averages.sociability / 10) * 100),
+          obedience_percentage: Math.round((averages.obedience / 10) * 100),
+          anxiety_percentage: Math.round((averages.anxiety / 10) * 100)
+        };
+
+        // Contar por ubicación
+        const casaEvaluations = evaluations.filter(item => item.location === 'casa').length;
+        const colegioEvaluations = evaluations.filter(item => item.location === 'colegio').length;
+
+        const result = {
+          ...percentages,
+          total_evaluations: totalEvaluations,
+          casa_evaluations: casaEvaluations,
+          colegio_evaluations: colegioEvaluations,
+          last_evaluation_date: evaluations[0]?.date || null,
+          raw_averages: averages,
+          raw_evaluations: evaluations
+        };
+        
+        updateStatus(`✅ Promedios calculados correctamente`, 'success');
+        displayResults(result, 'Promedios Calculados');
+        
+      } catch (error) {
+        updateStatus(`❌ Error calculando promedios: ${error.message}`, 'error');
+        displayResults({
+          error: error.message,
+          dog_id: DOG_ID
+        }, 'Error Promedios');
+      }
+    }
+
+    // ============================================
+    // 🎭 TEST 5: MODAL REACT
+    // ============================================
+    async function testModal() {
+      try {
+        updateStatus('Cargando modal React...', 'info');
+        
+        // Importar React y componente
+        const { default: React, useState, useEffect } = await import('react');
+        const { createRoot } = await import('react-dom/client');
+        
+        // Crear componente de prueba simple
+        const TestModal = () => {
+          const [isOpen, setIsOpen] = React.useState(false);
+          
+          const modalContent = (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+              <div className="bg-white rounded-xl w-full max-w-2xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">🎭 Modal de Prueba</h2>
+                  <button 
+                    onClick={() => setIsOpen(false)}
+                    className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center hover:bg-gray-300"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <p>✅ Modal React renderizado correctamente</p>
+                  <p>✅ Overlay y backdrop funcionando</p>
+                  <p>✅ CSS de Tailwind aplicado</p>
+                  <p>✅ Botón de cerrar funcional</p>
+                </div>
+                <div className="mt-6">
+                  <button 
+                    onClick={() => setIsOpen(false)}
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                  >
+                    Cerrar Modal
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+          
+          return React.createElement('div', {}, [
+            React.createElement('button', {
+              key: 'btn',
+              onClick: () => setIsOpen(true),
+              className: 'bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600'
+            }, '🚀 Abrir Modal React'),
+            
+            isOpen ? modalContent : null
+          ]);
+        };
+        
+        // Renderizar en el container
+        const container = document.getElementById('modal-test-container');
+        const root = createRoot(container);
+        root.render(React.createElement(TestModal));
+        
+        updateStatus(`✅ Modal React cargado exitosamente`, 'success');
+        displayResults({
+          modal_status: 'LOADED',
+          react_version: React.version || 'unknown',
+          container_id: 'modal-test-container'
+        }, 'Modal React Test');
+        
+      } catch (error) {
+        updateStatus(`❌ Error cargando modal React: ${error.message}`, 'error');
+        displayResults({
+          error: error.message,
+          stack: error.stack
+        }, 'Error Modal React');
+      }
+    }
+
+    // ============================================
+    // 🎯 EVENT LISTENERS
+    // ============================================
+    document.getElementById('test-connection').addEventListener('click', testConnection);
+    document.getElementById('test-dog-data').addEventListener('click', testDogData);
+    document.getElementById('test-evaluations').addEventListener('click', testEvaluations);
+    document.getElementById('test-averages').addEventListener('click', testAverages);
+    document.getElementById('test-modal').addEventListener('click', testModal);
+    
+    // Auto-ejecutar test de conexión al cargar
+    updateStatus('Página cargada - Listo para hacer tests', 'info');
+    
+  </script>
+
+</body>
+</html>
