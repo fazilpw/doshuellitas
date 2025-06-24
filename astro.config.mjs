@@ -1,14 +1,13 @@
-// astro.config.mjs - CONFIGURACIÓN ARREGLADA
+// astro.config.mjs - CONFIGURACIÓN CORREGIDA PARA NETLIFY
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
 import react from '@astrojs/react';
-import node from '@astrojs/node'; // ✅ Descomentado
+import netlify from '@astrojs/netlify';
 
 export default defineConfig({
-  // 🖥️ SSR activado
-output: 'hybrid',
+  // 🌍 MODO HÍBRIDO para Netlify (en lugar de full SSR)
+  output: 'hybrid',
   adapter: netlify(),
-  
 
   // 🎨 Integraciones
   integrations: [
@@ -20,15 +19,15 @@ output: 'hybrid',
   vite: {
     define: { 
       global: 'globalThis',
-    },
-    server: {
-      host: true,
-      port: 4321,
-      strictPort: false
     }
   },
 
-  // 📱 Configuración básica
-  site: 'https://clubcaninodoshuellitas.com',
-  base: '/'
+  // 📱 Configuración del sitio
+  site: 'https://clubcaninodoshuellitas.netlify.app', // Cambia por tu dominio real
+  base: '/',
+
+  // 🔄 Configuración de rutas
+  experimental: {
+    hybridOutput: true
+  }
 });
