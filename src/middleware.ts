@@ -14,7 +14,7 @@ const AUTH_CONFIG = {
   DEBUG_MODE: import.meta.env.DEV || false,
   ENABLE_FALLBACK: true,
   // 🛡️ NUEVO: Modo defensivo hasta que tengamos datos estables
-  DEFENSIVE_MODE: true  // ← CAMBIAR A false cuando tengamos datos estables
+  DEFENSIVE_MODE: false  // ← CAMBIAR A false cuando tengamos datos estables
 };
 
 // ===============================================
