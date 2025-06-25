@@ -44,8 +44,8 @@ const SimpleLoginForm = () => {
 
       // Redirigir según rol
       const dashboards = {
-        padre: '/dashboard/padre/',
-        profesor: '/dashboard/profesor/', 
+        padre: '/app-padre/',
+        profesor: '/app-maestro/', 
         admin: '/dashboard/admin/'
       };
 

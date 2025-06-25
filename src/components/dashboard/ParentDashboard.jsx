@@ -1,4 +1,4 @@
-// src/components/dashboard/ParentDashboard.jsx - VERSIÓN CORREGIDA ✅
+// src/components/dashboard/ParentDashboard.jsx - TU VERSIÓN + SELECTOR DE PERROS
 import { useState, useEffect } from 'react';
 import supabase, { getDogAverages, getMultipleDogsAverages } from '../../lib/supabase.js';
 import CompleteEvaluationForm from './CompleteEvaluationForm.jsx';
@@ -17,9 +17,19 @@ const ParentDashboard = () => {
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [selectedDogForProgress, setSelectedDogForProgress] = useState(null);
 
+  // 🆕 NUEVO: Estado para el selector de perros
+  const [selectedDogId, setSelectedDogId] = useState('');
+
   useEffect(() => {
     initializeDashboard();
   }, []);
+
+  // 🆕 NUEVO: Efecto para seleccionar primer perro automáticamente
+  useEffect(() => {
+    if (dogs.length > 0 && !selectedDogId) {
+      setSelectedDogId(dogs[0].id);
+    }
+  }, [dogs, selectedDogId]);
 
   const initializeDashboard = async () => {
     try {
@@ -150,6 +160,36 @@ const ParentDashboard = () => {
     } catch (error) {
       console.error('❌ Error updating after evaluation:', error);
     }
+  };
+
+  // 🆕 NUEVAS FUNCIONES PARA EL SELECTOR
+  const handleDogSelection = (dogId) => {
+    setSelectedDogId(dogId);
+    console.log('🐕 Perro seleccionado:', dogId);
+  };
+
+  const openEvaluationFormForSelected = () => {
+    if (!selectedDogId) {
+      alert('Por favor selecciona un perro para evaluar');
+      return;
+    }
+    const dog = dogs.find(d => d.id === selectedDogId);
+    if (dog) {
+      setSelectedDog(dog);
+      setShowEvaluationForm(true);
+    }
+  };
+
+  const getSelectedDog = () => {
+    return dogs.find(dog => dog.id === selectedDogId);
+  };
+
+  const getSelectedDogEvaluations = () => {
+    if (!selectedDogId) return [];
+    return evaluations
+      .filter(evaluation => evaluation.dog_id === selectedDogId)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5);
   };
 
   // 📊 FUNCIÓN CORREGIDA: Abrir modal de progreso
@@ -295,6 +335,9 @@ const ParentDashboard = () => {
     );
   }
 
+  const selectedDogForDisplay = getSelectedDog();
+  const selectedDogEvaluations = getSelectedDogEvaluations();
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -326,6 +369,129 @@ const ParentDashboard = () => {
         </div>
       ) : (
         <>
+          {/* 🆕 NUEVO SELECTOR DE PERROS */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              
+              {/* Selector de perro */}
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Selecciona tu perro para evaluar:
+                </label>
+                <select
+                  value={selectedDogId}
+                  onChange={(e) => handleDogSelection(e.target.value)}
+                  className="w-full md:w-80 border border-gray-300 rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+                >
+                  <option value="">Seleccionar perro...</option>
+                  {dogs.map(dog => (
+                    <option key={dog.id} value={dog.id}>
+                      🐕 {dog.name} ({dog.breed})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Botón de evaluación */}
+              <div className="flex-shrink-0">
+                <button
+                  onClick={openEvaluationFormForSelected}
+                  disabled={!selectedDogId}
+                  className="w-full md:w-auto bg-[#56CCF2] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#5B9BD5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  📝 Evaluar en Casa
+                </button>
+              </div>
+            </div>
+
+            {/* Información del perro seleccionado */}
+            {selectedDogForDisplay && (
+              <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center">
+                      <span className="text-2xl text-white">🐕</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-[#2C3E50]">{selectedDogForDisplay.name}</h3>
+                      <p className="text-gray-600">
+                        {selectedDogForDisplay.breed} • {selectedDogForDisplay.size} • {selectedDogForDisplay.age} años
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">Evaluaciones:</div>
+                    <div className="text-2xl font-bold text-[#56CCF2]">
+                      {selectedDogEvaluations.length}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 🆕 EVALUACIONES DEL PERRO SELECCIONADO */}
+          {selectedDogForDisplay && selectedDogEvaluations.length > 0 && (
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+              <h2 className="text-xl font-bold text-[#2C3E50] mb-4">
+                📝 Evaluaciones Recientes de {selectedDogForDisplay.name}
+              </h2>
+              <div className="space-y-4">
+                {selectedDogEvaluations.map((evaluation, index) => (
+                  <div key={evaluation.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <span className="text-sm font-medium text-gray-500">
+                            {new Date(evaluation.date).toLocaleDateString('es-CO', {
+                              weekday: 'long',
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            evaluation.location === 'casa' ? 
+                            'bg-blue-100 text-blue-800' : 
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {evaluation.location === 'casa' ? '🏠 Casa' : '🏫 Colegio'}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500">Energía:</span>
+                            <span className="ml-1 font-medium">{evaluation.energy_level}/10</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Sociabilidad:</span>
+                            <span className="ml-1 font-medium">{evaluation.sociability_level}/10</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Obediencia:</span>
+                            <span className="ml-1 font-medium">{evaluation.obedience_level}/10</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Ansiedad:</span>
+                            <span className="ml-1 font-medium">{evaluation.anxiety_level}/10</span>
+                          </div>
+                        </div>
+
+                        {evaluation.notes && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p className="text-sm text-gray-700">{evaluation.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Resumen rápido */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white rounded-xl shadow-lg p-6">
@@ -402,7 +568,6 @@ const ParentDashboard = () => {
                       </div>
                     </div>
 
-                    {/* ✅ CONDICIÓN CORREGIDA: Siempre muestra el botón */}
                     <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-sm mb-1">
@@ -451,7 +616,6 @@ const ParentDashboard = () => {
                         }
                       </div>
 
-                      {/* 📊 BOTÓN SIEMPRE VISIBLE */}
                       <button 
                         onClick={() => openProgressModal(dog)}
                         className="w-full text-[#56CCF2] hover:text-white text-sm font-medium py-2 border border-[#56CCF2] rounded-lg hover:bg-[#56CCF2] transition-colors"
@@ -472,14 +636,7 @@ const ParentDashboard = () => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button 
-                onClick={() => {
-                  if (dogs.length === 1) {
-                    setSelectedDog(dogs[0]);
-                    setShowEvaluationForm(true);
-                  } else {
-                    alert('Selecciona un perro específico arriba para evaluarlo');
-                  }
-                }}
+                onClick={openEvaluationFormForSelected}
                 className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-left"
               >
                 <div className="text-2xl mb-2">⚡</div>
@@ -489,10 +646,10 @@ const ParentDashboard = () => {
 
               <button 
                 onClick={() => {
-                  if (dogs.length === 1) {
-                    openProgressModal(dogs[0]);
+                  if (selectedDogForDisplay) {
+                    openProgressModal(selectedDogForDisplay);
                   } else {
-                    alert('Selecciona un perro específico arriba para ver su progreso');
+                    alert('Selecciona un perro arriba para ver su progreso');
                   }
                 }}
                 className="bg-[#C7EA46] text-[#2C3E50] p-4 rounded-lg hover:bg-[#FFFE8D] transition-colors text-left"
@@ -531,30 +688,13 @@ const ParentDashboard = () => {
         />
       )}
 
-      {/* 📊 MODAL DE PROGRESO COMPLETO - BIEN UBICADO */}
+      {/* 📊 MODAL DE PROGRESO COMPLETO */}
       {showProgressModal && selectedDogForProgress && (
-        <div>
-          {/* Debug visual */}
-          <div style={{
-            position: 'fixed',
-            top: '10px',
-            right: '10px',
-            background: 'black',
-            color: 'white',
-            padding: '10px',
-            borderRadius: '5px',
-            fontSize: '12px',
-            zIndex: 9999
-          }}>
-            DEBUG: Modal abierto para {selectedDogForProgress?.name}
-          </div>
-          
-          <DogProgressModal
-            dog={selectedDogForProgress}
-            isOpen={showProgressModal}
-            onClose={closeProgressModal}
-          />
-        </div>
+        <DogProgressModal
+          dog={selectedDogForProgress}
+          isOpen={showProgressModal}
+          onClose={closeProgressModal}
+        />
       )}
     </div>
   );
