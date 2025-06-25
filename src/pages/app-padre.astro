@@ -1,0 +1,9 @@
+---
+// src/pages/app-padre.astro - USANDO REACT NATIVO DE ASTRO
+import Layout from '../layouts/Layout.astro';
+import PadreApp from '../components/PadreApp.jsx';
+---
+
+<Layout title="Dashboard Padre - Conectado">
+  <PadreApp client:load />
+</Layout>

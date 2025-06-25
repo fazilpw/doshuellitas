@@ -1,0 +1,375 @@
+---
+// src/pages/app.astro - PÁGINA PRINCIPAL DEL SISTEMA COMPLETO
+import Layout from '../layouts/Layout.astro';
+
+// Obtener parámetros de URL
+const role = Astro.url.searchParams.get('role') || 'padre';
+const action = Astro.url.searchParams.get('action') || 'dashboard';
+const dogId = Astro.url.searchParams.get('dog');
+const userId = Astro.url.searchParams.get('user');
+---
+
+<Layout title="Club Canino - Sistema Completo">
+  <!-- Loading inicial -->
+  <div id="app-loading" class="min-h-screen bg-[#FFFBF0] flex items-center justify-center">
+    <div class="text-center">
+      <div class="w-20 h-20 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+        <span class="text-3xl">🐕</span>
+      </div>
+      <h1 class="text-2xl font-bold text-[#2C3E50] mb-2">Club Canino Dos Huellitas</h1>
+      <div class="flex items-center justify-center space-x-2 mb-4">
+        <div class="w-2 h-2 bg-[#56CCF2] rounded-full animate-bounce"></div>
+        <div class="w-2 h-2 bg-[#56CCF2] rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+        <div class="w-2 h-2 bg-[#56CCF2] rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+      </div>
+      <p class="text-gray-600">Inicializando sistema completo...</p>
+      <div class="text-xs text-gray-500 mt-2">
+        Cargando usuarios, perros y evaluaciones
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor principal de la app -->
+  <div id="club-app" style="display: none;"></div>
+
+  <!-- Error fallback -->
+  <div id="app-error" style="display: none;" class="min-h-screen bg-red-50 flex items-center justify-center">
+    <div class="text-center max-w-md mx-auto p-6">
+      <div class="text-6xl mb-4">❌</div>
+      <h2 class="text-2xl font-bold text-red-800 mb-4">Error del Sistema</h2>
+      <p class="text-red-600 mb-6" id="error-message">Ha ocurrido un error inesperado</p>
+      <div class="space-y-3">
+        <button 
+          onclick="window.location.reload()" 
+          class="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700"
+        >
+          🔄 Reintentar
+        </button>
+        <a 
+          href="/diagnostico" 
+          class="block w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700"
+        >
+          🔧 Diagnóstico
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts de React -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  
+  <!-- Script principal -->
+  <script define:vars={{ role, action, dogId, userId }}>
+    console.log('🚀 === INICIANDO CLUB CANINO APP ===');
+    console.log('📝 Parámetros:', { role, action, dogId, userId });
+
+    // Configuración inicial
+    const APP_CONFIG = {
+      role: role,
+      action: action,
+      dogId: dogId,
+      userId: userId,
+      startTime: Date.now()
+    };
+
+    // Función principal de inicialización
+    async function initializeClubApp() {
+      try {
+        console.log('📦 Cargando componentes...');
+        
+        // Importar componentes principales
+        const [
+          { ExpandedAuthProvider, useAuth },
+          { default: ParentDashboard },
+          { default: TeacherDashboard },
+          { default: AdminDashboard },
+          { default: SimpleEvaluationForm }
+        ] = await Promise.all([
+          import('/src/components/auth/ExpandedAuthProvider.jsx'),
+          import('/src/components/dashboard/ParentDashboard.jsx'),
+          import('/src/components/dashboard/TeacherDashboard.jsx'),
+          import('/src/components/dashboard/AdminDashboard.jsx'),
+          import('/src/components/dashboard/SimpleEvaluationForm.jsx')
+        ]);
+
+        console.log('✅ Componentes cargados');
+
+        // Componente principal de la app
+        const ClubApp = () => {
+          const [currentView, setCurrentView] = React.useState('loading');
+          const [appParams, setAppParams] = React.useState(APP_CONFIG);
+          
+          const {
+            user,
+            loading,
+            error,
+            clubStats,
+            switchUser,
+            createNewUser,
+            addNewDog,
+            saveEvaluation,
+            allUsers,
+            allDogs,
+            refreshData
+          } = useAuth();
+
+          // Efecto para determinar vista inicial
+          React.useEffect(() => {
+            if (!loading && user) {
+              determineInitialView();
+            }
+          }, [loading, user, appParams]);
+
+          const determineInitialView = () => {
+            console.log('🎯 Determinando vista inicial...', appParams);
+            
+            if (appParams.action === 'evaluate' && appParams.dogId) {
+              setCurrentView('evaluate');
+            } else if (appParams.action === 'new-user') {
+              setCurrentView('new-user');
+            } else if (appParams.action === 'new-dog') {
+              setCurrentView('new-dog');
+            } else {
+              // Dashboard según rol
+              setCurrentView('dashboard');
+            }
+          };
+
+          const handleEvaluationSaved = (evaluationData) => {
+            console.log('✅ Evaluación guardada desde formulario:', evaluationData);
+            setCurrentView('dashboard');
+            refreshData();
+          };
+
+          const handleUserCreated = (userData) => {
+            console.log('✅ Usuario creado:', userData);
+            setCurrentView('dashboard');
+          };
+
+          const handleDogAdded = (dogData) => {
+            console.log('✅ Perro agregado:', dogData);
+            setCurrentView('dashboard');
+          };
+
+          const changeView = (viewName, params = {}) => {
+            console.log('🔄 Cambiando vista a:', viewName, params);
+            setAppParams(prev => ({ ...prev, ...params }));
+            setCurrentView(viewName);
+          };
+
+          // Mostrar loading
+          if (loading) {
+            return React.createElement('div', { 
+              className: 'min-h-screen bg-[#FFFBF0] flex items-center justify-center' 
+            }, [
+              React.createElement('div', { 
+                key: 'loading',
+                className: 'text-center' 
+              }, [
+                React.createElement('div', { 
+                  key: 'spinner',
+                  className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-[#56CCF2] mx-auto mb-4' 
+                }),
+                React.createElement('p', { 
+                  key: 'text',
+                  className: 'text-gray-600' 
+                }, `Cargando sistema del Club Canino...`)
+              ])
+            ]);
+          }
+
+          // Mostrar error
+          if (error) {
+            return React.createElement('div', { 
+              className: 'min-h-screen bg-red-50 flex items-center justify-center' 
+            }, [
+              React.createElement('div', { 
+                key: 'error',
+                className: 'text-center max-w-md mx-auto p-6' 
+              }, [
+                React.createElement('div', { 
+                  key: 'icon',
+                  className: 'text-6xl mb-4' 
+                }, '❌'),
+                React.createElement('h2', { 
+                  key: 'title',
+                  className: 'text-2xl font-bold text-red-800 mb-4' 
+                }, 'Error del Sistema'),
+                React.createElement('p', { 
+                  key: 'message',
+                  className: 'text-red-600 mb-6' 
+                }, error),
+                React.createElement('button', { 
+                  key: 'retry',
+                  className: 'bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700',
+                  onClick: () => window.location.reload()
+                }, '🔄 Reintentar')
+              ])
+            ]);
+          }
+
+          // Header de la app
+          const AppHeader = () => React.createElement('div', {
+            className: 'bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] text-white p-4'
+          }, [
+            React.createElement('div', {
+              key: 'header-content',
+              className: 'max-w-7xl mx-auto flex justify-between items-center'
+            }, [
+              React.createElement('div', {
+                key: 'title-section',
+                className: 'flex items-center space-x-4'
+              }, [
+                React.createElement('h1', {
+                  key: 'title',
+                  className: 'text-xl font-bold'
+                }, '🐕 Club Canino'),
+                React.createElement('div', {
+                  key: 'stats',
+                  className: 'hidden md:flex space-x-4 text-sm opacity-90'
+                }, [
+                  React.createElement('span', { key: 'users' }, `👥 ${clubStats.totalUsers} usuarios`),
+                  React.createElement('span', { key: 'dogs' }, `🐕 ${clubStats.totalDogs} perros`),
+                  React.createElement('span', { key: 'evals' }, `📊 ${clubStats.evaluationsToday} evaluaciones hoy`)
+                ])
+              ]),
+              React.createElement('div', {
+                key: 'user-section',
+                className: 'flex items-center space-x-3'
+              }, [
+                React.createElement('span', {
+                  key: 'user-info',
+                  className: 'text-sm'
+                }, `${user.full_name} (${user.role})`),
+                React.createElement('select', {
+                  key: 'user-selector',
+                  className: 'bg-white/20 border border-white/30 rounded px-2 py-1 text-sm',
+                  value: user.id,
+                  onChange: (e) => switchUser(e.target.value)
+                }, allUsers.map(u => 
+                  React.createElement('option', {
+                    key: u.id,
+                    value: u.id,
+                    className: 'text-gray-900'
+                  }, `${u.full_name} (${u.role})`)
+                ))
+              ])
+            ])
+          ]);
+
+          // Renderizar vista actual
+          const renderCurrentView = () => {
+            switch (currentView) {
+              case 'evaluate':
+                return React.createElement(SimpleEvaluationForm, {
+                  dogId: appParams.dogId,
+                  userId: user.id,
+                  userRole: user.role,
+                  onClose: () => changeView('dashboard'),
+                  onSave: handleEvaluationSaved
+                });
+
+              case 'dashboard':
+                if (user.role === 'padre') {
+                  return React.createElement(ParentDashboard, {
+                    onEvaluate: (dog) => changeView('evaluate', { dogId: dog.id }),
+                    onNewDog: () => changeView('new-dog')
+                  });
+                } else if (user.role === 'profesor') {
+                  return React.createElement(TeacherDashboard, {
+                    onEvaluate: (dog) => changeView('evaluate', { dogId: dog.id })
+                  });
+                } else if (user.role === 'admin') {
+                  return React.createElement(AdminDashboard, {
+                    onNewUser: () => changeView('new-user'),
+                    onNewDog: () => changeView('new-dog')
+                  });
+                }
+                break;
+
+              default:
+                return React.createElement('div', {
+                  className: 'p-6 text-center'
+                }, [
+                  React.createElement('h2', {
+                    key: 'title',
+                    className: 'text-2xl font-bold text-gray-900 mb-4'
+                  }, 'Vista no encontrada'),
+                  React.createElement('p', {
+                    key: 'message',
+                    className: 'text-gray-600 mb-4'
+                  }, `Vista "${currentView}" no implementada`),
+                  React.createElement('button', {
+                    key: 'back',
+                    className: 'bg-[#56CCF2] text-white px-4 py-2 rounded-lg',
+                    onClick: () => changeView('dashboard')
+                  }, 'Volver al Dashboard')
+                ]);
+            }
+          };
+
+          // Componente principal
+          return React.createElement('div', {
+            className: 'min-h-screen bg-[#FFFBF0]'
+          }, [
+            React.createElement(AppHeader, { key: 'header' }),
+            React.createElement('main', {
+              key: 'main',
+              className: 'flex-1'
+            }, renderCurrentView())
+          ]);
+        };
+
+        // Componente raíz con AuthProvider
+        const App = () => {
+          return React.createElement(ExpandedAuthProvider, {}, 
+            React.createElement(ClubApp)
+          );
+        };
+
+        console.log('🎨 Renderizando aplicación...');
+
+        // Ocultar loading y mostrar app
+        document.getElementById('app-loading').style.display = 'none';
+        document.getElementById('club-app').style.display = 'block';
+        
+        // Renderizar en el DOM
+        const container = document.getElementById('club-app');
+        ReactDOM.render(React.createElement(App), container);
+
+        console.log('✅ Club Canino App inicializada correctamente');
+        console.log(`⏱️ Tiempo de carga: ${Date.now() - APP_CONFIG.startTime}ms`);
+
+      } catch (error) {
+        console.error('❌ Error fatal inicializando app:', error);
+        
+        // Mostrar error
+        document.getElementById('app-loading').style.display = 'none';
+        document.getElementById('app-error').style.display = 'block';
+        document.getElementById('error-message').textContent = error.message;
+      }
+    }
+
+    // Inicializar cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeClubApp);
+    } else {
+      initializeClubApp();
+    }
+
+    // Funciones globales para debugging
+    window.clubApp = {
+      config: APP_CONFIG,
+      restart: () => window.location.reload(),
+      switchRole: (role) => {
+        window.location.href = `/app?role=${role}`;
+      },
+      evaluate: (dogId) => {
+        window.location.href = `/app?action=evaluate&dog=${dogId}`;
+      }
+    };
+
+    console.log('🔧 Debug disponible en window.clubApp');
+  </script>
+</Layout>
