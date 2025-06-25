@@ -1,22 +1,98 @@
 ---
-// src/pages/dashboard/padre.astro - VERSIÓN COMPLETA CON EVALUACIÓN
+// src/pages/dashboard/padre.astro - CON DATOS REALES DE SUPABASE
 import Layout from '../../layouts/Layout.astro';
-import CompleteEvaluationForm from '../../components/dashboard/CompleteEvaluationForm.jsx';
+import { createClient } from '@supabase/supabase-js';
 
-const { user, profile } = Astro.locals;
+// ===============================================
+// 🔧 CONFIGURACIÓN SUPABASE
+// ===============================================
 
-// 🧪 MODO TESTING: NO verificar usuario por ahora
-// if (!user) {
-//   return Astro.redirect('/login');
-// }
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
-// Datos por defecto para testing
-const displayName = profile?.full_name || user?.email || 'Usuario de Prueba';
-const userRole = profile?.role || 'padre';
+let userProfile = null;
+let userDogs = [];
+let recentEvaluations = [];
+let hasSupabaseConnection = false;
 
-// IDs de prueba para las evaluaciones
-const testDogId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; // Max
-const testUserId = user?.id || '11111111-1111-1111-1111-111111111111'; // María
+// ===============================================
+// 📊 CARGAR DATOS REALES DE SUPABASE
+// ===============================================
+
+if (supabaseUrl && supabaseKey) {
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    hasSupabaseConnection = true;
+
+    // 1. Cargar perfil de María (usuario padre de prueba)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', 'maria@gmail.com')
+      .single();
+
+    if (!profileError && profile) {
+      userProfile = profile;
+      
+      // 2. Cargar perros de María
+      const { data: dogs, error: dogsError } = await supabase
+        .from('dogs')
+        .select('*')
+        .eq('owner_id', profile.id)
+        .eq('active', true)
+        .order('name');
+
+      if (!dogsError && dogs) {
+        userDogs = dogs;
+        
+        // 3. Cargar evaluaciones recientes de los perros
+        const dogIds = dogs.map(dog => dog.id);
+        if (dogIds.length > 0) {
+          const { data: evaluations, error: evalError } = await supabase
+            .from('evaluations')
+            .select(`
+              *,
+              dogs(name, breed),
+              profiles(full_name, role)
+            `)
+            .in('dog_id', dogIds)
+            .order('date', { ascending: false })
+            .limit(10);
+
+          if (!evalError && evaluations) {
+            recentEvaluations = evaluations;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error loading Supabase data:', error);
+    hasSupabaseConnection = false;
+  }
+}
+
+// ===============================================
+// 📝 DATOS PARA LA PÁGINA
+// ===============================================
+
+const displayName = userProfile?.full_name || 'Usuario Padre';
+const userRole = userProfile?.role || 'padre';
+const userEmail = userProfile?.email || '';
+const totalDogs = userDogs.length;
+const totalEvaluations = recentEvaluations.length;
+
+// Calcular estadísticas
+const evaluationsThisWeek = recentEvaluations.filter(evaluation => {
+  const evaluationDate = new Date(evaluation.date);
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  return evaluationDate >= weekAgo;
+}).length;
+
+// Promedio de energía de todos los perros
+const avgEnergy = recentEvaluations.length > 0 
+  ? Math.round(recentEvaluations.reduce((sum, evaluation) => sum + (evaluation.energy_level || 0), 0) / recentEvaluations.length)
+  : 0;
 ---
 
 <Layout title="Mi Dashboard - Club Canino">
@@ -30,219 +106,248 @@ const testUserId = user?.id || '11111111-1111-1111-1111-111111111111'; // María
         <div class="inline-block bg-[#56CCF2] text-white px-4 py-2 rounded-full mt-2">
           👨‍👩‍👧‍👦 Rol: {userRole}
         </div>
+        {userEmail && (
+          <p class="text-sm text-gray-500 mt-2">{userEmail}</p>
+        )}
       </div>
 
-      <!-- Estado del Sistema -->
-      <div class="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
-        <h2 class="text-2xl font-bold text-green-800 mb-4">🎉 ¡SISTEMA FUNCIONANDO!</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-green-700">
-          <div class="flex items-center">
-            <span class="text-xl mr-2">✅</span>
-            <span>Dashboard: Operativo</span>
-          </div>
-          <div class="flex items-center">
-            <span class="text-xl mr-2">✅</span>
-            <span>Base de datos: Conectada</span>
-          </div>
-          <div class="flex items-center">
-            <span class="text-xl mr-2">✅</span>
-            <span>Evaluaciones: Disponibles</span>
+      <!-- Estado de Conexión -->
+      {hasSupabaseConnection ? (
+        <div class="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
+          <h2 class="text-2xl font-bold text-green-800 mb-4">✅ Conectado a Supabase</h2>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-green-700">
+            <div class="flex items-center">
+              <span class="text-xl mr-2">🐕</span>
+              <div>
+                <div class="font-semibold">{totalDogs}</div>
+                <div class="text-sm">Mascotas</div>
+              </div>
+            </div>
+            <div class="flex items-center">
+              <span class="text-xl mr-2">📊</span>
+              <div>
+                <div class="font-semibold">{totalEvaluations}</div>
+                <div class="text-sm">Evaluaciones</div>
+              </div>
+            </div>
+            <div class="flex items-center">
+              <span class="text-xl mr-2">📅</span>
+              <div>
+                <div class="font-semibold">{evaluationsThisWeek}</div>
+                <div class="text-sm">Esta semana</div>
+              </div>
+            </div>
+            <div class="flex items-center">
+              <span class="text-xl mr-2">⚡</span>
+              <div>
+                <div class="font-semibold">{avgEnergy}/10</div>
+                <div class="text-sm">Energía promedio</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-
-      <!-- Cards Principales de Funcionalidad -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        
-        <!-- Card: Mis Mascotas -->
-        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-          <div class="text-center">
-            <div class="w-16 h-16 bg-[#56CCF2] rounded-full flex items-center justify-center mx-auto mb-4">
-              <span class="text-2xl text-white">🐕</span>
-            </div>
-            <h3 class="text-xl font-bold text-[#2C3E50] mb-2">Mis Mascotas</h3>
-            <p class="text-gray-600 mb-4">Max, Luna y Rocky están registrados en el sistema</p>
-            
-            <!-- Lista de mascotas -->
-            <div class="space-y-2 mb-4">
-              <div class="bg-blue-50 p-2 rounded text-sm">
-                🐕 <strong>Max</strong> - Golden Retriever
-              </div>
-              <div class="bg-blue-50 p-2 rounded text-sm">
-                🐕 <strong>Luna</strong> - Beagle
-              </div>
-              <div class="bg-blue-50 p-2 rounded text-sm">
-                🐕 <strong>Rocky</strong> - Pastor Alemán
-              </div>
-            </div>
-            
-            <button class="w-full bg-[#56CCF2] text-white py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors">
-              Gestionar Mascotas
-            </button>
-          </div>
+      ) : (
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 mb-8">
+          <h2 class="text-2xl font-bold text-red-800 mb-4">❌ Error de Conexión</h2>
+          <p class="text-red-700">No se pudo conectar a Supabase. Verifica la configuración.</p>
         </div>
+      )}
 
-        <!-- Card: Evaluaciones - CON COMPONENTE REAL -->
-        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-          <div class="text-center">
-            <div class="w-16 h-16 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
-              <span class="text-2xl text-[#2C3E50]">📊</span>
-            </div>
-            <h3 class="text-xl font-bold text-[#2C3E50] mb-2">Evaluaciones</h3>
-            <p class="text-gray-600 mb-4">Evalúa el comportamiento de tus mascotas en casa</p>
-            
-            <!-- Botón que abre el formulario de evaluación -->
-            <button 
-              id="open-evaluation-btn"
-              class="w-full bg-[#C7EA46] text-[#2C3E50] py-3 rounded-lg hover:bg-[#FFFE8D] transition-colors font-semibold"
-            >
-              📝 Nueva Evaluación
-            </button>
-          </div>
-        </div>
-
-        <!-- Card: Progreso -->
-        <div class="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
-          <div class="text-center">
-            <div class="w-16 h-16 bg-[#AB5729] rounded-full flex items-center justify-center mx-auto mb-4">
-              <span class="text-2xl text-white">📈</span>
-            </div>
-            <h3 class="text-xl font-bold text-[#2C3E50] mb-2">Progreso</h3>
-            <p class="text-gray-600 mb-4">Ve la evolución y progreso de tus mascotas</p>
-            
-            <!-- Progreso simulado -->
-            <div class="space-y-2 mb-4">
-              <div class="flex justify-between text-sm">
-                <span>Obediencia Max:</span>
-                <span class="font-bold text-green-600">85%</span>
-              </div>
-              <div class="w-full bg-gray-200 rounded-full h-2">
-                <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
-              </div>
-            </div>
-            
-            <button class="w-full bg-[#AB5729] text-white py-3 rounded-lg hover:bg-opacity-90 transition-colors">
-              Ver Progreso Completo
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sección de Evaluaciones Recientes -->
-      <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
-        <h3 class="text-2xl font-bold text-[#2C3E50] mb-6">📊 Evaluaciones Recientes</h3>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="border border-gray-200 rounded-lg p-4">
-            <div class="flex justify-between items-start mb-2">
-              <h4 class="font-bold text-lg">🐕 Max</h4>
-              <span class="text-sm text-gray-500">Ayer</span>
-            </div>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-              <div>Energía: <span class="font-bold text-blue-600">6/10</span></div>
-              <div>Social: <span class="font-bold text-green-600">7/10</span></div>
-              <div>Obediencia: <span class="font-bold text-purple-600">5/10</span></div>
-              <div>Ansiedad: <span class="font-bold text-orange-600">6/10</span></div>
-            </div>
-            <p class="text-xs text-gray-600 mt-2">
-              Max estuvo muy cariñoso y juguetón...
-            </p>
+      <!-- Mis Mascotas -->
+      {userDogs.length > 0 ? (
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-[#2C3E50]">🐕 Mis Mascotas</h2>
           </div>
           
-          <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
-            <div class="text-center text-gray-500 py-8">
-              <span class="text-4xl block mb-2">📝</span>
-              <p>Crea una nueva evaluación para ver más datos</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {userDogs.map((dog) => {
+              // Calcular evaluaciones de este perro
+              const dogEvaluations = recentEvaluations.filter(evaluation => evaluation.dog_id === dog.id);
+              const lastEvaluation = dogEvaluations[0]; // Más reciente
+              
+              return (
+                <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div class="text-center mb-4">
+                    <div class="text-4xl mb-2">🐕</div>
+                    <h3 class="text-xl font-bold text-[#2C3E50]">{dog.name}</h3>
+                    <p class="text-gray-600 text-sm">
+                      {dog.breed} • {dog.size} • {dog.age} años
+                    </p>
+                    {dog.notes && (
+                      <p class="text-gray-500 text-xs mt-2">{dog.notes}</p>
+                    )}
+                  </div>
+                  
+                  {lastEvaluation ? (
+                    <div class="space-y-2 mb-4">
+                      <div class="text-sm text-gray-600">
+                        <strong>Última evaluación:</strong> {new Date(lastEvaluation.date).toLocaleDateString('es-ES')}
+                      </div>
+                      <div class="text-sm text-gray-600">
+                        <strong>Lugar:</strong> {lastEvaluation.location === 'casa' ? '🏠 Casa' : '🏫 Colegio'}
+                      </div>
+                      {lastEvaluation.energy_level && (
+                        <div class="text-sm">
+                          <strong>Energía:</strong> {lastEvaluation.energy_level}/10
+                          <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                            <div 
+                              class="bg-[#56CCF2] h-2 rounded-full" 
+                              style={`width: ${(lastEvaluation.energy_level / 10) * 100}%`}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div class="text-center text-gray-500 text-sm mb-4">
+                      Sin evaluaciones recientes
+                    </div>
+                  )}
+                  
+                  <div class="space-y-2">
+                    <button 
+                      class="w-full bg-[#56CCF2] text-white py-2 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-sm"
+                      onclick={`showEvaluationModal('${dog.id}', '${dog.name}')`}
+                    >
+                      📝 Evaluar en Casa
+                    </button>
+                    <button 
+                      class="w-full border border-[#56CCF2] text-[#56CCF2] py-2 px-4 rounded-lg hover:bg-[#56CCF2] hover:text-white transition-colors text-sm"
+                      onclick={`showProgressModal('${dog.id}', '${dog.name}')`}
+                    >
+                      📊 Ver Progreso
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div class="bg-white rounded-xl shadow-lg p-8 text-center">
+          <div class="text-6xl mb-4">🐕</div>
+          <h3 class="text-xl font-bold text-[#2C3E50] mb-2">No hay mascotas registradas</h3>
+          <p class="text-gray-600 mb-6">
+            {hasSupabaseConnection 
+              ? 'Contacta al administrador para registrar tus mascotas.' 
+              : 'Verifica la conexión a Supabase para cargar tus mascotas.'
+            }
+          </p>
+        </div>
+      )}
+
+      <!-- Evaluaciones Recientes -->
+      {recentEvaluations.length > 0 && (
+        <div class="bg-white rounded-xl shadow-lg p-6">
+          <h2 class="text-2xl font-bold text-[#2C3E50] mb-6">📊 Evaluaciones Recientes</h2>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-gray-200">
+                  <th class="text-left py-3 px-4">Fecha</th>
+                  <th class="text-left py-3 px-4">Mascota</th>
+                  <th class="text-left py-3 px-4">Lugar</th>
+                  <th class="text-left py-3 px-4">Energía</th>
+                  <th class="text-left py-3 px-4">Evaluador</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentEvaluations.slice(0, 5).map((evaluation) => (
+                  <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 px-4">
+                      {new Date(evaluation.date).toLocaleDateString('es-ES')}
+                    </td>
+                    <td class="py-3 px-4 font-medium">
+                      {evaluation.dogs?.name || 'N/A'}
+                    </td>
+                    <td class="py-3 px-4">
+                      {evaluation.location === 'casa' ? '🏠 Casa' : '🏫 Colegio'}
+                    </td>
+                    <td class="py-3 px-4">
+                      {evaluation.energy_level ? `${evaluation.energy_level}/10` : 'N/A'}
+                    </td>
+                    <td class="py-3 px-4 text-gray-600">
+                      {evaluation.profiles?.full_name || 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {recentEvaluations.length > 5 && (
+            <div class="text-center mt-4">
+              <button class="text-[#56CCF2] hover:text-[#5B9BD5] text-sm font-medium">
+                Ver todas las evaluaciones ({recentEvaluations.length})
+              </button>
             </div>
-          </div>
+          )}
         </div>
-      </div>
+      )}
 
-      <!-- Debug Info -->
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-        <h4 class="font-bold text-blue-800 mb-2">🐛 Info de Debug:</h4>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div class="space-y-1">
-            <p><strong>Usuario:</strong> {user ? '✅ Presente' : '❌ No definido'}</p>
-            <p><strong>Perfil:</strong> {profile ? '✅ Presente' : '❌ No definido'}</p>
-            <p><strong>Email:</strong> {user?.email || 'No disponible'}</p>
-          </div>
-          <div class="space-y-1">
-            <p><strong>Rol:</strong> {profile?.role || 'No definido'}</p>
-            <p><strong>Dog ID (Test):</strong> {testDogId.substring(0, 8)}...</p>
-            <p><strong>User ID (Test):</strong> {testUserId.substring(0, 8)}...</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Navegación -->
-      <div class="text-center space-x-4">
-        <a href="/login" class="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors">
-          🔄 Probar Otros Roles
+      <!-- Enlaces útiles -->
+      <div class="mt-8 text-center space-x-4">
+        <a href="/crear-datos-prueba/" class="text-[#56CCF2] hover:text-[#5B9BD5] text-sm">
+          🔧 Crear Datos de Prueba
         </a>
-        <a href="/" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors">
-          🏠 Volver al Inicio
+        <a href="/diagnostico/" class="text-[#56CCF2] hover:text-[#5B9BD5] text-sm">
+          📊 Diagnóstico del Sistema
         </a>
-        <a href="/diagnostico" class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors">
-          🔧 Diagnóstico
+        <a href="/login/" class="text-[#56CCF2] hover:text-[#5B9BD5] text-sm">
+          🔑 Cambiar Usuario
         </a>
       </div>
 
     </div>
   </div>
 
-  <!-- COMPONENTE DE EVALUACIÓN (Inicialmente oculto) -->
-  <div id="evaluation-modal" style="display: none;">
-   <CompleteEvaluationForm 
-  dogId={testDogId}
-  userId={testUserId}
-  userRole={userRole}
-  onClose={() => {}}
-  onSave={() => {}}
-  client:load 
-/>
-  </div>
-</Layout>
+  <!-- Modal placeholder (se cargará dinámicamente) -->
+  <div id="modal-container"></div>
 
-<!-- JavaScript para manejar la apertura del formulario -->
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const openBtn = document.getElementById('open-evaluation-btn');
-    const modal = document.getElementById('evaluation-modal');
-    
-    if (openBtn && modal) {
-      openBtn.addEventListener('click', function() {
-        console.log('🎯 Abriendo formulario de evaluación');
-        modal.style.display = 'block';
-      });
+  <!-- Scripts -->
+  <script>
+    // ===============================================
+    // 🔧 FUNCIONES DE INTERACCIÓN CON TIPOS
+    // ===============================================
+
+    function showEvaluationModal(dogId: string, dogName: string): void {
+      alert(`Evaluar a ${dogName} (ID: ${dogId})\n\nModal de evaluación en desarrollo...`);
     }
-    
-    // Cerrar modal con ESC
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && modal && modal.style.display === 'block') {
-        modal.style.display = 'none';
-      }
-    });
-  });
-</script>
 
-<style>
-  /* Animaciones suaves */
-  .transition-shadow {
-    transition: box-shadow 0.3s ease;
-  }
-  
-  .hover\:shadow-xl:hover {
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  }
-  
-  /* Estilos para el modal */
-  #evaluation-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-  }
-</style>
+    function showProgressModal(dogId: string, dogName: string): void {
+      alert(`Progreso de ${dogName} (ID: ${dogId})\n\nModal de progreso en desarrollo...`);
+    }
+
+    // ===============================================
+    // 🌐 DECLARACIONES GLOBALES
+    // ===============================================
+
+    // Extender Window interface
+    declare global {
+      interface Window {
+        showEvaluationModal: (dogId: string, dogName: string) => void;
+        showProgressModal: (dogId: string, dogName: string) => void;
+      }
+    }
+
+    // Asignar a window
+    (window as any).showEvaluationModal = showEvaluationModal;
+    (window as any).showProgressModal = showProgressModal;
+
+    // ===============================================
+    // 🚀 INICIALIZACIÓN
+    // ===============================================
+
+    document.addEventListener('DOMContentLoaded', function(): void {
+      console.log('✅ Dashboard padre cargado');
+      console.log('📊 Datos cargados:', {
+        hasSupabase: `{hasSupabaseConnection}`,
+        userProfile: `{userProfile ? userProfile.full_name : 'No cargado'}`,
+        totalDogs: `{totalDogs}`,
+        totalEvaluations: `{totalEvaluations}`
+      });
+    });
+  </script>
+</Layout>
