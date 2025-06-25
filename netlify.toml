@@ -1,34 +1,30 @@
-# netlify.toml - CONFIGURACIÓN CORREGIDA PARA CLUB CANINO
+# netlify.toml
+# Configuración corregida para Club Canino Dos Huellitas
 
 [build]
   command = "npm run build"
   publish = "dist"
-  functions = "netlify/functions"
 
 # ============================================
-# 🚀 REDIRECCIONES PARA SPA/ASTRO
+# 🔧 REDIRECCIONES CORREGIDAS
 # ============================================
 
-# Redirección principal para SPA
+# API routes - Si tienes funciones serverless
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# SPA Fallback SOLO para archivos que NO existen
+# Esto evita las redirecciones infinitas
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  conditions = {Role = ["*"]}
-
-# Redirecciones específicas para rutas protegidas
-[[redirects]]
-  from = "/app/*"
-  to = "/app/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/dashboard/*"
-  to = "/dashboard/index.html"
-  status = 200
+  force = false  # CRÍTICO: No forzar si el archivo existe
 
 # ============================================
-# 🛡️ HEADERS DE SEGURIDAD
+# 🔒 HEADERS DE SEGURIDAD
 # ============================================
 
 [[headers]]
@@ -38,43 +34,26 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    # CSP más permisivo para desarrollo
-    Content-Security-Policy = "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://* blob:; connect-src 'self' https://* wss://*;"
 
-# Headers específicos para archivos estáticos
+# Headers específicos para HTML
 [[headers]]
-  for = "/images/*"
+  for = "/*.html"
   [headers.values]
-    Cache-Control = "public, max-age=31536000"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Headers para assets estáticos
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/_astro/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000"
+    Cache-Control = "public, max-age=31536000, immutable"
 
 # ============================================
-# 🔧 CONFIGURACIÓN DE FUNCIONES
-# ============================================
-
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-
-# ============================================
-# 🌍 CONFIGURACIÓN DE ENTORNO
-# ============================================
-
-[context.production.environment]
-  NODE_VERSION = "18"
-
-[context.deploy-preview.environment]
-  NODE_VERSION = "18"
-
-[context.branch-deploy.environment]
-  NODE_VERSION = "18"
-
-# ============================================
-# 🚀 CONFIGURACIÓN DEL ENTORNO DE DESARROLLO
+# 🌍 CONFIGURACIÓN DEL ENTORNO
 # ============================================
 
 [dev]
@@ -83,3 +62,27 @@
   targetPort = 4321
   publish = "dist"
   framework = "astro"
+
+# ============================================
+# 🎯 CONFIGURACIÓN ESPECÍFICA ASTRO
+# ============================================
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Manejo de errores 404
+[[redirects]]
+  from = "/404"
+  to = "/404.html"
+  status = 200
+
+# ============================================
+# 💡 COMENTARIOS IMPORTANTES
+# ============================================
+# 
+# - force = false es CRÍTICO para evitar redirecciones infinitas
+# - Las páginas estáticas (login, dashboard, etc.) ya existen en dist/
+# - Solo se redirige a index.html si el archivo NO existe
+# - Los headers están optimizados para performance y seguridad
+#
+# ============================================
