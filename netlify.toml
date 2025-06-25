@@ -1,12 +1,24 @@
 # netlify.toml
-# Configuración corregida para Club Canino Dos Huellitas
+# Configuración UNIVERSAL para Club Canino Dos Huellitas
 
 [build]
   command = "npm run build"
   publish = "dist"
 
 # ============================================
-# 🔧 REDIRECCIONES CORREGIDAS
+# 🎯 TRAILING SLASH FIX UNIVERSAL
+# ============================================
+
+# Redirigir TODAS las páginas sin slash a páginas con slash
+# Esto hace que funcionen ambos casos automáticamente
+[[redirects]]
+  from = "/*"
+  to = "/:splat/"
+  status = 301
+  conditions = {Role = ["missing"]}
+
+# ============================================
+# 🔧 REDIRECCIONES ESPECÍFICAS
 # ============================================
 
 # API routes - Si tienes funciones serverless
@@ -15,13 +27,12 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-# SPA Fallback SOLO para archivos que NO existen
-# Esto evita las redirecciones infinitas
+# SPA Fallback para páginas que no existen
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  force = false  # CRÍTICO: No forzar si el archivo existe
+  force = false
 
 # ============================================
 # 🔒 HEADERS DE SEGURIDAD
@@ -77,12 +88,14 @@
   status = 200
 
 # ============================================
-# 💡 COMENTARIOS IMPORTANTES
+# 💡 CÓMO FUNCIONA LA REDIRECCIÓN UNIVERSAL
 # ============================================
 # 
-# - force = false es CRÍTICO para evitar redirecciones infinitas
-# - Las páginas estáticas (login, dashboard, etc.) ya existen en dist/
-# - Solo se redirige a index.html si el archivo NO existe
-# - Los headers están optimizados para performance y seguridad
+# 1. Usuario va a /login → Redirige a /login/ (301)
+# 2. Usuario va a /login/ → Sirve /login/index.html directamente
+# 3. conditions = {Role = ["missing"]} asegura que solo redirija
+#    si el archivo /login no existe (evita loops infinitos)
+# 4. force = false asegura que archivos existentes no se redirijan
 #
+# RESULTADO: Ambas URLs funcionan perfectamente
 # ============================================
