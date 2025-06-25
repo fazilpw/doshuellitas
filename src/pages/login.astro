@@ -1,8 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import LoginForm from '../components/auth/LoginForm.jsx';
+import SimpleLoginForm from '../components/auth/SimpleLoginForm.jsx'; // ← CAMBIAR ESTA LÍNEA
 ---
 
 <Layout title="Iniciar Sesión | Club Canino">
-  <LoginForm client:load />
+  <SimpleLoginForm client:load />
 </Layout>
