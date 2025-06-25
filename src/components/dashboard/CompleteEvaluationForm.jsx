@@ -263,11 +263,11 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
           </div>
 
           {/* Barra de progreso */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             {[1, 2, 3, 4].map((stepNum) => (
               <div key={stepNum} className="flex items-center">
                 <div className={`
-                  w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                  w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-medium
                   ${step >= stepNum 
                     ? 'bg-[#56CCF2] text-white' 
                     : 'bg-gray-200 text-gray-500'
@@ -562,14 +562,14 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
         </div>
 
         {/* Footer con botones */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4">
+        <div className="sticky bottom-0 bg-white text-base border-t border-gray-200 px-3 py-2">
           <div className="flex justify-between">
             <div>
               {step > 1 && (
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="bg-gray-500 text-white py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors"
+                  className="bg-gray-500 text-white text-sm md:tex-xl py-2 px-4 md:py-2 md:px-6 rounded-lg hover:bg-gray-600 transition-colors"
                 >
                   ← Anterior
                 </button>
@@ -580,7 +580,7 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
               <button
                 type="button"
                 onClick={onClose}
-                className="bg-gray-300 text-gray-700 py-2 px-6 rounded-lg hover:bg-gray-400 transition-colors"
+                className="bg-gray-300 text-gray-700  text-sm md:tex-xl py-2 px-4 md:py-2 md:px-6 rounded-lg hover:bg-gray-400 transition-colors"
               >
                 Cancelar
               </button>
@@ -589,7 +589,7 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="bg-[#56CCF2] text-white py-2 px-6 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+                  className="bg-[#56CCF2] text-white  text-sm md:tex-xl py-2 px-4 md:py-2 md:px-6 rounded-lg hover:bg-[#5B9BD5] transition-colors"
                 >
                   Siguiente →
                 </button>

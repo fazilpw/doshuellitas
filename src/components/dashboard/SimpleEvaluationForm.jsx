@@ -493,7 +493,7 @@ const SimpleEvaluationForm = ({ dogId, onClose, onSave }) => {
             {step < 4 ? (
               <button
                 onClick={nextStep}
-                className="px-6 py-2 bg-[#56CCF2] text-white rounded-lg hover:bg-[#5B9BD5]"
+                className="px-6 py-2 bg-[#56CCF2]  text-white rounded-lg hover:bg-[#5B9BD5]"
               >
                 Siguiente →
               </button>

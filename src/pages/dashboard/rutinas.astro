@@ -1,0 +1,345 @@
+---
+// src/pages/dashboard/rutinas.astro - PÁGINA DE RUTINAS Y ALARMAS
+import Layout from '../../layouts/Layout.astro';
+import { supabaseAdmin } from '../../lib/supabase.js';
+
+// Verificar que el usuario esté autenticado y sea padre
+const mockUserId = '11111111-1111-1111-1111-111111111111'; // Para desarrollo
+
+// Obtener datos del usuario y sus perros
+let currentUser = null;
+let userDogs = [];
+let hasData = false;
+
+try {
+  // Buscar usuario padre
+  const { data: userData, error: userError } = await supabaseAdmin
+    .from('profiles')
+    .select('*')
+    .eq('id', mockUserId)
+    .eq('role', 'padre')
+    .single();
+
+  if (userData && !userError) {
+    currentUser = userData;
+    
+    // Obtener perros del usuario
+    const { data: dogsData, error: dogsError } = await supabaseAdmin
+      .from('dogs')
+      .select('*')
+      .eq('owner_id', mockUserId)
+      .eq('active', true)
+      .order('name');
+
+    if (dogsData && !dogsError) {
+      userDogs = dogsData;
+      hasData = true;
+    }
+  }
+} catch (error) {
+  console.error('Error fetching user data:', error);
+}
+
+const pageTitle = hasData ? 
+  `Rutinas de ${currentUser.full_name || 'Usuario'}` : 
+  'Configurar Rutinas - Club Canino';
+---
+
+<Layout title={pageTitle}>
+  <div class="min-h-screen bg-[#FFFBF0]">
+    
+    <!-- Header de navegación -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center py-4">
+          <div class="flex items-center space-x-4">
+            <a href="/dashboard/padre" class="text-[#56CCF2] hover:text-[#5B9BD5] transition-colors">
+              ← Volver al Dashboard
+            </a>
+            <div class="border-l border-gray-300 pl-4">
+              <h1 class="text-xl font-bold text-[#2C3E50]">🔔 Rutinas y Alarmas</h1>
+            </div>
+          </div>
+          
+          <div class="flex items-center space-x-3">
+            <!-- Estado de notificaciones -->
+            <div class="hidden sm:flex items-center text-sm text-gray-600">
+              <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+              Notificaciones activas
+            </div>
+            
+            <!-- Enlace de ayuda -->
+            <a 
+              href="/ayuda/rutinas" 
+              class="text-gray-500 hover:text-[#56CCF2] transition-colors"
+              title="Ayuda sobre rutinas"
+            >
+              ❓
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenido principal -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      
+      {hasData ? (
+        <!-- Usuario con datos -->
+        <div id="routine-manager-container" class="space-y-6">
+          
+          <!-- Banner informativo -->
+          <div class="bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-6">
+            <div class="flex items-start space-x-4">
+              <div class="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center flex-shrink-0">
+                <span class="text-2xl text-white">🔔</span>
+              </div>
+              <div class="flex-1">
+                <h2 class="text-lg font-bold text-[#2C3E50] mb-2">
+                  ¡Bienvenido al Sistema de Rutinas!
+                </h2>
+                <p class="text-gray-700 text-sm mb-4">
+                  Organiza los horarios de alimentación, ejercicio, vacunas y cuidados de tus peluditos. 
+                  Recibe recordatorios automáticos para nunca olvidar nada importante.
+                </p>
+                
+                <!-- Características destacadas -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                  <div class="bg-white bg-opacity-60 rounded-lg p-3">
+                    <div class="font-medium text-blue-900 text-sm">⏰ Alarmas Personalizadas</div>
+                    <div class="text-xs text-blue-700 mt-1">Configura horarios únicos para cada perro</div>
+                  </div>
+                  <div class="bg-white bg-opacity-60 rounded-lg p-3">
+                    <div class="font-medium text-blue-900 text-sm">💉 Control de Vacunas</div>
+                    <div class="text-xs text-blue-700 mt-1">Nunca olvides una vacuna importante</div>
+                  </div>
+                  <div class="bg-white bg-opacity-60 rounded-lg p-3">
+                    <div class="font-medium text-blue-900 text-sm">📱 Notificaciones Push</div>
+                    <div class="text-xs text-blue-700 mt-1">Recibe avisos en tu teléfono</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contenedor del componente React -->
+          <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div id="routine-manager-root" class="min-h-96">
+              <!-- Loading state -->
+              <div class="flex items-center justify-center py-12">
+                <div class="text-center">
+                  <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#56CCF2] mx-auto mb-4"></div>
+                  <p class="text-gray-600">Cargando sistema de rutinas...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tips y consejos -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Consejos sobre rutinas -->
+            <div class="bg-green-50 border border-green-200 rounded-xl p-6">
+              <h3 class="font-bold text-green-900 mb-4 flex items-center">
+                <span class="mr-2">💡</span>
+                Consejos para Rutinas Exitosas
+              </h3>
+              <ul class="space-y-2 text-sm text-green-800">
+                <li class="flex items-start">
+                  <span class="text-green-600 mr-2 mt-1">•</span>
+                  <span><strong>Consistencia es clave:</strong> Los perros se sienten más seguros con horarios fijos</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-green-600 mr-2 mt-1">•</span>
+                  <span><strong>Ajusta según edad:</strong> Cachorros necesitan comidas más frecuentes</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-green-600 mr-2 mt-1">•</span>
+                  <span><strong>Ejercicio regular:</strong> Perros cansados son perros felices y obedientes</span>
+                </li>
+                <li class="flex items-start">
+                  <span class="text-green-600 mr-2 mt-1">•</span>
+                  <span><strong>Vacunas al día:</strong> Protege la salud de tu mascota y otros perros</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Información sobre notificaciones -->
+            <div class="bg-purple-50 border border-purple-200 rounded-xl p-6">
+              <h3 class="font-bold text-purple-900 mb-4 flex items-center">
+                <span class="mr-2">📱</span>
+                Cómo Funcionan las Notificaciones
+              </h3>
+              <div class="space-y-3 text-sm text-purple-800">
+                <div class="bg-white bg-opacity-60 rounded-lg p-3">
+                  <div class="font-medium">🔔 Push Notifications</div>
+                  <div class="text-xs mt-1">Aparecen en tu pantalla aunque no tengas la app abierta</div>
+                </div>
+                <div class="bg-white bg-opacity-60 rounded-lg p-3">
+                  <div class="font-medium">⏰ Recordatorios Anticipados</div>
+                  <div class="text-xs mt-1">Te avisamos 5-15 minutos antes de cada rutina</div>
+                </div>
+                <div class="bg-white bg-opacity-60 rounded-lg p-3">
+                  <div class="font-medium">🌙 Modo No Molestar</div>
+                  <div class="text-xs mt-1">Configura horarios de silencio para la noche</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Acciones rápidas -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a 
+              href="/dashboard/padre" 
+              class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
+            >
+              <div class="text-2xl mb-2">📊</div>
+              <div class="font-medium text-gray-900">Dashboard</div>
+              <div class="text-xs text-gray-600">Ver evaluaciones</div>
+            </a>
+            
+            <a 
+              href="/comandos" 
+              class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
+            >
+              <div class="text-2xl mb-2">🎓</div>
+              <div class="font-medium text-gray-900">Comandos</div>
+              <div class="text-xs text-gray-600">Entrenar a tu perro</div>
+            </a>
+            
+            <a 
+              href="https://wa.me/573144329824?text=Hola%20Juan%20Pablo%2C%20necesito%20ayuda%20con%20las%20rutinas%20de%20mi%20perro" 
+              target="_blank"
+              rel="noopener noreferrer"
+              class="bg-green-500 text-white rounded-lg p-4 hover:bg-green-600 transition-colors text-center"
+            >
+              <div class="text-2xl mb-2">💬</div>
+              <div class="font-medium">Ayuda</div>
+              <div class="text-xs opacity-90">WhatsApp Juan Pablo</div>
+            </a>
+            
+            <button 
+              onclick="window.print()"
+              class="bg-gray-100 text-gray-700 rounded-lg p-4 hover:bg-gray-200 transition-colors text-center"
+            >
+              <div class="text-2xl mb-2">🖨️</div>
+              <div class="font-medium">Imprimir</div>
+              <div class="text-xs">Rutinas de mis perros</div>
+            </button>
+          </div>
+        </div>
+        
+      ) : (
+        <!-- Usuario sin datos -->
+        <div class="text-center py-12">
+          <div class="max-w-md mx-auto">
+            <div class="text-6xl mb-6">🔧</div>
+            <h2 class="text-2xl font-bold text-[#2C3E50] mb-4">
+              Sistema en Preparación
+            </h2>
+            <p class="text-gray-600 mb-8">
+              Para usar el sistema de rutinas, necesitas tener perros registrados en el Club Canino.
+            </p>
+            
+            <div class="space-y-4">
+              <a 
+                href="/crear-datos-prueba" 
+                class="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                ✨ Crear Datos de Prueba
+              </a>
+              
+              <div class="text-sm text-gray-500">
+                o contacta a Juan Pablo para registrar tu perro
+              </div>
+              
+              <a 
+                href="https://wa.me/573144329824?text=Hola%20Juan%20Pablo%2C%20quiero%20registrar%20a%20mi%20perro%20para%20usar%20el%20sistema%20de%20rutinas"
+                target="_blank"
+                rel="noopener noreferrer" 
+                class="inline-flex items-center px-6 py-3 border border-[#56CCF2] text-[#56CCF2] rounded-lg hover:bg-[#56CCF2] hover:text-white transition-colors"
+              >
+                📱 Contactar por WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="text-center text-sm text-gray-500">
+          <p>Club Canino Dos Huellitas - Sistema de Rutinas y Alarmas</p>
+          <p class="mt-1">Mantén a tu peludito feliz y saludable con rutinas consistentes</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Scripts para el componente React -->
+  {hasData && (
+    <script type="module">
+      // Datos del servidor para React
+      const userData = {
+        id: '{currentUser.id}',
+        full_name: '{currentUser.full_name}',
+        email: '{currentUser.email}',
+        role: '{currentUser.role}'
+      };
+      
+      const userDogs = JSON.parse('{JSON.stringify(userDogs)}');
+      
+      // Importar y montar el componente React
+      import('/src/components/routines/RoutineManager.jsx').then(({ default: RoutineManager }) => {
+        const root = document.getElementById('routine-manager-root');
+        if (root && typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+          ReactDOM.render(
+            React.createElement(RoutineManager, {
+              currentUser: userData,
+              dogs: userDogs
+            }),
+            root
+          );
+        }
+      }).catch(error => {
+        console.error('Error loading RoutineManager:', error);
+        document.getElementById('routine-manager-root').innerHTML = `
+          <div class="text-center py-8">
+            <div class="text-4xl mb-4">⚠️</div>
+            <p class="text-gray-600">Error cargando el sistema de rutinas</p>
+            <button onclick="window.location.reload()" class="mt-4 bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors">
+              🔄 Reintentar
+            </button>
+          </div>
+        `;
+      });
+    </script>
+  )}
+
+  <!-- Service Worker para notificaciones -->
+  <script>
+    // Registrar service worker para notificaciones push
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('SW registered:', registration);
+        })
+        .catch(error => {
+          console.log('SW registration failed:', error);
+        });
+    }
+    
+    // Solicitar permisos de notificación
+    if ('Notification' in window && Notification.permission === 'default') {
+      // Lo haremos desde el componente React para mejor UX
+    }
+  </script>
+
+  <!-- Meta tags adicionales para PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" slot="head">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" slot="head">
+  <meta name="apple-mobile-web-app-title" content="Rutinas - Club Canino" slot="head">
+</Layout>

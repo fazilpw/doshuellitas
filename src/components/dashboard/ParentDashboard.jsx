@@ -1,8 +1,9 @@
-// src/components/dashboard/ParentDashboard.jsx - TU VERSIÓN + SELECTOR DE PERROS
+// src/components/dashboard/ParentDashboard.jsx - CON NAVEGACIÓN INTERNA
 import { useState, useEffect } from 'react';
 import supabase, { getDogAverages, getMultipleDogsAverages } from '../../lib/supabase.js';
 import CompleteEvaluationForm from './CompleteEvaluationForm.jsx';
 import DogProgressModal from './DogProgressModal.jsx';
+import RoutineManager from '../routines/RoutineManager.jsx';
 
 const ParentDashboard = () => {
   const [dogs, setDogs] = useState([]);
@@ -19,6 +20,9 @@ const ParentDashboard = () => {
 
   // 🆕 NUEVO: Estado para el selector de perros
   const [selectedDogId, setSelectedDogId] = useState('');
+
+  // 🆕 NUEVO: Estado para navegación de páginas
+  const [currentPage, setCurrentPage] = useState('dashboard'); // 'dashboard', 'rutinas', 'evaluaciones', 'progreso'
 
   useEffect(() => {
     initializeDashboard();
@@ -66,392 +70,381 @@ const ParentDashboard = () => {
         .order('name');
 
       if (error) {
-        console.error('❌ Error fetching user dogs:', error);
-        throw error;
+        console.error('❌ Error fetching dogs:', error);
+        setLoading(false);
+        return;
       }
 
-      console.log('✅ Perros del usuario:', data);
+      console.log('✅ Perros encontrados:', data);
       setDogs(data || []);
       
       if (data && data.length > 0) {
-        await Promise.all([
-          fetchRecentEvaluations(data.map(dog => dog.id)),
-          fetchDogsAverages(data.map(dog => dog.id))
-        ]);
+        await fetchEvaluations(data);
+        await fetchDogAverages(data);
       }
       
+      setLoading(false);
     } catch (error) {
-      console.error('❌ Error fetching dogs:', error);
-      setDogs([]);
-    } finally {
+      console.error('❌ Error in fetchUserDogs:', error);
       setLoading(false);
     }
   };
 
-  const fetchDogsAverages = async (dogIds) => {
+  const fetchEvaluations = async (dogList) => {
     try {
-      console.log('📊 Calculando promedios para perros:', dogIds);
-      
-      const { data, error } = await getMultipleDogsAverages(dogIds);
-      
+      const dogIds = dogList.map(dog => dog.id);
+      const { data, error } = await supabase
+        .from('evaluations')
+        .select(`
+          *,
+          dogs!inner(name, breed, photo_url),
+          profiles!inner(full_name, role)
+        `)
+        .in('dog_id', dogIds)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
       if (error) {
-        console.error('❌ Error fetching dog averages:', error);
+        console.error('❌ Error fetching evaluations:', error);
         return;
       }
-      
-      console.log('✅ Promedios calculados:', data);
-      setDogAverages(data || {});
-      
+
+      console.log('✅ Evaluaciones encontradas:', data);
+      setEvaluations(data || []);
+    } catch (error) {
+      console.error('❌ Error in fetchEvaluations:', error);
+    }
+  };
+
+  const fetchDogAverages = async (dogList) => {
+    try {
+      const averages = await getMultipleDogsAverages(dogList.map(dog => dog.id));
+      setDogAverages(averages);
+      console.log('✅ Promedios calculados:', averages);
     } catch (error) {
       console.error('❌ Error calculating averages:', error);
     }
   };
 
-  const fetchRecentEvaluations = async (dogIds) => {
-    try {
-      const { data, error } = await supabase
-        .from('evaluations')
-        .select(`
-          *,
-          dogs(name, id),
-          profiles!evaluations_evaluator_id_fkey(full_name, email, role)
-        `)
-        .in('dog_id', dogIds)
-        .gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-        .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+  const handleEvaluationClick = (dog) => {
+    setSelectedDog(dog);
+    setShowEvaluationForm(true);
+  };
 
-      if (error) {
-        console.error('❌ Error fetching evaluations:', error);
-        throw error;
-      }
-
-      console.log('✅ Evaluaciones recientes:', data);
-      setEvaluations(data || []);
-      
-    } catch (error) {
-      console.error('❌ Error fetching evaluations:', error);
-      setEvaluations([]);
+  const handleEvaluationSaved = () => {
+    setShowEvaluationForm(false);
+    setSelectedDog(null);
+    // Refrescar datos
+    if (currentUser) {
+      fetchUserDogs(currentUser.id);
     }
   };
 
-  const handleEvaluationSaved = async (newEvaluation) => {
-    console.log('✅ Nueva evaluación guardada:', newEvaluation);
-    
-    try {
-      if (dogs.length > 0) {
-        await fetchRecentEvaluations(dogs.map(dog => dog.id));
-      }
-      
-      if (newEvaluation.dog_id) {
-        console.log('📊 Recalculando promedios para:', newEvaluation.dog_id);
-        
-        const { data, error } = await getDogAverages(newEvaluation.dog_id);
-        
-        if (!error && data) {
-          setDogAverages(prev => ({
-            ...prev,
-            [newEvaluation.dog_id]: data
-          }));
-          console.log('✅ Promedios actualizados para perro:', newEvaluation.dog_id);
-        }
-      }
-      
-    } catch (error) {
-      console.error('❌ Error updating after evaluation:', error);
-    }
-  };
-
-  // 🆕 NUEVAS FUNCIONES PARA EL SELECTOR
-  const handleDogSelection = (dogId) => {
-    setSelectedDogId(dogId);
-    console.log('🐕 Perro seleccionado:', dogId);
-  };
-
-  const openEvaluationFormForSelected = () => {
-    if (!selectedDogId) {
-      alert('Por favor selecciona un perro para evaluar');
-      return;
-    }
-    const dog = dogs.find(d => d.id === selectedDogId);
-    if (dog) {
-      setSelectedDog(dog);
-      setShowEvaluationForm(true);
-    }
-  };
-
-  const getSelectedDog = () => {
-    return dogs.find(dog => dog.id === selectedDogId);
-  };
-
-  const getSelectedDogEvaluations = () => {
-    if (!selectedDogId) return [];
-    return evaluations
-      .filter(evaluation => evaluation.dog_id === selectedDogId)
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 5);
-  };
-
-  // 📊 FUNCIÓN CORREGIDA: Abrir modal de progreso
   const openProgressModal = (dog) => {
-    console.log('📊 === DEBUG MODAL PROGRESO ===');
-    console.log('📊 Perro seleccionado:', dog);
-    console.log('📊 ID del perro:', dog?.id);
-    console.log('📊 Nombre del perro:', dog?.name);
-    console.log('📊 DogProgressModal componente:', DogProgressModal);
-    console.log('📊 Tipo de DogProgressModal:', typeof DogProgressModal);
-    
-    console.log('📊 Estado showProgressModal antes:', showProgressModal);
-    console.log('📊 Estado selectedDogForProgress antes:', selectedDogForProgress);
-    
-    try {
-      setSelectedDogForProgress(dog);
-      setShowProgressModal(true);
-      
-      console.log('✅ Estados actualizados correctamente');
-      
-    } catch (error) {
-      console.error('❌ Error al actualizar estados:', error);
-    }
-    
-    setTimeout(() => {
-      console.log('📊 === VERIFICACIÓN POST-ACTUALIZACIÓN ===');
-      console.log('📊 showProgressModal final:', showProgressModal);
-      console.log('📊 selectedDogForProgress final:', selectedDogForProgress);
-    }, 100);
+    setSelectedDogForProgress(dog);
+    setShowProgressModal(true);
   };
 
   const closeProgressModal = () => {
-    console.log('📊 Cerrando modal de progreso');
     setShowProgressModal(false);
     setSelectedDogForProgress(null);
   };
 
-  const getLastEvaluation = (dogId, location) => {
-    return evaluations
-      .filter(evaluation => evaluation.dog_id === dogId && evaluation.location === location)
-      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+  // 🆕 NUEVO: Función para cambiar página
+  const navigateToPage = (page) => {
+    setCurrentPage(page);
   };
 
-  const getDogStats = (dogId) => {
-    const dogEvaluations = evaluations.filter(evaluation => evaluation.dog_id === dogId);
-    const averagesData = dogAverages[dogId];
-    
-    if (averagesData) {
-      return {
-        avg_energy: averagesData.raw_averages?.energy || 0,
-        avg_sociability: averagesData.raw_averages?.sociability || 0,
-        avg_obedience: averagesData.raw_averages?.obedience || 0,
-        total_evaluations: averagesData.total_evaluations || 0,
-        energy_percentage: averagesData.energy_percentage || 0,
-        sociability_percentage: averagesData.sociability_percentage || 0,
-        obedience_percentage: averagesData.obedience_percentage || 0,
-        anxiety_percentage: averagesData.anxiety_percentage || 0,
-        trend: averagesData.trend || 'sin_datos'
-      };
-    }
-    
-    if (dogEvaluations.length === 0) {
-      return { 
-        avg_energy: 0, 
-        avg_sociability: 0, 
-        avg_obedience: 0,
-        total_evaluations: 0,
-        energy_percentage: 0,
-        sociability_percentage: 0,
-        obedience_percentage: 0,
-        anxiety_percentage: 0,
-        trend: 'sin_datos'
-      };
-    }
+  // 🆕 NUEVO: Componente de navegación superior
+  const NavigationBar = () => (
+    <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center py-4">
+          <div className="flex items-center space-x-6">
+            <h1 className="text-xl font-bold text-[#2C3E50]">
+              {currentUser?.full_name ? `👋 ¡Hola ${currentUser.full_name}!` : '👋 ¡Hola!'}
+            </h1>
+            
+            {/* Navegación de páginas */}
+            <nav className="hidden sm:flex space-x-4">
+              <button
+                onClick={() => navigateToPage('dashboard')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentPage === 'dashboard'
+                    ? 'bg-[#56CCF2] text-white'
+                    : 'text-gray-600 hover:text-[#56CCF2]'
+                }`}
+              >
+                📊 Dashboard
+              </button>
+              <button
+                onClick={() => navigateToPage('rutinas')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentPage === 'rutinas'
+                    ? 'bg-[#56CCF2] text-white'
+                    : 'text-gray-600 hover:text-[#56CCF2]'
+                }`}
+              >
+                🔔 Rutinas
+              </button>
+              <button
+                onClick={() => navigateToPage('evaluaciones')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentPage === 'evaluaciones'
+                    ? 'bg-[#56CCF2] text-white'
+                    : 'text-gray-600 hover:text-[#56CCF2]'
+                }`}
+              >
+                📝 Evaluaciones
+              </button>
+              <button
+                onClick={() => navigateToPage('progreso')}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  currentPage === 'progreso'
+                    ? 'bg-[#56CCF2] text-white'
+                    : 'text-gray-600 hover:text-[#56CCF2]'
+                }`}
+              >
+                📈 Progreso
+              </button>
+            </nav>
+          </div>
 
-    const avg_energy = Math.round(
-      dogEvaluations.reduce((sum, evaluation) => sum + (evaluation.energy_level || 0), 0) / dogEvaluations.length
-    );
-    
-    const avg_sociability = Math.round(
-      dogEvaluations.reduce((sum, evaluation) => sum + (evaluation.sociability_level || 0), 0) / dogEvaluations.length
-    );
-
-    const avg_obedience = Math.round(
-      dogEvaluations.reduce((sum, evaluation) => sum + (evaluation.obedience_level || 0), 0) / dogEvaluations.length
-    );
-
-    return {
-      avg_energy,
-      avg_sociability,
-      avg_obedience,
-      total_evaluations: dogEvaluations.length,
-      energy_percentage: Math.round((avg_energy / 10) * 100),
-      sociability_percentage: Math.round((avg_sociability / 10) * 100),
-      obedience_percentage: Math.round((avg_obedience / 10) * 100),
-      trend: 'estable'
-    };
-  };
-
-  if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#56CCF2] mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold text-[#2C3E50] mb-2">
-            Cargando Dashboard del Padre
-          </h2>
-          <p className="text-gray-600">
-            Obteniendo información de tus peluditos...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentUser) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">🔧</div>
-          <h2 className="text-xl font-bold text-[#2C3E50] mb-2">
-            Usuario padre no encontrado
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Necesitas crear los datos de prueba para usar el dashboard del padre
-          </p>
-          <div className="space-x-4">
+          {/* Acciones rápidas */}
+          <div className="flex items-center space-x-2">
             <a 
-              href="/crear-datos-prueba" 
-              className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              href="https://wa.me/573144329824"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
             >
-              ✨ Crear Datos de Prueba
-            </a>
-            <a 
-              href="/diagnostico" 
-              className="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              🔧 Diagnóstico
+              💬 WhatsApp
             </a>
           </div>
         </div>
       </div>
-    );
-  }
 
-  const selectedDogForDisplay = getSelectedDog();
-  const selectedDogEvaluations = getSelectedDogEvaluations();
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#2C3E50]">
-          ¡Hola {currentUser.full_name || currentUser.email}! 👨‍👩‍👧‍👦
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Aquí puedes ver el progreso de tus peluditos y evaluar su comportamiento en casa
-        </p>
+      {/* Navegación móvil */}
+      <div className="sm:hidden bg-gray-50 px-4 py-2">
+        <div className="flex space-x-2 overflow-x-auto">
+          {[
+            { key: 'dashboard', icon: '📊', label: 'Dashboard' },
+            { key: 'rutinas', icon: '🔔', label: 'Rutinas' },
+            { key: 'evaluaciones', icon: '📝', label: 'Evaluar' },
+            { key: 'progreso', icon: '📈', label: 'Progreso' }
+          ].map((item) => (
+            <button
+              key={item.key}
+              onClick={() => navigateToPage(item.key)}
+              className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+                currentPage === item.key
+                  ? 'bg-[#56CCF2] text-white'
+                  : 'text-gray-600 hover:text-[#56CCF2]'
+              }`}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
+    </div>
+  );
 
-      {dogs.length === 0 ? (
+  // 🆕 NUEVO: Renderizar contenido según página actual
+  const renderPageContent = () => {
+    switch (currentPage) {
+      case 'rutinas':
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <RoutineManager 
+              currentUser={currentUser}
+              dogs={dogs}
+            />
+          </div>
+        );
+      
+      case 'evaluaciones':
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-2xl font-bold text-[#2C3E50] mb-6">📝 Nueva Evaluación</h2>
+              {dogs.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {dogs.map((dog) => (
+                    <div key={dog.id} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center">
+                          <span className="text-white text-lg">🐕</span>
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-900">{dog.name}</h3>
+                          <p className="text-sm text-gray-600">{dog.breed}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleEvaluationClick(dog)}
+                        className="w-full bg-[#56CCF2] text-white py-2 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+                      >
+                        Evaluar Ahora
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-4">🐕</div>
+                  <p className="text-gray-600">No tienes perros registrados</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      
+      case 'progreso':
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-2xl font-bold text-[#2C3E50] mb-6">📈 Progreso de tus Perros</h2>
+              {dogs.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {dogs.map((dog) => (
+                    <div key={dog.id} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center">
+                          <span className="text-white text-lg">🐕</span>
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-900">{dog.name}</h3>
+                          <p className="text-sm text-gray-600">{dog.breed}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => openProgressModal(dog)}
+                        className="w-full bg-[#C7EA46] text-[#2C3E50] py-2 px-4 rounded-lg hover:bg-[#FFFE8D] transition-colors"
+                      >
+                        Ver Progreso Completo
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-4xl mb-4">📈</div>
+                  <p className="text-gray-600">No hay datos de progreso disponibles</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      
+      default: // dashboard
+        return renderDashboardContent();
+    }
+  };
+
+  // Contenido original del dashboard
+  const renderDashboardContent = () => (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {loading ? (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">🐕</div>
-          <h2 className="text-xl font-bold text-[#2C3E50] mb-2">
-            No tienes perros registrados
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Contacta al administrador para registrar a tu peludito
-          </p>
-          <a 
-            href="https://wa.me/573144329824?text=Hola%20Juan%20Pablo%2C%20quiero%20registrar%20a%20mi%20perro%20en%20el%20club"
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            📱 Contactar por WhatsApp
-          </a>
+          <div className="w-16 h-16 bg-[#56CCF2] rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <span className="text-2xl text-white">🐕</span>
+          </div>
+          <h2 className="text-xl font-semibold text-[#2C3E50] mb-2">Cargando Dashboard</h2>
+          <p className="text-gray-600">Obteniendo información de tus perros...</p>
         </div>
       ) : (
         <>
-          {/* 🆕 NUEVO SELECTOR DE PERROS */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              
-              {/* Selector de perro */}
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Selecciona tu perro para evaluar:
-                </label>
-                <select
-                  value={selectedDogId}
-                  onChange={(e) => handleDogSelection(e.target.value)}
-                  className="w-full md:w-80 border border-gray-300 rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-                >
-                  <option value="">Seleccionar perro...</option>
-                  {dogs.map(dog => (
-                    <option key={dog.id} value={dog.id}>
-                      🐕 {dog.name} ({dog.breed})
-                    </option>
-                  ))}
-                </select>
-              </div>
+          {/* Tarjetas de perros */}
+          {dogs.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {dogs.map((dog) => {
+                const averages = dogAverages[dog.id] || {};
+                return (
+                  <div key={dog.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div className="p-6">
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className="w-16 h-16 bg-[#56CCF2] rounded-full flex items-center justify-center">
+                          <span className="text-2xl text-white">🐕</span>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-[#2C3E50]">{dog.name}</h3>
+                          <p className="text-gray-600">{dog.breed}</p>
+                          <p className="text-sm text-gray-500">{dog.age} años</p>
+                        </div>
+                      </div>
 
-              {/* Botón de evaluación */}
-              <div className="flex-shrink-0">
-                <button
-                  onClick={openEvaluationFormForSelected}
-                  disabled={!selectedDogId}
-                  className="w-full md:w-auto bg-[#56CCF2] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#5B9BD5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  📝 Evaluar en Casa
-                </button>
-              </div>
+                      {/* Métricas rápidas */}
+                      {Object.keys(averages).length > 0 && (
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-[#56CCF2]">
+                              {averages.energy_level?.toFixed(1) || 'N/A'}
+                            </div>
+                            <div className="text-xs text-gray-600">Energía</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-[#C7EA46]">
+                              {averages.sociability_level?.toFixed(1) || 'N/A'}
+                            </div>
+                            <div className="text-xs text-gray-600">Sociabilidad</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-[#5B9BD5]">
+                              {averages.obedience_level?.toFixed(1) || 'N/A'}
+                            </div>
+                            <div className="text-xs text-gray-600">Obediencia</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-orange-500">
+                              {averages.anxiety_level?.toFixed(1) || 'N/A'}
+                            </div>
+                            <div className="text-xs text-gray-600">Ansiedad</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Acciones */}
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEvaluationClick(dog)}
+                          className="flex-1 bg-[#56CCF2] text-white py-2 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-sm"
+                        >
+                          📝 Evaluar
+                        </button>
+                        <button
+                          onClick={() => openProgressModal(dog)}
+                          className="flex-1 bg-[#C7EA46] text-[#2C3E50] py-2 px-4 rounded-lg hover:bg-[#FFFE8D] transition-colors text-sm"
+                        >
+                          📊 Progreso
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          )}
 
-            {/* Información del perro seleccionado */}
-            {selectedDogForDisplay && (
-              <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center">
-                      <span className="text-2xl text-white">🐕</span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-[#2C3E50]">{selectedDogForDisplay.name}</h3>
-                      <p className="text-gray-600">
-                        {selectedDogForDisplay.breed} • {selectedDogForDisplay.size} • {selectedDogForDisplay.age} años
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <div className="text-sm text-gray-500">Evaluaciones:</div>
-                    <div className="text-2xl font-bold text-[#56CCF2]">
-                      {selectedDogEvaluations.length}
-                    </div>
-                  </div>
-                </div>
+          {/* Evaluaciones recientes */}
+          {evaluations.length > 0 && (
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
+              <div className="p-6 border-b border-gray-100">
+                <h3 className="text-xl font-bold text-[#2C3E50]">📋 Evaluaciones Recientes</h3>
               </div>
-            )}
-          </div>
-
-          {/* 🆕 EVALUACIONES DEL PERRO SELECCIONADO */}
-          {selectedDogForDisplay && selectedDogEvaluations.length > 0 && (
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-              <h2 className="text-xl font-bold text-[#2C3E50] mb-4">
-                📝 Evaluaciones Recientes de {selectedDogForDisplay.name}
-              </h2>
-              <div className="space-y-4">
-                {selectedDogEvaluations.map((evaluation, index) => (
-                  <div key={evaluation.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex justify-between items-start">
+              <div className="divide-y divide-gray-100">
+                {evaluations.slice(0, 5).map((evaluation) => (
+                  <div key={evaluation.id} className="p-6">
+                    <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <span className="text-sm font-medium text-gray-500">
-                            {new Date(evaluation.date).toLocaleDateString('es-CO', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h4 className="font-semibold text-gray-900">{evaluation.dogs.name}</h4>
+                          <span className="text-sm text-gray-500">•</span>
+                          <span className="text-sm text-gray-500">
+                            {new Date(evaluation.created_at).toLocaleDateString()}
                           </span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             evaluation.location === 'casa' ? 
                             'bg-blue-100 text-blue-800' : 
                             'bg-green-100 text-green-800'
@@ -492,187 +485,47 @@ const ParentDashboard = () => {
             </div>
           )}
 
-          {/* Resumen rápido */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center">
-                  <span className="text-xl text-white">🐕</span>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Mis Perros</p>
-                  <p className="text-2xl font-bold text-[#2C3E50]">{dogs.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-[#C7EA46] rounded-full flex items-center justify-center">
-                  <span className="text-xl text-[#2C3E50]">📝</span>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Evaluaciones</p>
-                  <p className="text-2xl font-bold text-[#2C3E50]">{evaluations.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-[#FFFE8D] rounded-full flex items-center justify-center">
-                  <span className="text-xl text-[#2C3E50]">📅</span>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Esta Semana</p>
-                  <p className="text-2xl font-bold text-[#2C3E50]">
-                    {evaluations.filter(evaluation => 
-                      new Date(evaluation.date) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                    ).length}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sección de Progreso */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h2 className="text-xl font-bold text-[#2C3E50] mb-6">
-              📈 Progreso de tus Peluditos
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {dogs.map((dog) => {
-                const stats = getDogStats(dog.id);
-                
-                return (
-                  <div key={dog.id} className="border rounded-xl p-6 hover:shadow-md transition-shadow">
-                    <div className="flex items-center mb-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {dog.name.charAt(0)}
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="font-bold text-gray-900">{dog.name}</h3>
-                        <p className="text-sm text-gray-600">{dog.breed}</p>
-                        {stats.trend !== 'sin_datos' && (
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            stats.trend === 'mejorando' ? 'bg-green-100 text-green-700' :
-                            stats.trend === 'empeorando' ? 'bg-red-100 text-red-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {stats.trend === 'mejorando' ? '📈 Mejorando' :
-                             stats.trend === 'empeorando' ? '📉 Necesita atención' :
-                             '➡️ Estable'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Obediencia</span>
-                          <span className="font-bold text-[#56CCF2]">{stats.obedience_percentage}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-[#56CCF2] h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${stats.obedience_percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Sociabilidad</span>
-                          <span className="font-bold text-[#C7EA46]">{stats.sociability_percentage}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-[#C7EA46] h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${stats.sociability_percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Energía</span>
-                          <span className="font-bold text-[#FFFE8D]">{stats.energy_percentage}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-[#FFFE8D] h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${stats.energy_percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      <div className="text-xs text-gray-500 pt-2 border-t">
-                        {stats.total_evaluations} evaluaciones • Última: {
-                          dogAverages[dog.id]?.last_evaluation_date ? 
-                          new Date(dogAverages[dog.id].last_evaluation_date).toLocaleDateString('es-CO') :
-                          'Sin datos'
-                        }
-                      </div>
-
-                      <button 
-                        onClick={() => openProgressModal(dog)}
-                        className="w-full text-[#56CCF2] hover:text-white text-sm font-medium py-2 border border-[#56CCF2] rounded-lg hover:bg-[#56CCF2] transition-colors"
-                      >
-                        📈 Ver Progreso Completo
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Acciones Rápidas */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-bold text-[#2C3E50] mb-4">
-              🚀 Acciones Rápidas
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button 
-                onClick={openEvaluationFormForSelected}
-                className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-left"
-              >
-                <div className="text-2xl mb-2">⚡</div>
-                <div className="font-semibold">Evaluar Ahora</div>
-                <div className="text-sm opacity-90">Evalúa comportamiento en casa</div>
-              </button>
-
-              <button 
-                onClick={() => {
-                  if (selectedDogForDisplay) {
-                    openProgressModal(selectedDogForDisplay);
-                  } else {
-                    alert('Selecciona un perro arriba para ver su progreso');
-                  }
-                }}
-                className="bg-[#C7EA46] text-[#2C3E50] p-4 rounded-lg hover:bg-[#FFFE8D] transition-colors text-left"
-              >
-                <div className="text-2xl mb-2">📈</div>
-                <div className="font-semibold">Ver Progreso</div>
-                <div className="text-sm opacity-90">Evolución de tus perros</div>
-              </button>
-
-              <a 
-                href="https://wa.me/573144329824?text=Hola%20Juan%20Pablo%2C%20tengo%20una%20consulta%20sobre%20mi%20perro"
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 transition-colors text-left block"
-              >
-                <div className="text-2xl mb-2">💬</div>
-                <div className="font-semibold">Contactar</div>
-                <div className="text-sm opacity-90">WhatsApp Juan Pablo</div>
-              </a>
-            </div>
+          {/* Acceso rápido */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => navigateToPage('rutinas')}
+              className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-left block w-full"
+            >
+              <div className="text-2xl mb-2">🔔</div>
+              <div className="font-semibold">Rutinas</div>
+              <div className="text-sm opacity-90">Gestionar horarios</div>
+            </button>
+            <button
+              onClick={() => navigateToPage('evaluaciones')}
+              className="bg-[#C7EA46] text-[#2C3E50] p-4 rounded-lg hover:bg-[#FFFE8D] transition-colors text-left block w-full"
+            >
+              <div className="text-2xl mb-2">📝</div>
+              <div className="font-semibold">Evaluar</div>
+              <div className="text-sm opacity-90">Nueva evaluación</div>
+            </button>
+            <a
+              href="https://wa.me/573144329824"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 transition-colors text-left block"
+            >
+              <div className="text-2xl mb-2">💬</div>
+              <div className="font-semibold">Contactar</div>
+              <div className="text-sm opacity-90">WhatsApp Juan Pablo</div>
+            </a>
           </div>
         </>
       )}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#FFFBF0]">
+      {/* Barra de navegación */}
+      <NavigationBar />
+      
+      {/* Contenido de la página actual */}
+      {renderPageContent()}
 
       {/* Modal de evaluación */}
       {showEvaluationForm && selectedDog && currentUser && (
