@@ -35,10 +35,9 @@ interface UserProfile {
 }
 
 const ROUTE_CONFIG = {
-  public: [
-    '/', '/login', '/register', '/logout',
-    '/servicios', '/instalaciones', '/contacto', '/preguntas-frecuentes',
-    '/about', '/privacy', '/terms'
+ public: [
+    '/', '/login', '/register', '/logout',    // ← /login debe estar aquí
+    '/servicios', '/instalaciones', '/contacto', '/preguntas-frecuentes'
   ],
   protected: {
     padre: ['/dashboard/padre', '/mis-mascotas', '/progreso', '/mi-perfil'],
