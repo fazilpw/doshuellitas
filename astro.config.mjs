@@ -6,7 +6,7 @@ import netlify from '@astrojs/netlify';
 
 export default defineConfig({
   // 🚀 CONFIGURACIÓN PARA NETLIFY (HÍBRIDA)
-  output: 'hybrid',
+  output: 'static',
   adapter: netlify(),
 
   // 🎨 Integraciones
