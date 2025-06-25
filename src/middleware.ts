@@ -1,24 +1,12 @@
 // src/middleware.ts
-// FASE A: CORRECCIÓN QUIRÚRGICA - MODO DEFENSIVO
-// ✅ Mantiene toda la lógica original pero es permisivo hasta tener datos
+// MIDDLEWARE REAL PARA CLUB CANINO - CON DATOS DE PRODUCCIÓN
 
 import { defineMiddleware } from 'astro:middleware';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 // ===============================================
-// 🎯 CONFIGURACIÓN DEFENSIVA (CAMBIO PRINCIPAL)
-// ===============================================
-
-const AUTH_CONFIG = {
-  DEBUG_MODE: import.meta.env.DEV || false,
-  ENABLE_FALLBACK: true,
-  // 🛡️ NUEVO: Modo defensivo hasta que tengamos datos estables
-  DEFENSIVE_MODE: false  // ← CAMBIAR A false cuando tengamos datos estables
-};
-
-// ===============================================
-// 🚦 RUTAS Y CONFIGURACIÓN (SIN CAMBIOS)
+// 🎯 TIPOS PARA CLUB CANINO
 // ===============================================
 
 interface UserProfile {
@@ -34,26 +22,38 @@ interface UserProfile {
   updated_at: string;
 }
 
+// ===============================================
+// 🎛️ CONFIGURACIÓN DE PRODUCCIÓN
+// ===============================================
+
+const AUTH_CONFIG = {
+  DEBUG_MODE: import.meta.env.DEV || false,
+  ENABLE_FALLBACK: false,  // ← CAMBIADO: Sin fallback en producción
+  DEFENSIVE_MODE: false    // ← CAMBIADO: Modo real activado
+};
+
+// Rutas organizadas por tipo
 const ROUTE_CONFIG = {
   public: [
-    '/', '/login', '/register', '/logout',
-    '/servicios', '/instalaciones', '/contacto', '/preguntas-frecuentes',
-    '/about', '/privacy', '/terms'
+    '/', '/servicios', '/instalaciones', '/contacto', 
+    '/preguntas-frecuentes', '/login', '/register', '/logout',
+    '/about', '/privacy', '/terms', '/gracias'
   ],
   protected: {
     padre: ['/dashboard/padre', '/mis-mascotas', '/progreso', '/mi-perfil'],
     profesor: ['/dashboard/profesor', '/evaluaciones', '/estudiantes', '/clases'],
-    admin: ['/dashboard/admin', '/admin', '/usuarios', '/reportes', '/configuracion', '/crear-datos-prueba']
+    admin: ['/dashboard/admin', '/admin', '/usuarios', '/reportes', '/configuracion']
   },
   bypass: [
     '/api/', '/images/', '/_astro/', '/favicon.ico', '/manifest.json',
-    '/sw.js', '/robots.txt', '/sitemap.xml', '/icons/', '/diagnostico',
-    '/crear-datos-prueba', '/diagnostico-fase1', '/fase2-implementacion'  // ← Críticos para setup
+    '/sw.js', '/robots.txt', '/sitemap.xml', '/icons/', 
+    '/diagnostico', '/diagnostico-fase1', '/fase2-implementacion',
+    '/crear-datos-prueba', '/test-', '/offline', '/error'
   ]
 };
 
 // ===============================================
-// 🚦 MIDDLEWARE PRINCIPAL CON MODO DEFENSIVO
+// 🚦 MIDDLEWARE PRINCIPAL DE PRODUCCIÓN
 // ===============================================
 
 export const onRequest = defineMiddleware(async (context, next) => {
@@ -66,7 +66,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   try {
     // ===============================================
-    // 🟢 PASO 1: VERIFICAR BYPASS (EXPANDIDO)
+    // 🟢 PASO 1: VERIFICAR BYPASS
     // ===============================================
     
     const shouldBypass = ROUTE_CONFIG.bypass.some(route => 
@@ -81,64 +81,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
 
     // ===============================================
-    // 🛡️ PASO 2: MODO DEFENSIVO (NUEVO)
+    // 🔐 PASO 2: INICIALIZAR SUPABASE
     // ===============================================
     
-    if (AUTH_CONFIG.DEFENSIVE_MODE) {
-      if (AUTH_CONFIG.DEBUG_MODE) {
-        console.log(`🛡️ MODO DEFENSIVO: ${pathname} - Permitiendo acceso temporal`);
-      }
-      
-      // Configurar locals básicos para evitar errores en el código
-      locals.user = {
-        id: '11111111-1111-1111-1111-111111111111',
-        email: 'maria@gmail.com'
-      } as User;
-      
-      locals.profile = {
-        id: '11111111-1111-1111-1111-111111111111',
-        email: 'maria@gmail.com',
-        role: 'padre',
-        full_name: 'María García (Modo Defensivo)',
-        phone: '3007654321',
-        active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        avatar_url: null,
-        club_member_since: new Date().toISOString()
-      } as UserProfile;
-      
-      // ⚠️ IMPORTANTE: Configurar Supabase si es posible, pero no fallar si no
-      try {
-        const supabase = createServerClient(
-          import.meta.env.PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-          import.meta.env.PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
-          {
-            cookies: {
-              getAll() {
-                return [];
-              },
-              setAll() {
-                // No hacer nada en modo defensivo
-              },
-            },
-          }
-        );
-        locals.supabase = supabase;
-      } catch (error) {
-        // En modo defensivo, no importa si Supabase falla
-        console.log('⚠️ Supabase no disponible en modo defensivo, continuando...');
-      }
-      
-      return next();
-    }
-
-    // ===============================================
-    // 🔄 RESTO DE LA LÓGICA ORIGINAL (SIN CAMBIOS)
-    // ===============================================
-    // Esta parte se ejecuta solo cuando DEFENSIVE_MODE = false
-    
-    // Inicializar Supabase
     const supabase = createServerClient(
       import.meta.env.PUBLIC_SUPABASE_URL,
       import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
@@ -184,7 +129,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     locals.supabase = supabase;
 
-    // Verificar rutas públicas
+    // ===============================================
+    // 🟢 PASO 3: VERIFICAR RUTAS PÚBLICAS
+    // ===============================================
+    
     const isPublicRoute = ROUTE_CONFIG.public.includes(pathname);
     
     if (isPublicRoute) {
@@ -192,6 +140,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
         console.log(`✅ Ruta pública: ${pathname}`);
       }
       
+      // En rutas públicas, intentar obtener usuario si está logueado
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
@@ -206,7 +155,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
       return next();
     }
 
-    // Verificar autenticación para rutas protegidas
+    // ===============================================
+    // 🔐 PASO 4: VERIFICAR AUTENTICACIÓN PARA RUTAS PROTEGIDAS
+    // ===============================================
+    
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
@@ -221,12 +173,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
       return handleNoSession(pathname, cookies, redirect);
     }
 
-    // Obtener perfil
+    // ===============================================
+    // 🟠 PASO 5: OBTENER PERFIL DE USUARIO
+    // ===============================================
+    
     locals.user = session.user;
     
     let profile = await getUserProfile(supabase, session.user.id);
     
     if (!profile) {
+      if (AUTH_CONFIG.DEBUG_MODE) {
+        console.log(`⚠️ Creando perfil para: ${session.user.email}`);
+      }
+      
       try {
         profile = await createBasicProfile(supabase, session.user);
       } catch (error) {
@@ -237,12 +196,26 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
     locals.profile = profile;
 
-    // Verificar permisos
+    if (AUTH_CONFIG.DEBUG_MODE) {
+      console.log(`👤 Usuario: ${session.user.email} | Rol: ${profile?.role}`);
+    }
+
+    // ===============================================
+    // 🟣 PASO 6: VERIFICAR PERMISOS POR ROL
+    // ===============================================
+    
     const userRole = profile?.role || 'padre';
     const hasAccess = checkRoleAccess(pathname, userRole);
     
     if (!hasAccess) {
+      if (AUTH_CONFIG.DEBUG_MODE) {
+        console.log(`❌ Acceso denegado para ${userRole}: ${pathname}`);
+      }
       return redirectToAuthorizedDashboard(userRole, redirect);
+    }
+
+    if (AUTH_CONFIG.DEBUG_MODE) {
+      console.log(`✅ Acceso autorizado: ${pathname}`);
     }
     
     return next();
@@ -250,16 +223,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
   } catch (error) {
     console.error(`💥 Error crítico en middleware: ${error}`);
     
-    if (AUTH_CONFIG.ENABLE_FALLBACK) {
-      return handleFallbackMode(context, next);
-    }
-    
-    return redirect('/error?type=middleware');
+    // En producción, redirigir a error
+    return redirect('/error?type=middleware&message=' + encodeURIComponent(error.message));
   }
 });
 
 // ===============================================
-// 🛠️ FUNCIONES HELPER (SIN CAMBIOS)
+// 🛠️ FUNCIONES HELPER
 // ===============================================
 
 async function getUserProfile(supabase: SupabaseClient, userId: string): Promise<UserProfile | undefined> {
@@ -272,7 +242,7 @@ async function getUserProfile(supabase: SupabaseClient, userId: string): Promise
 
     if (error) {
       if (error.code === 'PGRST116') {
-        return undefined;
+        return undefined; // No existe
       }
       throw error;
     }
@@ -360,17 +330,6 @@ function handleNoSession(pathname: string, cookies: any, redirect: (url: string)
   return redirect('/login');
 }
 
-async function handleFallbackMode(context: any, next: any) {
-  const { locals, url, redirect } = context;
-  
-  if (url.pathname.startsWith('/admin') || url.pathname.startsWith('/dashboard/admin')) {
-    return redirect('/login?error=fallback');
-  }
-  
-  locals.fallbackMode = true;
-  return next();
-}
-
 // ===============================================
 // 🎯 DECLARACIÓN DE TIPOS GLOBALES
 // ===============================================
@@ -387,13 +346,18 @@ declare global {
 }
 
 // ===============================================
-// 🎯 INSTRUCCIONES DE USO - FASE A
+// 🎉 MIDDLEWARE DE PRODUCCIÓN ACTIVADO
 // ===============================================
 // 
-// 1. ✅ DEFENSIVE_MODE = true: Sistema funciona sin base de datos
-// 2. 🚀 Deploy en Netlify: Todo funcionará perfectamente
-// 3. 🔧 Crear datos desde /crear-datos-prueba en producción
-// 4. ⚙️ Cambiar DEFENSIVE_MODE = false cuando tengamos datos
-// 5. 🎉 Sistema de producción completo
+// ✅ Autenticación real con Supabase
+// ✅ Protección por roles (padre/profesor/admin)  
+// ✅ Redirecciones inteligentes
+// ✅ Manejo de errores robusto
+// ✅ Compatible con los datos de producción
+//
+// USUARIOS DE PRUEBA:
+// - maria@gmail.com (padre)
+// - profesor@clubcanino.com (profesor)  
+// - admin@clubcanino.com (admin)
 //
 // ===============================================
