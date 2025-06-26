@@ -6,6 +6,8 @@ import supabase from '../../lib/supabase.js';
 import FeedingScheduleManager from './FeedingScheduleManager.jsx';
 import VaccineManager from './VaccineManager.jsx';
 import NotificationSystem from '../notifications/NotificationSystem.jsx';
+import ExerciseManager from './ExerciseManager.jsx';
+import RoutineFormManager from './RoutineFormManager.jsx';
 
 const RoutineManager = ({ currentUser, dogs = [] }) => {
   // Estados principales
@@ -19,6 +21,8 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
   // 🆕 NUEVOS ESTADOS
   const [showAddRoutine, setShowAddRoutine] = useState(false);
   const [showFeedingConfig, setShowFeedingConfig] = useState(false);
+  const [showExerciseConfig, setShowExerciseConfig] = useState(false);
+  const [editingRoutine, setEditingRoutine] = useState(null);
 
   // Perro seleccionado
   const selectedDog = dogs.find(dog => dog.id === selectedDogId);
@@ -125,8 +129,9 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
         <div className="flex min-w-max">
           {[
             { id: 'today', label: 'Hoy', icon: '📅' },
-            { id: 'routines', label: 'Rutinas', icon: '🔄' },
+            { id: 'routines', label: 'Gestionar', icon: '🔄' },
             { id: 'feeding', label: 'Alimentación', icon: '🍽️' },
+            { id: 'exercise', label: 'Ejercicio', icon: '🚶‍♂️' },
             { id: 'vaccines', label: 'Vacunas', icon: '💉' },
             { id: 'notifications', label: 'Notificaciones', icon: '🔔' },
             { id: 'settings', label: 'Config', icon: '⚙️' }
@@ -228,10 +233,10 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
                 + Crear rutina
               </button>
               <button 
-                onClick={() => setShowFeedingConfig(true)}
-                className="bg-[#C7EA46] text-[#2C3E50] px-4 py-2 rounded-lg hover:bg-[#FFFE8D] transition-colors"
+                onClick={() => setShowExerciseConfig(true)}
+                className="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 transition-colors mr-2"
               >
-                🍽️ Configurar comidas
+                🚶‍♂️ Configurar ejercicio
               </button>
             </div>
           </div>
@@ -301,29 +306,166 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
         </button>
         
         <button
-          onClick={() => setActiveTab('vaccines')}
-          className="bg-yellow-100 text-yellow-700 p-4 rounded-lg hover:bg-yellow-200 transition-colors text-center"
+          onClick={() => setShowExerciseConfig(true)}
+          className="bg-green-100 text-green-700 p-4 rounded-lg hover:bg-green-200 transition-colors text-center"
         >
-          <div className="text-2xl mb-1">💉</div>
-          <div className="text-sm font-medium">Vacunas</div>
+          <div className="text-2xl mb-1">🚶‍♂️</div>
+          <div className="text-sm font-medium">Ejercicio</div>
         </button>
       </div>
     </div>
   );
 
-  // Vista placeholder para tabs básicos
-  const PlaceholderView = ({ title, icon, description }) => (
-    <div className="text-center py-12">
-      <div className="text-6xl mb-4">{icon}</div>
-      <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-600 mb-6">{description}</p>
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
-        <p className="text-sm text-yellow-800">
-          🚧 Esta sección está en desarrollo. Próximamente tendrás acceso completo.
-        </p>
+  // 🆕 NUEVA VISTA: Gestión de Rutinas
+  const RoutinesManagementView = () => (
+    <div className="space-y-6">
+      {/* Header con botón crear */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-bold text-gray-900">🔄 Gestionar Rutinas</h3>
+        <button
+          onClick={() => setShowAddRoutine(true)}
+          className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors flex items-center space-x-2"
+        >
+          <span>➕</span>
+          <span>Nueva Rutina</span>
+        </button>
+      </div>
+
+      {/* Rutinas existentes agrupadas por categoría */}
+      {routines.length > 0 ? (
+        <div className="space-y-4">
+          {/* Agrupar rutinas por categoría */}
+          {['food', 'exercise', 'hygiene', 'medical', 'play'].map(category => {
+            const categoryRoutines = routines.filter(r => r.category === category);
+            if (categoryRoutines.length === 0) return null;
+
+            const categoryIcons = {
+              food: '🍽️',
+              exercise: '🚶‍♂️', 
+              hygiene: '🛁',
+              medical: '💊',
+              play: '🎾'
+            };
+
+            const categoryNames = {
+              food: 'Alimentación',
+              exercise: 'Ejercicio',
+              hygiene: 'Higiene', 
+              medical: 'Médico',
+              play: 'Juego'
+            };
+
+            return (
+              <div key={category} className="bg-white border border-gray-200 rounded-lg p-4">
+                <h4 className="font-bold text-gray-900 mb-3 flex items-center">
+                  <span className="mr-2 text-xl">{categoryIcons[category]}</span>
+                  {categoryNames[category]}
+                </h4>
+                <div className="space-y-2">
+                  {categoryRoutines.map((routine, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{routine.schedule_name}</div>
+                        <div className="text-sm text-gray-600">
+                          {routine.schedule_time} • {routine.routine_name}
+                          {routine.notes && ` • ${routine.notes}`}
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            setEditingRoutine(routine);
+                            setShowAddRoutine(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 p-1"
+                          title="Editar rutina"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => deleteRoutine(routine.id)}
+                          className="text-red-600 hover:text-red-800 p-1"
+                          title="Eliminar rutina"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">🔄</div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No hay rutinas configuradas</h3>
+          <p className="text-gray-600 mb-6">Crea tu primera rutina para {selectedDog?.name}</p>
+          <button
+            onClick={() => setShowAddRoutine(true)}
+            className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+          >
+            ➕ Crear Primera Rutina
+          </button>
+        </div>
+      )}
+
+      {/* Accesos rápidos */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <button
+          onClick={() => setShowFeedingConfig(true)}
+          className="bg-orange-50 border border-orange-200 p-4 rounded-lg hover:bg-orange-100 transition-colors text-left"
+        >
+          <div className="text-2xl mb-2">🍽️</div>
+          <div className="font-medium text-orange-900">Configurar Alimentación</div>
+          <div className="text-sm text-orange-700">Horarios de comida</div>
+        </button>
+
+        <button
+          onClick={() => setShowExerciseConfig(true)}
+          className="bg-green-50 border border-green-200 p-4 rounded-lg hover:bg-green-100 transition-colors text-left"
+        >
+          <div className="text-2xl mb-2">🚶‍♂️</div>
+          <div className="font-medium text-green-900">Configurar Ejercicio</div>
+          <div className="text-sm text-green-700">Paseos y actividad</div>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('vaccines')}
+          className="bg-red-50 border border-red-200 p-4 rounded-lg hover:bg-red-100 transition-colors text-left"
+        >
+          <div className="text-2xl mb-2">💉</div>
+          <div className="font-medium text-red-900">Gestionar Vacunas</div>
+          <div className="text-sm text-red-700">Control médico</div>
+        </button>
       </div>
     </div>
   );
+
+  const deleteRoutine = async (routineId) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta rutina?')) return;
+    
+    try {
+      // Eliminar horarios asociados
+      await supabase
+        .from('routine_schedules')
+        .delete()
+        .eq('routine_id', routineId);
+      
+      // Eliminar rutina
+      await supabase
+        .from('dog_routines')
+        .delete()
+        .eq('id', routineId);
+      
+      // Refrescar datos
+      fetchRoutinesAndVaccines();
+    } catch (error) {
+      console.error('Error deleting routine:', error);
+      alert('Error eliminando la rutina');
+    }
+  };
 
   if (!selectedDog) {
     return (
@@ -353,10 +495,15 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
           {activeTab === 'today' && <TodayView />}
           
           {activeTab === 'routines' && (
-            <PlaceholderView 
-              title="Gestión de Rutinas"
-              icon="🔄"
-              description="Aquí podrás crear, editar y organizar todas las rutinas de tus perros"
+            <RoutinesManagementView />
+          )}
+
+          {/* 🆕 NUEVO TAB: EJERCICIO */}
+          {activeTab === 'exercise' && selectedDog && (
+            <ExerciseManager
+              dog={selectedDog}
+              onClose={() => setActiveTab('today')}
+              onSave={() => fetchRoutinesAndVaccines()}
             />
           )}
 
@@ -407,35 +554,33 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
         />
       )}
 
-      {/* Modal para agregar rutina (placeholder) */}
-      {showAddRoutine && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md">
-            <div className="p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">🚧 Próximamente</h3>
-              <p className="text-gray-600 mb-6">
-                El formulario para crear rutinas estará disponible en la próxima actualización.
-              </p>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => {
-                    setShowAddRoutine(false);
-                    setShowFeedingConfig(true);
-                  }}
-                  className="flex-1 bg-[#C7EA46] text-[#2C3E50] py-2 px-4 rounded-lg hover:bg-[#FFFE8D] transition-colors"
-                >
-                  🍽️ Configurar comidas
-                </button>
-                <button
-                  onClick={() => setShowAddRoutine(false)}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* 🆕 MODAL PARA CONFIGURAR EJERCICIO */}
+      {showExerciseConfig && selectedDog && (
+        <ExerciseManager
+          dog={selectedDog}
+          onClose={() => setShowExerciseConfig(false)}
+          onSave={() => {
+            fetchRoutinesAndVaccines();
+            setShowExerciseConfig(false);
+          }}
+        />
+      )}
+
+      {/* 🆕 MODAL PARA FORMULARIO DE RUTINAS COMPLETO */}
+      {showAddRoutine && selectedDog && (
+        <RoutineFormManager
+          dog={selectedDog}
+          editingRoutine={editingRoutine}
+          onClose={() => {
+            setShowAddRoutine(false);
+            setEditingRoutine(null);
+          }}
+          onSave={() => {
+            fetchRoutinesAndVaccines();
+            setShowAddRoutine(false);
+            setEditingRoutine(null);
+          }}
+        />
       )}
     </div>
   );

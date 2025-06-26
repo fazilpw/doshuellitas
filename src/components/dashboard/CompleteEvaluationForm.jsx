@@ -598,9 +598,9 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
                   type="button"
                   onClick={handleFinalSubmit}
                   disabled={loading}
-                  className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  className="bg-green-600 text-white text-sm md:tex-xl py-2 px-4 md:py-2 md:px-6 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {loading ? '🔄 Guardando...' : '✅ Guardar Evaluación'}
+                  {loading ? 'Guardando' : '✅ Guardar '}
                 </button>
               )}
             </div>

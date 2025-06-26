@@ -1,7 +1,8 @@
 ---
-// src/pages/dashboard/rutinas.astro - PÁGINA DE RUTINAS Y ALARMAS
+// src/pages/dashboard/rutinas.astro - PÁGINA DE RUTINAS Y ALARMAS (ARREGLADA)
 import Layout from '../../layouts/Layout.astro';
-import { supabaseAdmin } from '../../lib/supabase.js';
+// ✅ FIX: Usar el cliente normal de Supabase en lugar de supabaseAdmin
+import supabase from '../../lib/supabase.js';
 
 // Verificar que el usuario esté autenticado y sea padre
 const mockUserId = '11111111-1111-1111-1111-111111111111'; // Para desarrollo
@@ -13,7 +14,7 @@ let hasData = false;
 
 try {
   // Buscar usuario padre
-  const { data: userData, error: userError } = await supabaseAdmin
+  const { data: userData, error: userError } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', mockUserId)
@@ -24,7 +25,7 @@ try {
     currentUser = userData;
     
     // Obtener perros del usuario
-    const { data: dogsData, error: dogsError } = await supabaseAdmin
+    const { data: dogsData, error: dogsError } = await supabase
       .from('dogs')
       .select('*')
       .eq('owner_id', mockUserId)
@@ -85,7 +86,6 @@ const pageTitle = hasData ?
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       
       {hasData ? (
-        <!-- Usuario con datos -->
         <div id="routine-manager-container" class="space-y-6">
           
           <!-- Banner informativo -->
@@ -202,77 +202,72 @@ const pageTitle = hasData ?
               href="/comandos" 
               class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
             >
-              <div class="text-2xl mb-2">🎓</div>
+              <div class="text-2xl mb-2">🎯</div>
               <div class="font-medium text-gray-900">Comandos</div>
-              <div class="text-xs text-gray-600">Entrenar a tu perro</div>
+              <div class="text-xs text-gray-600">Entrenar comportamiento</div>
             </a>
             
             <a 
-              href="https://wa.me/573144329824?text=Hola%20Juan%20Pablo%2C%20necesito%20ayuda%20con%20las%20rutinas%20de%20mi%20perro" 
-              target="_blank"
-              rel="noopener noreferrer"
-              class="bg-green-500 text-white rounded-lg p-4 hover:bg-green-600 transition-colors text-center"
+              href="/instalaciones" 
+              class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
             >
-              <div class="text-2xl mb-2">💬</div>
-              <div class="font-medium">Ayuda</div>
-              <div class="text-xs opacity-90">WhatsApp Juan Pablo</div>
+              <div class="text-2xl mb-2">🏢</div>
+              <div class="font-medium text-gray-900">Instalaciones</div>
+              <div class="text-xs text-gray-600">Conocer el campus</div>
             </a>
             
-            <button 
-              onclick="window.print()"
-              class="bg-gray-100 text-gray-700 rounded-lg p-4 hover:bg-gray-200 transition-colors text-center"
+            <a 
+              href="https://wa.me/573144329824" 
+              target="_blank"
+              rel="noopener noreferrer"
+              class="bg-green-50 border border-green-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
             >
-              <div class="text-2xl mb-2">🖨️</div>
-              <div class="font-medium">Imprimir</div>
-              <div class="text-xs">Rutinas de mis perros</div>
-            </button>
+              <div class="text-2xl mb-2">💬</div>
+              <div class="font-medium text-green-900">WhatsApp</div>
+              <div class="text-xs text-green-600">Contacto directo</div>
+            </a>
           </div>
         </div>
-        
       ) : (
         <!-- Usuario sin datos -->
         <div class="text-center py-12">
-          <div class="max-w-md mx-auto">
-            <div class="text-6xl mb-6">🔧</div>
-            <h2 class="text-2xl font-bold text-[#2C3E50] mb-4">
-              Sistema en Preparación
-            </h2>
-            <p class="text-gray-600 mb-8">
-              Para usar el sistema de rutinas, necesitas tener perros registrados en el Club Canino.
-            </p>
-            
-            <div class="space-y-4">
-              <a 
-                href="/crear-datos-prueba" 
-                class="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                ✨ Crear Datos de Prueba
-              </a>
-              
-              <div class="text-sm text-gray-500">
-                o contacta a Juan Pablo para registrar tu perro
-              </div>
-              
-              <a 
-                href="https://wa.me/573144329824?text=Hola%20Juan%20Pablo%2C%20quiero%20registrar%20a%20mi%20perro%20para%20usar%20el%20sistema%20de%20rutinas"
-                target="_blank"
-                rel="noopener noreferrer" 
-                class="inline-flex items-center px-6 py-3 border border-[#56CCF2] text-[#56CCF2] rounded-lg hover:bg-[#56CCF2] hover:text-white transition-colors"
-              >
-                📱 Contactar por WhatsApp
-              </a>
-            </div>
+          <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span class="text-3xl text-gray-400">🐕</span>
+          </div>
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">
+            ¡Bienvenido al Sistema de Rutinas!
+          </h2>
+          <p class="text-gray-600 mb-6 max-w-md mx-auto">
+            Para comenzar a usar el sistema de rutinas, necesitas tener al menos un perro registrado.
+          </p>
+          <div class="flex items-center justify-center space-x-4">
+            <a 
+              href="/dashboard/padre" 
+              class="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+            >
+              📊 Ir al Dashboard
+            </a>
+            <a 
+              href="https://wa.me/573144329824" 
+              target="_blank"
+              rel="noopener noreferrer"
+              class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              💬 Contactar Soporte
+            </a>
           </div>
         </div>
       )}
-
     </main>
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 mt-12">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="text-center text-sm text-gray-500">
-          <p>Club Canino Dos Huellitas - Sistema de Rutinas y Alarmas</p>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="text-center">
+          <img class="h-8 w-auto mx-auto mb-4" src="/images/logo.png" alt="Club Canino Dos Huellitas" />
+          <p class="text-gray-600 text-sm">
+            Club Canino Dos Huellitas - Sistema de Rutinas y Alarmas
+          </p>
           <p class="mt-1">Mantén a tu peludito feliz y saludable con rutinas consistentes</p>
         </div>
       </div>
@@ -284,13 +279,13 @@ const pageTitle = hasData ?
     <script type="module">
       // Datos del servidor para React
       const userData = {
-        id: '{currentUser.id}',
-        full_name: '{currentUser.full_name}',
-        email: '{currentUser.email}',
-        role: '{currentUser.role}'
+        id: currentUser?.id || '',
+        full_name: currentUser?.full_name || '',
+        email: currentUser?.email || '',
+        role: currentUser?.role || 'padre'
       };
       
-      const userDogs = JSON.parse('{JSON.stringify(userDogs)}');
+      const userDogs = JSON.parse(JSON.stringify(userDogs || []));
       
       // Importar y montar el componente React
       import('/src/components/routines/RoutineManager.jsx').then(({ default: RoutineManager }) => {
@@ -306,15 +301,18 @@ const pageTitle = hasData ?
         }
       }).catch(error => {
         console.error('Error loading RoutineManager:', error);
-        document.getElementById('routine-manager-root').innerHTML = `
-          <div class="text-center py-8">
-            <div class="text-4xl mb-4">⚠️</div>
-            <p class="text-gray-600">Error cargando el sistema de rutinas</p>
-            <button onclick="window.location.reload()" class="mt-4 bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors">
-              🔄 Reintentar
-            </button>
-          </div>
-        `;
+        const root = document.getElementById('routine-manager-root');
+        if (root) {
+          root.innerHTML = `
+            <div class="text-center py-8">
+              <div class="text-4xl mb-4">⚠️</div>
+              <p class="text-gray-600">Error cargando el sistema de rutinas</p>
+              <button onclick="window.location.reload()" class="mt-4 bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors">
+                🔄 Reintentar
+              </button>
+            </div>
+          `;
+        }
       });
     </script>
   )}
