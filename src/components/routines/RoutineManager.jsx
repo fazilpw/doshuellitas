@@ -1,8 +1,8 @@
-// src/components/routines/RoutineManager.jsx - CON NUEVOS COMPONENTES Y FUNCIONALIDAD COMPLETA
+// src/components/routines/RoutineManager.jsx - HOOKS CORREGIDOS
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
 
-// 🆕 NUEVOS IMPORTS
+// IMPORTS
 import FeedingScheduleManager from './FeedingScheduleManager.jsx';
 import VaccineManager from './VaccineManager.jsx';
 import NotificationSystem from '../notifications/NotificationSystem.jsx';
@@ -23,8 +23,6 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
   const [routines, setRoutines] = useState([]);
   const [vaccines, setVaccines] = useState([]);
   const [nextRoutine, setNextRoutine] = useState(null);
-  
-  // 🆕 NUEVOS ESTADOS - ASEGÚRATE DE QUE ESTÉN TODOS AQUÍ
   const [showAddRoutine, setShowAddRoutine] = useState(false);
   const [showFeedingConfig, setShowFeedingConfig] = useState(false);
   const [showExerciseConfig, setShowExerciseConfig] = useState(false);
@@ -41,6 +39,24 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
   // Tiempo actual
   const now = new Date();
   const timeString = now.toTimeString().slice(0, 5);
+
+  // 🔍 DEBUG HOOKS - AHORA ESTÁN EN EL LUGAR CORRECTO
+  useEffect(() => {
+    console.log('🐕 RoutineManager mounted:', { 
+      currentUser: currentUser?.id, 
+      dogsLength: dogs.length,
+      dogs: dogs.map(d => ({ id: d.id, name: d.name }))
+    });
+  }, [currentUser, dogs]);
+
+  useEffect(() => {
+    if (selectedDogId) {
+      console.log('🐕 Dog selector changed:', { 
+        selectedDogId,
+        dogName: dogs.find(d => d.id === selectedDogId)?.name 
+      });
+    }
+  }, [selectedDogId, dogs]);
 
   useEffect(() => {
     if (dogs.length > 0 && !selectedDogId) {
@@ -121,19 +137,31 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
     setLoading(false);
   };
 
-  // 🆕 FUNCIÓN PARA MARCAR RUTINA COMO COMPLETADA
+  // FUNCIÓN PARA MARCAR RUTINA COMO COMPLETADA - CORREGIDA
   const handleMarkAsCompleted = async (routine) => {
-    if (!selectedDog || !currentUser) return;
+    if (!selectedDog || !currentUser) {
+      console.error('❌ Missing data:', { selectedDog: !!selectedDog, currentUser: !!currentUser });
+      return;
+    }
+    
+    console.log('📤 Llamando markRoutineAsCompleted con ID REAL:', {
+      routineId: routine.id,
+      dogId: selectedDogId,
+      userId: currentUser.id,
+      routineName: routine.schedule_name
+    });
     
     try {
       setLoading(true);
       
       const { data } = await markRoutineAsCompleted(
-        routine.id,
-        selectedDogId,
-        currentUser.id,
+        routine.id,      // routine_schedule_id
+        selectedDogId,   // dog_id 
+        currentUser.id,  // user_id
         `Completada desde la app`
       );
+      
+      console.log('✅ markRoutineAsCompleted SUCCESS:', data);
       
       // Actualizar estado local
       setRoutines(prev => prev.map(r => 
@@ -144,7 +172,7 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
       await fetchRoutinesAndVaccines();
       
       // Mostrar notificación de éxito
-      if ('serviceWorker' in navigator) {
+      if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
         new Notification('✅ Rutina Completada', {
           body: `${routine.schedule_name} marcada como completada`,
           icon: '/icons/icon-192x192.png'
@@ -152,12 +180,13 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
       }
       
     } catch (error) {
-      console.error('Error marking routine as completed:', error);
-      alert('Error al marcar la rutina como completada');
+      console.error('❌ Error marking routine as completed:', error);
+      alert(`Error al marcar la rutina como completada: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
+
 
   // 🆕 FUNCIÓN PARA POSPONER RUTINA
   const handleSnoozeRoutine = async (routine, minutes = 15) => {
