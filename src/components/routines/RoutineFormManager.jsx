@@ -97,29 +97,32 @@ const RoutineFormManager = ({ dog, onClose, onSave, editingRoutine = null }) => 
   }, [editingRoutine]);
 
   const loadEditingRoutine = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('routine_schedules')
-        .select('*')
-        .eq('routine_id', editingRoutine.id);
+  try {
+    const { data, error } = await supabase
+      .from('routine_schedules')
+      .select('*')
+      .eq('routine_id', editingRoutine.id);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      setFormData({
-        name: editingRoutine.name,
-        category: editingRoutine.routine_category,
-        schedules: data.map(schedule => ({
-          name: schedule.name,
-          time: schedule.time.slice(0, 5),
-          days_of_week: JSON.parse(schedule.days_of_week || '[1,2,3,4,5,6,7]'),
-          reminder_minutes: schedule.reminder_minutes,
-          notes: schedule.notes || ''
-        }))
-      });
-    } catch (error) {
-      console.error('Error loading routine:', error);
-    }
-  };
+    setFormData({
+      name: editingRoutine.name,
+      category: editingRoutine.routine_category,
+      schedules: data.map(schedule => ({
+        name: schedule.name,
+        time: schedule.time.slice(0, 5),
+        // ✅ CORRECCIÓN: Manejar array desde PostgreSQL
+        days_of_week: Array.isArray(schedule.days_of_week) 
+          ? schedule.days_of_week 
+          : JSON.parse(schedule.days_of_week || '[1,2,3,4,5,6,7]'),
+        reminder_minutes: schedule.reminder_minutes,
+        notes: schedule.notes || ''
+      }))
+    });
+  } catch (error) {
+    console.error('Error loading routine:', error);
+  }
+};
 
   const updateFormData = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -179,82 +182,89 @@ const RoutineFormManager = ({ dog, onClose, onSave, editingRoutine = null }) => 
   };
 
   const saveRoutine = async () => {
-    if (!dog || !formData.name.trim() || formData.schedules.length === 0) {
-      alert('Por favor completa todos los campos requeridos');
-      return;
-    }
+  if (!dog || !formData.name.trim() || formData.schedules.length === 0) {
+    alert('Por favor completa todos los campos requeridos');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      // 1. Crear o actualizar rutina principal
-      const routineData = {
-        dog_id: dog.id,
-        routine_category: formData.category,
-        name: formData.name.trim(),
-        active: true
-      };
+  setLoading(true);
+  try {
+    // 1. Crear o actualizar rutina principal
+    const routineData = {
+      dog_id: dog.id,
+      routine_category: formData.category,
+      name: formData.name.trim(),
+      active: true
+    };
 
-      let routine;
-      if (editingRoutine) {
-        const { data, error } = await supabase
-          .from('dog_routines')
-          .update(routineData)
-          .eq('id', editingRoutine.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        routine = data;
-
-        // Eliminar horarios existentes
-        await supabase
-          .from('routine_schedules')
-          .delete()
-          .eq('routine_id', routine.id);
-      } else {
-        const { data, error } = await supabase
-          .from('dog_routines')
-          .insert(routineData)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        routine = data;
-      }
-
-      // 2. Insertar nuevos horarios
-      const schedules = formData.schedules.map(schedule => ({
-        routine_id: routine.id,
-        name: schedule.name.trim(),
-        time: `${schedule.time}:00`,
-        days_of_week: JSON.stringify(schedule.days_of_week),
-        reminder_minutes: schedule.reminder_minutes,
-        notes: schedule.notes.trim() || null,
-        active: true
-      }));
-
-      const { error: schedulesError } = await supabase
-        .from('routine_schedules')
-        .insert(schedules);
-
-      if (schedulesError) throw schedulesError;
-
-      // 3. Programar notificaciones
-      if ('serviceWorker' in navigator && 'PushManager' in window) {
-        schedules.forEach(schedule => {
-          console.log(`📅 Programando notificación: ${schedule.name} a las ${schedule.time}`);
-        });
-      }
-
-      onSave?.();
-      onClose?.();
+    let routine;
+    if (editingRoutine) {
+      const { data, error } = await supabase
+        .from('dog_routines')
+        .update(routineData)
+        .eq('id', editingRoutine.id)
+        .select()
+        .single();
       
-    } catch (error) {
-      console.error('Error saving routine:', error);
-      alert('Error guardando la rutina');
+      if (error) throw error;
+      routine = data;
+
+      // Eliminar horarios existentes
+      await supabase
+        .from('routine_schedules')
+        .delete()
+        .eq('routine_id', routine.id);
+    } else {
+      const { data, error } = await supabase
+        .from('dog_routines')
+        .insert(routineData)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      routine = data;
     }
-    setLoading(false);
-  };
+
+    // 2. Insertar nuevos horarios - CORRECCIÓN DEL ARRAY
+    const schedules = formData.schedules.map(schedule => ({
+      routine_id: routine.id,
+      name: schedule.name.trim(),
+      time: `${schedule.time}:00`,
+      // ✅ CORRECCIÓN: Enviar como array, no como string JSON
+      days_of_week: schedule.days_of_week, // Era: JSON.stringify(schedule.days_of_week)
+      reminder_minutes: schedule.reminder_minutes,
+      notes: schedule.notes.trim() || null,
+      active: true
+    }));
+
+    console.log('📋 Datos a insertar:', schedules); // Debug
+
+    const { error: schedulesError } = await supabase
+      .from('routine_schedules')
+      .insert(schedules);
+
+    if (schedulesError) {
+      console.error('Error detallado:', schedulesError);
+      throw schedulesError;
+    }
+
+    // 3. Programar notificaciones
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      schedules.forEach(schedule => {
+        console.log(`📅 Programando notificación: ${schedule.name} a las ${schedule.time}`);
+      });
+    }
+
+    onSave?.();
+    onClose?.();
+    
+  } catch (error) {
+    console.error('Error saving routine:', error);
+    alert(`Error guardando la rutina: ${error.message}`);
+  }
+  setLoading(false);
+};
+
 
   const currentCategory = routineCategories[formData.category];
 

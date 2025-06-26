@@ -1,4 +1,4 @@
-// src/components/routines/RoutineManager.jsx - CON NUEVOS COMPONENTES
+// src/components/routines/RoutineManager.jsx - CON NUEVOS COMPONENTES Y FUNCIONALIDAD COMPLETA
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
 
@@ -8,6 +8,12 @@ import VaccineManager from './VaccineManager.jsx';
 import NotificationSystem from '../notifications/NotificationSystem.jsx';
 import ExerciseManager from './ExerciseManager.jsx';
 import RoutineFormManager from './RoutineFormManager.jsx';
+import { 
+  markRoutineAsCompleted, 
+  snoozeRoutine, 
+  getRoutineStatusForDog, 
+  isRoutineCompletedToday 
+} from '../../lib/routineHelpers.js';
 
 const RoutineManager = ({ currentUser, dogs = [] }) => {
   // Estados principales
@@ -18,11 +24,16 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
   const [vaccines, setVaccines] = useState([]);
   const [nextRoutine, setNextRoutine] = useState(null);
   
-  // 🆕 NUEVOS ESTADOS
+  // 🆕 NUEVOS ESTADOS - ASEGÚRATE DE QUE ESTÉN TODOS AQUÍ
   const [showAddRoutine, setShowAddRoutine] = useState(false);
   const [showFeedingConfig, setShowFeedingConfig] = useState(false);
   const [showExerciseConfig, setShowExerciseConfig] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState(null);
+  const [routineStatus, setRoutineStatus] = useState({
+    pending: [],
+    completed: [],
+    stats: {}
+  });
 
   // Perro seleccionado
   const selectedDog = dogs.find(dog => dog.id === selectedDogId);
@@ -50,22 +61,46 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
     try {
       // Obtener rutinas del día
       const { data: routinesData, error: routinesError } = await supabase
-        .from('dog_routines')
-        .select('*')
-        .eq('dog_id', selectedDogId)
+        .from('routine_schedules')
+        .select(`
+          *,
+          dog_routines!inner(*)
+        `)
+        .eq('dog_routines.dog_id', selectedDogId)
+        .eq('dog_routines.active', true)
         .eq('active', true)
-        .order('schedule_time');
+        .order('time');
 
       if (!routinesError && routinesData) {
-        setRoutines(routinesData);
+        // Enriquecer rutinas con estado de completación
+        const enrichedRoutines = await Promise.all(
+          routinesData.map(async (routine) => {
+            const { isCompleted } = await isRoutineCompletedToday(routine.id, selectedDogId);
+            return {
+              ...routine,
+              schedule_name: routine.name,
+              schedule_time: routine.time.slice(0, 5),
+              routine_name: routine.dog_routines.name,
+              category: routine.dog_routines.routine_category,
+              isCompleted
+            };
+          })
+        );
+
+        setRoutines(enrichedRoutines);
         
-        // Encontrar próxima rutina
-        const upcoming = routinesData.find(routine => {
+        // Encontrar próxima rutina no completada
+        const upcoming = enrichedRoutines.find(routine => {
           const routineTime = new Date(`2000-01-01 ${routine.schedule_time}`);
-          return routineTime.getTime() > new Date(`2000-01-01 ${timeString}`).getTime();
+          const currentTime = new Date(`2000-01-01 ${timeString}`);
+          return routineTime.getTime() > currentTime.getTime() && !routine.isCompleted;
         });
         setNextRoutine(upcoming);
       }
+
+      // Obtener estado completo de rutinas
+      const status = await getRoutineStatusForDog(selectedDogId);
+      setRoutineStatus(status);
 
       // Obtener vacunas próximas
       const { data: vaccinesData, error: vaccinesError } = await supabase
@@ -84,6 +119,77 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
       console.error('Error fetching data:', error);
     }
     setLoading(false);
+  };
+
+  // 🆕 FUNCIÓN PARA MARCAR RUTINA COMO COMPLETADA
+  const handleMarkAsCompleted = async (routine) => {
+    if (!selectedDog || !currentUser) return;
+    
+    try {
+      setLoading(true);
+      
+      const { data } = await markRoutineAsCompleted(
+        routine.id,
+        selectedDogId,
+        currentUser.id,
+        `Completada desde la app`
+      );
+      
+      // Actualizar estado local
+      setRoutines(prev => prev.map(r => 
+        r.id === routine.id ? { ...r, isCompleted: true } : r
+      ));
+      
+      // Refrescar datos
+      await fetchRoutinesAndVaccines();
+      
+      // Mostrar notificación de éxito
+      if ('serviceWorker' in navigator) {
+        new Notification('✅ Rutina Completada', {
+          body: `${routine.schedule_name} marcada como completada`,
+          icon: '/icons/icon-192x192.png'
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error marking routine as completed:', error);
+      alert('Error al marcar la rutina como completada');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🆕 FUNCIÓN PARA POSPONER RUTINA
+  const handleSnoozeRoutine = async (routine, minutes = 15) => {
+    if (!selectedDog || !currentUser) return;
+    
+    try {
+      setLoading(true);
+      
+      await snoozeRoutine(
+        routine.id,
+        selectedDogId,
+        currentUser.id,
+        minutes
+      );
+      
+      // Refrescar datos
+      await fetchRoutinesAndVaccines();
+      
+      // Mostrar notificación
+      if ('serviceWorker' in navigator) {
+        new Notification('⏰ Rutina Pospuesta', {
+          body: `${routine.schedule_name} pospuesta ${minutes} minutos`,
+          icon: '/icons/icon-192x192.png'
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error snoozing routine:', error);
+      alert('Error al posponer la rutina');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Selector de perro
@@ -170,7 +276,10 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
                 <p className="text-green-700">{nextRoutine.schedule_name} a las {nextRoutine.schedule_time}</p>
               </div>
             </div>
-            <button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm">
+            <button 
+              onClick={() => handleMarkAsCompleted(nextRoutine)}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm"
+            >
               ✓ Marcar hecho
             </button>
           </div>
@@ -233,8 +342,14 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
                 + Crear rutina
               </button>
               <button 
+                onClick={() => setShowFeedingConfig(true)}
+                className="bg-[#C7EA46] text-[#2C3E50] px-4 py-2 rounded-lg hover:bg-[#FFFE8D] transition-colors mr-2"
+              >
+                🍽️ Configurar comidas
+              </button>
+              <button 
                 onClick={() => setShowExerciseConfig(true)}
-                className="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 transition-colors mr-2"
+                className="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 transition-colors"
               >
                 🚶‍♂️ Configurar ejercicio
               </button>
@@ -251,32 +366,56 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        routine.isCompleted ? 'bg-green-500' :
                         isPast ? 'bg-gray-100' : 'bg-[#56CCF2]'
                       }`}>
-                        <span className={`text-sm ${isPast ? 'text-gray-500' : 'text-white'}`}>
-                          {routine.category === 'food' ? '🍽️' :
+                        <span className={`text-sm ${
+                          routine.isCompleted ? 'text-white' :
+                          isPast ? 'text-gray-500' : 'text-white'
+                        }`}>
+                          {routine.isCompleted ? '✓' :
+                           routine.category === 'food' ? '🍽️' :
                            routine.category === 'exercise' ? '🚶‍♂️' :
                            routine.category === 'medical' ? '💊' :
                            routine.category === 'hygiene' ? '🛁' : '🎾'}
                         </span>
                       </div>
                       <div>
-                        <h4 className={`font-medium ${isPast ? 'text-gray-500' : 'text-gray-900'}`}>
+                        <h4 className={`font-medium ${
+                          routine.isCompleted ? 'text-green-700 line-through' :
+                          isPast ? 'text-gray-500' : 'text-gray-900'
+                        }`}>
                           {routine.schedule_name}
                         </h4>
-                        <p className={`text-sm ${isPast ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <p className={`text-sm ${
+                          routine.isCompleted ? 'text-green-600' :
+                          isPast ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
                           {routine.schedule_time} • {routine.routine_name}
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex items-center space-x-2">
-                      {isPast ? (
+                      {routine.isCompleted ? (
                         <span className="text-green-600 text-sm">✓ Completado</span>
+                      ) : isPast ? (
+                        <span className="text-orange-600 text-sm">⚠️ Atrasado</span>
                       ) : (
-                        <button className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors">
-                          Marcar
-                        </button>
+                        <div className="flex space-x-1">
+                          <button 
+                            onClick={() => handleMarkAsCompleted(routine)}
+                            className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors"
+                          >
+                            ✓ Marcar
+                          </button>
+                          <button 
+                            onClick={() => handleSnoozeRoutine(routine)}
+                            className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600 transition-colors"
+                          >
+                            ⏰ +15min
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -467,6 +606,20 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
     }
   };
 
+  // Vista placeholder para configuración
+  const PlaceholderView = ({ title, icon, description }) => (
+    <div className="text-center py-12">
+      <div className="text-6xl mb-4">{icon}</div>
+      <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
+      <p className="text-gray-600 mb-6">{description}</p>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
+        <p className="text-sm text-yellow-800">
+          🚧 Esta sección está en desarrollo. Próximamente tendrás acceso completo.
+        </p>
+      </div>
+    </div>
+  );
+
   if (!selectedDog) {
     return (
       <div className="max-w-4xl mx-auto p-4">
@@ -498,23 +651,9 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
             <RoutinesManagementView />
           )}
 
-          {/* 🆕 NUEVO TAB: EJERCICIO */}
-          {activeTab === 'exercise' && selectedDog && (
-            <ExerciseManager
-              dog={selectedDog}
-              onClose={() => setActiveTab('today')}
-              onSave={() => fetchRoutinesAndVaccines()}
-            />
-          )}
+          
 
-          {/* 🆕 NUEVO TAB: ALIMENTACIÓN */}
-          {activeTab === 'feeding' && selectedDog && (
-            <FeedingScheduleManager
-              dog={selectedDog}
-              onClose={() => setActiveTab('today')}
-              onSave={() => fetchRoutinesAndVaccines()}
-            />
-          )}
+         
 
           {/* 🆕 NUEVO TAB: VACUNAS */}
           {activeTab === 'vaccines' && (
@@ -542,7 +681,19 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
         </div>
       </div>
 
-      {/* 🆕 MODAL PARA CONFIGURAR ALIMENTACIÓN */}
+      {/* 🆕 MODAL PARA CONFIGURAR EJERCICIO */}
+      {showExerciseConfig && selectedDog && (
+        <ExerciseManager
+          dog={selectedDog}
+          onClose={() => setShowExerciseConfig(false)}
+          onSave={() => {
+            fetchRoutinesAndVaccines();
+            setShowExerciseConfig(false);
+          }}
+        />
+      )}
+
+ {/* 🆕 MODAL PARA CONFIGURAR ALIMENTACIÓN */}
       {showFeedingConfig && selectedDog && (
         <FeedingScheduleManager
           dog={selectedDog}
@@ -587,3 +738,8 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
 };
 
 export default RoutineManager;
+
+
+      
+
+     {/* 🆕 MODAL PARA CONFIGURAR ALIMENTACIÓN */}

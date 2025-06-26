@@ -460,4 +460,51 @@ export const DOG_SIZES = {
 // ============================================
 // 🚀 EXPORTACIÓN PRINCIPAL
 // ============================================
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  window.supabase = supabase;
+  window.debugSupabase = {
+    // Helper para verificar usuario actual
+    async getCurrentUser() {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      console.log('👤 Usuario actual:', user);
+      console.log('❌ Error auth:', error);
+      return { user, error };
+    },
+    
+    // Helper para probar consulta simple
+    async testQuery() {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, email, role')
+          .limit(1);
+        
+        console.log('✅ Test query exitoso:', data);
+        return { data, error };
+      } catch (err) {
+        console.log('❌ Test query falló:', err);
+        return { data: null, error: err };
+      }
+    },
+
+    // Helper para probar routine_completions
+    async testRoutineCompletions() {
+      try {
+        const { data, error } = await supabase
+          .from('routine_completions')
+          .select('*')
+          .limit(3);
+        
+        console.log('✅ routine_completions query exitoso:', data);
+        return { data, error };
+      } catch (err) {
+        console.log('❌ routine_completions query falló:', err);
+        return { data: null, error: err };
+      }
+    }
+  };
+  
+  console.log('🔧 Supabase debug disponible en window.debugSupabase');
+}
+
 export default supabase;
