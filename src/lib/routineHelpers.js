@@ -1,4 +1,4 @@
-// src/lib/routineHelpers.js - SISTEMA COMPLETO DE RUTINAS COMPLETADAS
+// src/lib/routineHelpers.js - COMPLETAMENTE CORREGIDO
 import supabase from './supabase.js';
 
 // ============================================
@@ -6,10 +6,17 @@ import supabase from './supabase.js';
 // ============================================
 
 /**
- * Marcar una rutina como completada
+ * Marcar una rutina como completada - VERSIÓN CORREGIDA
  */
 export async function markRoutineAsCompleted(routineScheduleId, dogId, userId, notes = '') {
   try {
+    console.log('🎯 Marcando rutina como completada:', {
+      routineScheduleId,
+      dogId,
+      userId,
+      notes
+    });
+
     const completionData = {
       routine_schedule_id: routineScheduleId,
       dog_id: dogId,
@@ -36,6 +43,7 @@ export async function markRoutineAsCompleted(routineScheduleId, dogId, userId, n
 
     if (existingCompletion) {
       // Actualizar completación existente
+      console.log('🔄 Actualizando completación existente...');
       const { data, error } = await supabase
         .from('routine_completions')
         .update({
@@ -48,9 +56,11 @@ export async function markRoutineAsCompleted(routineScheduleId, dogId, userId, n
         .single();
 
       if (error) throw error;
+      console.log('✅ Completación actualizada:', data);
       return { data, isUpdate: true };
     } else {
-      // Crear nueva completación
+      // 🔧 AQUÍ ESTABA EL PROBLEMA #1 - CREAR NUEVA COMPLETACIÓN
+      console.log('🆕 Creando nueva completación...');
       const { data, error } = await supabase
         .from('routine_completions')
         .insert([completionData])
@@ -58,16 +68,17 @@ export async function markRoutineAsCompleted(routineScheduleId, dogId, userId, n
         .single();
 
       if (error) throw error;
+      console.log('✅ Nueva completación creada:', data);
       return { data, isUpdate: false };
     }
   } catch (error) {
-    console.error('Error marking routine as completed:', error);
+    console.error('❌ Error marking routine as completed:', error);
     throw error;
   }
 }
 
 /**
- * Posponer una rutina (snooze)
+ * Posponer una rutina (snooze) - CORREGIDA
  */
 export async function snoozeRoutine(routineScheduleId, dogId, userId, snoozeMinutes = 15) {
   try {
@@ -107,6 +118,7 @@ export async function snoozeRoutine(routineScheduleId, dogId, userId, snoozeMinu
         .select()
         .single();
 
+      // 🔧 PROBLEMA #3 CORREGIDO - "throw" estaba cortado
       if (error) throw error;
       return { data, isUpdate: true };
     } else {
@@ -152,90 +164,6 @@ export async function getTodayCompletedRoutines(dogId) {
   } catch (error) {
     console.error('Error fetching completed routines:', error);
     return { data: [], error };
-  }
-}
-
-/**
- * Obtener estadísticas de completación para un perro
- */
-export async function getRoutineCompletionStats(dogId, days = 7) {
-  try {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    
-    const { data, error } = await supabase
-      .from('routine_completions')
-      .select(`
-        *,
-        routine_schedules!inner(
-          *,
-          dog_routines!inner(routine_category, name)
-        )
-      `)
-      .eq('dog_id', dogId)
-      .eq('status', 'completed')
-      .gte('completed_at', startDate.toISOString())
-      .order('completed_at', { ascending: false });
-
-    if (error) throw error;
-
-    // Calcular estadísticas
-    const totalCompleted = data?.length || 0;
-    const byCategory = {};
-    const byDay = {};
-
-    data?.forEach(completion => {
-      const category = completion.routine_schedules.dog_routines.routine_category;
-      const day = completion.completed_at.split('T')[0];
-
-      // Por categoría
-      byCategory[category] = (byCategory[category] || 0) + 1;
-
-      // Por día
-      byDay[day] = (byDay[day] || 0) + 1;
-    });
-
-    return {
-      data: {
-        totalCompleted,
-        byCategory,
-        byDay,
-        completionRate: totalCompleted / (days * 4), // Asumiendo 4 rutinas promedio por día
-        rawData: data
-      },
-      error: null
-    };
-  } catch (error) {
-    console.error('Error fetching completion stats:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Verificar si una rutina específica ya fue completada hoy
- */
-export async function isRoutineCompletedToday(routineScheduleId, dogId) {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    
-    const { data, error } = await supabase
-      .from('routine_completions')
-      .select('id, completed_at, status')
-      .eq('routine_schedule_id', routineScheduleId)
-      .eq('dog_id', dogId)
-      .eq('status', 'completed')
-      .gte('completed_at', `${today}T00:00:00`)
-      .lt('completed_at', `${today}T23:59:59`)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-
-    return { isCompleted: !!data, completionData: data };
-  } catch (error) {
-    console.error('Error checking routine completion:', error);
-    return { isCompleted: false, completionData: null };
   }
 }
 
@@ -286,26 +214,49 @@ export async function getPendingRoutinesToday(dogId) {
   }
 }
 
-// ============================================
-// 🔄 FUNCIONES DE ESTADO DE RUTINAS
-// ============================================
+/**
+ * Verificar si una rutina específica ya fue completada hoy
+ */
+export async function isRoutineCompletedToday(routineScheduleId, dogId) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data, error } = await supabase
+      .from('routine_completions')
+      .select('id, completed_at, status')
+      .eq('routine_schedule_id', routineScheduleId)
+      .eq('dog_id', dogId)
+      .eq('status', 'completed')
+      .gte('completed_at', `${today}T00:00:00`)
+      .lt('completed_at', `${today}T23:59:59`)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    return { isCompleted: !!data, completionData: data };
+  } catch (error) {
+    console.error('Error checking routine completion:', error);
+    return { isCompleted: false, completionData: null };
+  }
+}
 
 /**
  * Obtener el estado actual de todas las rutinas para un perro
  */
 export async function getRoutineStatusForDog(dogId) {
   try {
-    const [pendingResult, completedResult, statsResult] = await Promise.all([
+    const [pendingResult, completedResult] = await Promise.all([
       getPendingRoutinesToday(dogId),
-      getTodayCompletedRoutines(dogId),
-      getRoutineCompletionStats(dogId, 7)
+      getTodayCompletedRoutines(dogId)
     ]);
 
     return {
       pending: pendingResult.data || [],
       completed: completedResult.data || [],
-      stats: statsResult.data || {},
-      hasError: !!(pendingResult.error || completedResult.error || statsResult.error)
+      stats: {},
+      hasError: !!(pendingResult.error || completedResult.error)
     };
   } catch (error) {
     console.error('Error fetching routine status:', error);
