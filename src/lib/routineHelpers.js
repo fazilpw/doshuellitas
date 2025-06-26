@@ -59,7 +59,7 @@ export async function markRoutineAsCompleted(routineScheduleId, dogId, userId, n
       console.log('✅ Completación actualizada:', data);
       return { data, isUpdate: true };
     } else {
-      // 🔧 AQUÍ ESTABA EL PROBLEMA #1 - CREAR NUEVA COMPLETACIÓN
+      // 🔧 CREAR NUEVA COMPLETACIÓN
       console.log('🆕 Creando nueva completación...');
       const { data, error } = await supabase
         .from('routine_completions')
@@ -118,7 +118,7 @@ export async function snoozeRoutine(routineScheduleId, dogId, userId, snoozeMinu
         .select()
         .single();
 
-      // 🔧 PROBLEMA #3 CORREGIDO - "throw" estaba cortado
+      // 🔧 PROBLEMA CORREGIDO - "throw" estaba cortado como "throutineHelpers.js"
       if (error) throw error;
       return { data, isUpdate: true };
     } else {
@@ -134,6 +134,81 @@ export async function snoozeRoutine(routineScheduleId, dogId, userId, snoozeMinu
     }
   } catch (error) {
     console.error('Error snoozing routine:', error);
+    throw error;
+  }
+}
+
+/**
+ * 🗑️ BORRAR UNA RUTINA COMPLETA (CON PERMISOS)
+ */
+export async function deleteRoutine(routineId, userId) {
+  try {
+    console.log('🗑️ Eliminando rutina:', { routineId, userId });
+
+    // 1. Eliminar todas las completaciones primero
+    const { error: completionsError } = await supabase
+      .from('routine_completions')
+      .delete()
+      .eq('routine_schedule_id', routineId);
+
+    if (completionsError) {
+      console.warn('⚠️ Error eliminando completaciones:', completionsError);
+      // No fallar por esto, continuar
+    }
+
+    // 2. Eliminar horarios de la rutina
+    const { error: schedulesError } = await supabase
+      .from('routine_schedules')
+      .delete()
+      .eq('routine_id', routineId);
+
+    if (schedulesError) throw schedulesError;
+
+    // 3. Eliminar la rutina principal
+    const { error: routineError } = await supabase
+      .from('dog_routines')
+      .delete()
+      .eq('id', routineId);
+
+    if (routineError) throw routineError;
+
+    console.log('✅ Rutina eliminada completamente');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error deleting routine:', error);
+    throw error;
+  }
+}
+
+/**
+ * 🗑️ BORRAR UN HORARIO ESPECÍFICO
+ */
+export async function deleteSchedule(scheduleId, userId) {
+  try {
+    console.log('🗑️ Eliminando horario:', { scheduleId, userId });
+
+    // 1. Eliminar completaciones del horario
+    const { error: completionsError } = await supabase
+      .from('routine_completions')
+      .delete()
+      .eq('routine_schedule_id', scheduleId);
+
+    if (completionsError) {
+      console.warn('⚠️ Error eliminando completaciones:', completionsError);
+    }
+
+    // 2. Eliminar el horario
+    const { error: scheduleError } = await supabase
+      .from('routine_schedules')
+      .delete()
+      .eq('id', scheduleId);
+
+    if (scheduleError) throw scheduleError;
+
+    console.log('✅ Horario eliminado');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error deleting schedule:', error);
     throw error;
   }
 }
