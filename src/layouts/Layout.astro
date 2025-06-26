@@ -169,26 +169,7 @@ const businessSchema = {
 
 <!-- <script src="/kill-sw.js" is:inline></script> -->
 
-<script is:inline>
-console.log('🧹 Limpiando Service Workers...');
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    registrations.forEach(registration => {
-      console.log('🗑️ Eliminando:', registration.scope);
-      registration.unregister();
-    });
-  });
-  
-  if ('caches' in window) {
-    caches.keys().then(names => {
-      names.forEach(name => {
-        console.log('🗑️ Limpiando cache:', name);
-        caches.delete(name);
-      });
-    });
-  }
-}
-</script>
+
 
   <!-- Google Tag Manager script corregido para evitar errores de TypeScript -->
   <script is:inline>
