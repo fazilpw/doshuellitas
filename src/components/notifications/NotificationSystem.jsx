@@ -22,6 +22,7 @@ const NotificationSystem = ({ userId, dogs = [] }) => {
   }, [userId]);
 
   const registerServiceWorker = async () => {
+     /*
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       try {
         const registration = await navigator.serviceWorker.register('/sw-notifications.js');
@@ -30,6 +31,7 @@ const NotificationSystem = ({ userId, dogs = [] }) => {
         console.error('❌ Error registrando Service Worker:', error);
       }
     }
+        */
   };
 
   const loadUserPreferences = async () => {

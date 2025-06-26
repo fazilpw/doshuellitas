@@ -320,6 +320,7 @@ const pageTitle = hasData ?
   <!-- Service Worker para notificaciones -->
   <script>
     // Registrar service worker para notificaciones push
+      /*
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       navigator.serviceWorker.register('/sw.js')
         .then(registration => {
@@ -334,6 +335,7 @@ const pageTitle = hasData ?
     if ('Notification' in window && Notification.permission === 'default') {
       // Lo haremos desde el componente React para mejor UX
     }
+        */
   </script>
 
   <!-- Meta tags adicionales para PWA -->
