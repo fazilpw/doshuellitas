@@ -90,23 +90,27 @@ const GoogleMapsTest = () => {
   };
 
   const createTestMap = () => {
-    if (!mapRef.current) return;
-
-    // Coordenadas de Bogotá (Club Canino)
-    const bogotaCenter = { lat: 4.7110, lng: -74.0721 };
-
-    const map = new window.google.maps.Map(mapRef.current, {
-      zoom: 13,
-      center: bogotaCenter,
-      mapTypeId: 'roadmap',
-      styles: [
-        {
-          featureType: 'poi',
-          elementType: 'labels',
-          stylers: [{ visibility: 'off' }]
-        }
-      ]
-    });
+  // Para TESTING solamente, usar ubicación dinámica
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const userCenter = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      };
+      
+      const map = new window.google.maps.Map(mapRef.current, {
+        zoom: 13,
+        center: userCenter, // Ubicación real del usuario
+      });
+      
+      // Resto del código...
+    },
+    (error) => {
+      console.error('No se pudo obtener ubicación para test:', error);
+      // Mostrar mensaje de error en lugar de usar coordenadas fijas
+    }
+  );
+};
 
     // Agregar marcador del Club Canino
     const marker = new window.google.maps.Marker({

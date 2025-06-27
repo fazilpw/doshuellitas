@@ -6,7 +6,7 @@ import Layout from '../../layouts/Layout.astro';
 <Layout title="Tracking del Transporte - Club Canino">
   <div class="min-h-screen bg-[#FFFBF0]">
     
-    <!-- Header -->
+    <!-- Header con Botón X de Cerrar -->
     <header class="bg-white border-b border-gray-200 px-6 py-4">
       <div class="flex items-center justify-between">
         <div>
@@ -23,6 +23,16 @@ import Layout from '../../layouts/Layout.astro';
             class="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors"
           >
             🔄 Actualizar
+          </button>
+          
+          <!-- 🆕 BOTÓN X DE CERRAR -->
+          <button 
+            id="close-tracking"
+            onclick="handleCloseTracking()"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 w-10 h-10 rounded-lg transition-colors flex items-center justify-center"
+            title="Cerrar y volver al dashboard"
+          >
+            <span class="text-lg font-bold">✕</span>
           </button>
         </div>
       </div>
@@ -48,50 +58,47 @@ import Layout from '../../layouts/Layout.astro';
               </div>
             </div>
 
-            <!-- ETA -->
+            <!-- ETA y Información -->
             <div class="text-center">
-              <div class="text-3xl font-bold text-[#56CCF2] mb-2" id="eta-time">
-                25 min
-              </div>
-              <p class="text-sm text-gray-600">Tiempo estimado de llegada</p>
-              <div class="mt-4 text-xs text-gray-500">
-                <div>Distancia: <span id="distance">4.2 km</span></div>
-                <div>Velocidad: <span id="vehicle-speed">35 km/h</span></div>
+              <div class="text-3xl font-bold text-[#56CCF2]" id="eta-time">15:45</div>
+              <p class="text-sm text-gray-600 mb-2">Tiempo estimado de llegada</p>
+              <div class="text-sm space-y-1">
+                <div class="flex justify-center items-center">
+                  <span class="w-2 h-2 bg-[#C7EA46] rounded-full mr-2"></span>
+                  <span id="distance-remaining">2.3 km restantes</span>
+                </div>
+                <div class="flex justify-center items-center">
+                  <span class="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+                  <span id="travel-time">8 minutos aproximadamente</span>
+                </div>
               </div>
             </div>
 
-            <!-- Estado del Transporte -->
-            <div class="text-center">
-              <div class="w-16 h-16 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
-                <span class="text-white text-xl">🚐</span>
-              </div>
-              <p class="font-medium text-[#2C3E50]">ABC-123</p>
-              <p class="text-sm text-gray-600">Juan Carlos - Conductor</p>
+            <!-- Acciones Rápidas Móviles -->
+            <div class="text-center space-y-3">
               <button 
-                id="call-driver"
-                class="mt-2 text-xs bg-[#56CCF2] text-white px-3 py-1 rounded-full hover:bg-[#5B9BD5] transition-colors"
+                id="call-driver" 
+                class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
               >
-                📞 Llamar
+                📞 Llamar Conductor
               </button>
+              <button 
+                id="share-location" 
+                class="w-full bg-[#56CCF2] text-white py-2 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+              >
+                📤 Compartir Ubicación
+              </button>
+              <div class="text-xs text-gray-500">
+                Juan Carlos - Conductor<br>
+                📱 +57 300 123 4567
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Mapa de Tracking -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-[#2C3E50]">🗺️ Mapa en Tiempo Real</h2>
-            <div class="flex items-center space-x-2">
-              <div class="flex items-center text-xs text-gray-500">
-                <div class="w-2 h-2 bg-[#56CCF2] rounded-full mr-1"></div>
-                <span>Transporte</span>
-              </div>
-              <div class="flex items-center text-xs text-gray-500">
-                <div class="w-2 h-2 bg-[#C7EA46] rounded-full mr-1"></div>
-                <span>Tu casa</span>
-              </div>
-            </div>
-          </div>
+          <h2 class="text-lg font-semibold text-[#2C3E50] mb-4">🗺️ Mapa en Tiempo Real</h2>
           
           <!-- Controles del mapa -->
           <div class="flex justify-between items-center mb-4">
@@ -190,4 +197,79 @@ import Layout from '../../layouts/Layout.astro';
 
   <!-- Usar archivo JavaScript externo para evitar errores de TypeScript -->
   <script src="/js/tracking.js" is:inline></script>
+  
+  <!-- 🆕 SCRIPT PARA EL BOTÓN DE CERRAR -->
+  <script is:inline>
+    // ============================================
+    // 🚪 FUNCIÓN PARA CERRAR TRACKING
+    // ============================================
+    function handleCloseTracking() {
+      console.log('🚪 Cerrando tracking y volviendo al dashboard...');
+      
+      try {
+        // Obtener datos del usuario para determinar el dashboard correcto
+        const userData = JSON.parse(localStorage.getItem('clubCanino_user') || '{}');
+        console.log('👤 Datos usuario:', userData);
+        
+        // Mostrar confirmación antes de cerrar (opcional)
+        if (confirm('¿Estás seguro que quieres cerrar el tracking y volver al dashboard?')) {
+          
+          // Limpiar tracking activo si existe
+          if (typeof stopTracking === 'function') {
+            console.log('🛑 Deteniendo tracking activo...');
+            stopTracking();
+          }
+          
+          // Determinar dashboard según el rol del usuario
+          let dashboardUrl = '/dashboard/';
+          
+          if (userData.role === 'padre') {
+            dashboardUrl = '/dashboard/padre';
+          } else if (userData.role === 'profesor') {
+            dashboardUrl = '/dashboard/profesor';
+          } else if (userData.role === 'conductor') {
+            dashboardUrl = '/dashboard/conductor';
+          } else if (userData.role === 'admin') {
+            dashboardUrl = '/dashboard/admin';
+          }
+          
+          console.log(`🎯 Redirigiendo a: ${dashboardUrl}`);
+          
+          // Redirigir al dashboard correspondiente
+          window.location.href = dashboardUrl;
+        }
+        
+      } catch (error) {
+        console.error('❌ Error al cerrar tracking:', error);
+        
+        // Fallback: redirigir al dashboard general
+        console.log('🔄 Fallback: Redirigiendo a dashboard general...');
+        window.location.href = '/dashboard/';
+      }
+    }
+    
+    // ============================================
+    // 🎯 MEJORAR UX DEL BOTÓN
+    // ============================================
+    document.addEventListener('DOMContentLoaded', function() {
+      const closeBtn = document.getElementById('close-tracking');
+      
+      if (closeBtn) {
+        // Agregar efecto hover más visible
+        closeBtn.addEventListener('mouseenter', function() {
+          this.style.backgroundColor = '#fee2e2'; // bg-red-100
+          this.style.color = '#dc2626'; // text-red-600
+          this.innerHTML = '<span class="text-lg font-bold">✕</span>';
+        });
+        
+        closeBtn.addEventListener('mouseleave', function() {
+          this.style.backgroundColor = '#f3f4f6'; // bg-gray-100
+          this.style.color = '#4b5563'; // text-gray-600
+          this.innerHTML = '<span class="text-lg font-bold">✕</span>';
+        });
+        
+        console.log('✅ Botón de cerrar tracking inicializado correctamente');
+      }
+    });
+  </script>
 </Layout>

@@ -178,10 +178,14 @@ async function getRealHomeLocation() {
 // ============================================
 // 💾 OBTENER UBICACIÓN REAL DEL CONDUCTOR
 // ============================================
+// ============================================
+// 💾 OBTENER UBICACIÓN REAL DEL CONDUCTOR - VERSIÓN CORREGIDA
+// ============================================
+
 async function getRealVehicleLocation() {
   if (!supabase) {
-    console.warn('⚠️ Supabase no inicializado, usando ubicación simulada');
-    return getSimulatedLocation();
+    console.warn('⚠️ Supabase no inicializado, usando GPS real del dispositivo');
+    return await getRealGPSLocation();
   }
 
   try {
@@ -197,19 +201,29 @@ async function getRealVehicleLocation() {
 
     if (error) {
       console.warn('⚠️ Error BD:', error.message);
-      console.log('🔄 Usando ubicación simulada como fallback');
-      return getSimulatedLocation();
+      console.log('🔄 Usando GPS real del dispositivo como fallback');
+      return await getRealGPSLocation();
     }
 
     if (data && data.length > 0) {
       const location = data[0];
+      
+      // Verificar que la ubicación no sea muy antigua (más de 2 minutos)
+      const locationAge = Date.now() - new Date(location.timestamp).getTime();
+      const maxAge = 2 * 60 * 1000; // 2 minutos en millisegundos
+      
+      if (locationAge > maxAge) {
+        console.warn('⚠️ Ubicación en BD muy antigua, usando GPS real del dispositivo');
+        return await getRealGPSLocation();
+      }
       
       console.log('✅ Ubicación REAL del conductor obtenida desde BD:', {
         lat: location.latitude.toFixed(6),
         lng: location.longitude.toFixed(6),
         speed: location.speed,
         timestamp: location.timestamp,
-        source: location.source || 'BD'
+        source: location.source || 'BD',
+        age: Math.floor(locationAge / 1000) + 's'
       });
       
       return {
@@ -222,28 +236,95 @@ async function getRealVehicleLocation() {
         isReal: location.source === 'REAL_GPS_DEVICE'
       };
     } else {
-      console.warn('⚠️ No hay datos del conductor en BD, usando simulación');
-      return getSimulatedLocation();
+      console.warn('⚠️ No hay datos del conductor en BD, usando GPS real del dispositivo');
+      return await getRealGPSLocation();
     }
     
   } catch (error) {
     console.error('❌ Error obteniendo ubicación real:', error);
-    return getSimulatedLocation();
+    return await getRealGPSLocation();
   }
 }
 
-function getSimulatedLocation() {
-  // Solo como fallback si no hay datos reales
-  console.log('🔄 Usando ubicación simulada como fallback');
-  
-  return {
-    lat: 4.7147 + (Math.random() - 0.5) * 0.01,
-    lng: -74.0517 + (Math.random() - 0.5) * 0.01,
-    speed: 20 + Math.random() * 30,
-    isReal: false,
-    source: 'FALLBACK_SIMULATION'
-  };
+// ============================================
+// 📍 NUEVA FUNCIÓN: GPS REAL DEL DISPOSITIVO
+// ============================================
+async function getRealGPSLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      console.error('❌ Geolocalización no soportada');
+      // Solo si no hay GPS, usar ubicación por defecto de Bogotá
+      resolve({
+        lat: 4.7110, // Centro de Bogotá
+        lng: -74.0721,
+        speed: 0,
+        heading: 0,
+        timestamp: new Date().toISOString(),
+        source: 'DEFAULT_BOGOTA',
+        isReal: false
+      });
+      return;
+    }
+
+    console.log('🎯 Obteniendo ubicación GPS REAL del conductor...');
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = position.coords;
+        
+        const realLocation = {
+          lat: parseFloat(coords.latitude.toFixed(8)),
+          lng: parseFloat(coords.longitude.toFixed(8)),
+          speed: coords.speed ? Math.round(coords.speed * 3.6) : 0, // m/s a km/h
+          heading: coords.heading || 0,
+          timestamp: new Date().toISOString(),
+          source: 'REAL_GPS_DEVICE',
+          isReal: true,
+          accuracy: coords.accuracy
+        };
+        
+        console.log('✅ GPS REAL del conductor obtenido:', {
+          lat: realLocation.lat.toFixed(6),
+          lng: realLocation.lng.toFixed(6),
+          speed: realLocation.speed + ' km/h',
+          accuracy: realLocation.accuracy + 'm'
+        });
+        
+        resolve(realLocation);
+      },
+      (error) => {
+        console.error('❌ Error GPS real del conductor:', error);
+        
+        const errorMessages = {
+          1: '🚫 Permisos GPS denegados',
+          2: '📡 Señal GPS no disponible',
+          3: '⏱️ Timeout GPS'
+        };
+        
+        const message = errorMessages[error.code] || 'Error GPS desconocido';
+        console.warn(message);
+        
+        // Fallback a ubicación por defecto solo si hay error de GPS
+        resolve({
+          lat: 4.7110, // Centro de Bogotá
+          lng: -74.0721,
+          speed: 0,
+          heading: 0,
+          timestamp: new Date().toISOString(),
+          source: 'GPS_ERROR_FALLBACK',
+          isReal: false,
+          error: message
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 30000 // Cache por 30 segundos máximo
+      }
+    );
+  });
 }
+
 
 // ============================================
 // 🔄 TRACKING EN TIEMPO REAL

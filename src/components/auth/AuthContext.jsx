@@ -1,5 +1,5 @@
 // src/components/auth/AuthContext.jsx
-// SISTEMA DE AUTENTICACIÓN COMPLETO SIN MIDDLEWARE
+// SISTEMA DE AUTENTICACIÓN COMPLETO CON PROTECCIÓN SSR
 import { createContext, useContext, useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
 
@@ -26,31 +26,40 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isClient, setIsClient] = useState(false);
 
   // ===============================================
   // 🚀 INICIALIZACIÓN
   // ===============================================
 
   useEffect(() => {
-    // Verificar sesión actual
-    getInitialSession();
+    // Marcar que estamos en el cliente
+    setIsClient(true);
     
-    // Escuchar cambios de auth
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Auth state change:', event, session?.user?.email);
-        
-        if (session?.user) {
-          await handleUserSession(session.user);
-        } else {
-          handleSignOut();
+    // Verificar sesión actual solo en el cliente
+    if (typeof window !== 'undefined') {
+      getInitialSession();
+      
+      // Escuchar cambios de auth
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('🔄 Auth state change:', event, session?.user?.email);
+          
+          if (session?.user) {
+            await handleUserSession(session.user);
+          } else {
+            handleSignOut();
+          }
         }
-      }
-    );
+      );
 
-    return () => {
-      subscription?.unsubscribe();
-    };
+      return () => {
+        subscription?.unsubscribe();
+      };
+    } else {
+      // En el servidor, simplemente marcar como no cargando
+      setLoading(false);
+    }
   }, []);
 
   const getInitialSession = async () => {
@@ -88,6 +97,23 @@ export const AuthProvider = ({ children }) => {
       const userProfile = await getUserProfile(user.id);
       setProfile(userProfile);
       setError(null);
+      
+      // Redirigir al dashboard apropiado
+      if (typeof window !== 'undefined' && userProfile) {
+        const currentPath = window.location.pathname;
+        
+        // Solo redirigir si estamos en login o register
+        if (currentPath === '/login' || currentPath === '/register') {
+          const dashboards = {
+            admin: '/dashboard/admin',
+            profesor: '/dashboard/profesor',
+            padre: '/dashboard/padre'
+          };
+          
+          const redirectTo = dashboards[userProfile.role] || '/dashboard/padre';
+          window.location.href = redirectTo;
+        }
+      }
       
     } catch (err) {
       console.error('❌ Error obteniendo perfil:', err);
@@ -131,7 +157,9 @@ export const AuthProvider = ({ children }) => {
           full_name: user.user_metadata?.full_name || 
                      user.email?.split('@')[0] || 
                      'Usuario',
-          active: true
+          active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -213,8 +241,10 @@ export const AuthProvider = ({ children }) => {
       // Limpiar estado
       handleSignOut();
       
-      // Redirigir a home
-      window.location.href = '/';
+      // Redirigir a home solo en el cliente
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
       
     } catch (err) {
       console.error('❌ Error sign out:', err);
@@ -284,7 +314,8 @@ export const AuthProvider = ({ children }) => {
     profile,
     loading,
     error,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !!profile,
+    isClient,
     
     // Funciones de auth
     signIn,
@@ -312,9 +343,10 @@ export const AuthProvider = ({ children }) => {
 // ===============================================
 
 export const ProtectedRoute = ({ children, requiredRole = null, fallback = null }) => {
-  const { user, profile, loading, canAccess, hasRole, redirectToDashboard } = useAuth();
+  const { user, profile, loading, canAccess, hasRole, redirectToDashboard, isClient } = useAuth();
   
-  if (loading) {
+  // Mostrar loading mientras se inicializa o está cargando
+  if (!isClient || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -326,14 +358,18 @@ export const ProtectedRoute = ({ children, requiredRole = null, fallback = null 
   }
   
   if (!user) {
-    // Redirigir a login
-    window.location.href = '/login/';
+    // Redirigir a login solo en el cliente
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login/';
+    }
     return null;
   }
   
   if (requiredRole && !hasRole(requiredRole)) {
     // Redirigir a dashboard autorizado
-    window.location.href = redirectToDashboard();
+    if (typeof window !== 'undefined') {
+      window.location.href = redirectToDashboard();
+    }
     return null;
   }
   
@@ -345,7 +381,7 @@ export const ProtectedRoute = ({ children, requiredRole = null, fallback = null 
 // ===============================================
 
 export const useUserData = () => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isClient } = useAuth();
   
   return {
     userId: user?.id,
@@ -353,7 +389,8 @@ export const useUserData = () => {
     userRole: profile?.role,
     userName: profile?.full_name,
     userPhone: profile?.phone,
-    isLoading: loading
+    isLoading: loading,
+    isClient
   };
 };
 

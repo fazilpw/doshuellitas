@@ -1,11 +1,12 @@
 ---
+// src/pages/login.astro
 import Layout from '../layouts/Layout.astro';
 import { AuthProvider } from '../components/auth/AuthContext.jsx';
 import LoginForm from '../components/auth/LoginForm.jsx';
 ---
 
-<Layout title="Iniciar Sesión | Club Canino">
-  <AuthProvider client:load>
-    <LoginForm client:load />
+<Layout title="Iniciar Sesión | Club Canino Dos Huellitas">
+  <AuthProvider client:only="react">
+    <LoginForm client:only="react" />
   </AuthProvider>
 </Layout>

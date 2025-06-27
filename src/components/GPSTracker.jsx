@@ -86,16 +86,52 @@ const GPSTracker = () => {
   };
 
   const handleLocationError = (error) => {
-    const errorMessages = {
-      1: 'Permiso denegado para acceder a la ubicación',
-      2: 'Ubicación no disponible',
-      3: 'Tiempo de espera agotado'
-    };
-    
-    const message = errorMessages[error.code] || 'Error desconocido de GPS';
-    setError(message);
-    console.error('❌ Error GPS:', message);
+  const errorMessages = {
+    1: 'Permite el acceso a tu ubicación para usar la app',
+    2: 'No se pudo determinar tu ubicación. Verifica tu GPS',
+    3: 'La solicitud de ubicación tardó demasiado. Intenta de nuevo'
   };
+  
+  const message = errorMessages[error.code] || 'Error desconocido de GPS';
+  setError(message);
+  
+  // 🚫 NO usar ubicación por defecto
+  // 🚫 NO crear mapa sin ubicación real
+  
+  // ✅ Mostrar UI para reintentar
+  showLocationRetryUI();
+  
+  console.error('❌ Error GPS:', message);
+};
+
+const showLocationRetryUI = () => {
+  const mapContainer = document.getElementById('gps-map');
+  if (mapContainer) {
+    mapContainer.innerHTML = `
+      <div class="flex items-center justify-center h-full flex-col space-y-3">
+        <div class="text-4xl">⚠️</div>
+        <p class="text-red-600 text-center text-sm font-medium">
+          No se pudo obtener tu ubicación
+        </p>
+        <p class="text-gray-600 text-center text-xs">
+          Verifica que el GPS esté activado y permite el acceso
+        </p>
+        <button 
+          onclick="window.retryLocation()"
+          class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600"
+        >
+          🔄 Reintentar
+        </button>
+      </div>
+    `;
+  }
+  
+  // Función global para reintentar
+  window.retryLocation = () => {
+    setError('');
+    startTracking();
+  };
+};
 
   const logEvent = (message) => {
     console.log(message);
@@ -114,56 +150,86 @@ const GPSTracker = () => {
   };
 
   const loadGoogleMaps = () => {
-    const apiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY;
-    
-    if (!apiKey) {
-      console.warn('Google Maps API Key no configurada');
-      return;
+  const apiKey = import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY;
+  
+  if (!apiKey) {
+    console.warn('Google Maps API Key no configurada');
+    return;
+  }
+
+  // ⚠️ NO cargar mapa SIN ubicación real
+  if (!currentLocation) {
+    const mapContainer = document.getElementById('gps-map');
+    if (mapContainer) {
+      mapContainer.innerHTML = `
+        <div class="flex items-center justify-center h-full flex-col space-y-2">
+          <div class="text-4xl">📍</div>
+          <p class="text-gray-600 text-center text-sm">
+            Inicia el tracking GPS para ver el mapa con tu ubicación real
+          </p>
+          <button 
+            onclick="document.querySelector('[data-start-tracking]').click()"
+            class="text-blue-500 text-sm hover:underline"
+          >
+            🚀 Iniciar Tracking
+          </button>
+        </div>
+      `;
     }
+    return;
+  }
 
-    // Verificar si ya está cargado
-    if (window.google && window.google.maps) {
-      initializeMap();
-      return;
-    }
+  // Verificar si ya está cargado
+  if (window.google && window.google.maps) {
+    initializeMap();
+    return;
+  }
 
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap`;
-    script.async = true;
-    document.head.appendChild(script);
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initGoogleMap`;
+  script.async = true;
+  document.head.appendChild(script);
 
-    // Función global para callback
-    window.initGoogleMap = initializeMap;
-  };
+  window.initGoogleMap = initializeMap;
+};
 
   const initializeMap = () => {
-    const mapContainer = document.getElementById('gps-map');
-    if (!mapContainer || !window.google) return;
+  const mapContainer = document.getElementById('gps-map');
+  if (!mapContainer || !window.google) return;
 
-    const center = currentLocation 
-      ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
-      : { lat: 4.7110, lng: -74.0721 }; // Bogotá por defecto
+  // 🚫 NUNCA crear mapa sin ubicación real
+  if (!currentLocation) {
+    console.warn('No se puede crear mapa sin ubicación actual');
+    return;
+  }
 
-    mapRef.current = new window.google.maps.Map(mapContainer, {
-      zoom: 15,
-      center: center
-    });
-
-    markerRef.current = new window.google.maps.Marker({
-      position: center,
-      map: mapRef.current,
-      title: 'Vehículo Club Canino',
-      icon: {
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-          <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="15" cy="15" r="13" fill="#3B82F6" stroke="#fff" stroke-width="2"/>
-            <text x="15" y="20" text-anchor="middle" font-size="12" fill="white">🚐</text>
-          </svg>
-        `),
-        scaledSize: new window.google.maps.Size(30, 30)
-      }
-    });
+  // ✅ SOLO usar ubicación real
+  const center = { 
+    lat: currentLocation.latitude, 
+    lng: currentLocation.longitude 
   };
+
+  mapRef.current = new window.google.maps.Map(mapContainer, {
+    zoom: 15,
+    center: center, // SOLO ubicación real
+    mapTypeId: 'roadmap'
+  });
+
+  markerRef.current = new window.google.maps.Marker({
+    position: center,
+    map: mapRef.current,
+    title: 'Mi ubicación actual',
+    icon: {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+        <svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="15" cy="15" r="13" fill="#3B82F6" stroke="#fff" stroke-width="2"/>
+          <text x="15" y="20" text-anchor="middle" font-size="12" fill="white">📍</text>
+        </svg>
+      `),
+      scaledSize: new window.google.maps.Size(30, 30)
+    }
+  });
+};
 
   const updateMap = (location) => {
     if (mapRef.current && markerRef.current && window.google) {
