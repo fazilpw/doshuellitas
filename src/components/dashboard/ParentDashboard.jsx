@@ -210,15 +210,27 @@ const ParentDashboard = () => {
             </nav>
           </div>
 
-          {/* Acciones rápidas */}
+          {/* Acciones rápidas - AQUÍ AGREGAMOS EL BOTÓN GPS */}
           <div className="flex items-center space-x-2">
+            {/* NUEVO: Botón GPS Tracking */}
+            <a 
+              href="/dashboard/tracking/"
+              className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm flex items-center space-x-1"
+              title="Rastrear transporte en tiempo real"
+            >
+              <span>📍</span>
+              <span className="hidden sm:inline">GPS</span>
+            </a>
+            
+            {/* Botón WhatsApp existente */}
             <a 
               href="https://wa.me/573144329824"
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+              className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm flex items-center space-x-1"
             >
-              💬 WhatsApp
+              <span>💬</span>
+              <span className="hidden sm:inline">WhatsApp</span>
             </a>
           </div>
         </div>
@@ -486,7 +498,10 @@ const ParentDashboard = () => {
           )}
 
           {/* Acceso rápido */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Acciones Rápidas */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold text-[#2C3E50] mb-4">⚡ Acciones Rápidas</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <button
               onClick={() => navigateToPage('rutinas')}
               className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-left block w-full"
@@ -495,6 +510,7 @@ const ParentDashboard = () => {
               <div className="font-semibold">Rutinas</div>
               <div className="text-sm opacity-90">Gestionar horarios</div>
             </button>
+
             <button
               onClick={() => navigateToPage('evaluaciones')}
               className="bg-[#C7EA46] text-[#2C3E50] p-4 rounded-lg hover:bg-[#FFFE8D] transition-colors text-left block w-full"
@@ -503,6 +519,7 @@ const ParentDashboard = () => {
               <div className="font-semibold">Evaluar</div>
               <div className="text-sm opacity-90">Nueva evaluación</div>
             </button>
+
             <a
               href="https://wa.me/573144329824"
               target="_blank"
@@ -513,12 +530,33 @@ const ParentDashboard = () => {
               <div className="font-semibold">Contactar</div>
               <div className="text-sm opacity-90">WhatsApp Juan Pablo</div>
             </a>
+            <div >
+            <a
+              href="/dashboard/tracking/"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 shadow-lg hover:shadow-xl block w-full"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">🚐</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Tracking de Transporte</h2>
+                  <p className="text-blue-100">Sigue a tu perro en tiempo real</p>
+                </div>
+              </div>
+            </a>
           </div>
+          </div>
+
+          {/* Tracking de Transporte - Sección destacada */}
+          
+        </div>
         </>
       )}
     </div>
   );
 
+  
   return (
     <div className="min-h-screen bg-[#FFFBF0]">
       {/* Barra de navegación */}

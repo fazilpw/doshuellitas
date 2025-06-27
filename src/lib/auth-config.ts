@@ -30,7 +30,9 @@ export const PROTECTED_ROUTES = {
   ],
   admin: ['/admin', '/usuarios', '/reportes', '/configuracion'],
   profesor: ['/dashboard/profesor', '/evaluaciones', '/estudiantes'],
-  padre: ['/dashboard/padre', '/mis-mascotas', '/progreso']
+  padre: ['/dashboard/padre', '/mis-mascotas', '/progreso'],
+  conductor: ['/dashboard/conductor', '/conductor', '/tracking-control']
+
 };
 
 export const shouldDebug = (component: string): boolean => {
@@ -57,9 +59,10 @@ export const createAuthLogger = (enabled: boolean) => ({
 
 // Configuración de roles del Club Canino
 export const CLUB_ROLES = {
-  PADRE: 'padre',
-  PROFESOR: 'profesor', 
-  ADMIN: 'admin'
+ PADRE: 'padre',
+ PROFESOR: 'profesor', 
+ CONDUCTOR: 'conductor', // ← AGREGAR ESTE
+ ADMIN: 'admin'
 } as const;
 
 export type ClubRole = typeof CLUB_ROLES[keyof typeof CLUB_ROLES];
@@ -91,5 +94,11 @@ export const ROLE_PERMISSIONS = {
     'view_analytics',
     'manage_system_config',
     'export_data'
-  ]
+  ],[CLUB_ROLES.CONDUCTOR]: [
+   'manage_transport_routes',
+   'update_vehicle_location', 
+   'view_assigned_dogs',
+   'create_route_events',
+   'contact_parents'
+ ],
 } as const;

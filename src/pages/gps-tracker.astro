@@ -1,0 +1,15 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="GPS Tracker - Club Canino">
+  <div id="gps-app"></div>
+  
+  <script type="module">
+    import GPSTracker from '../components/GPSTracker.jsx';
+    import { createRoot } from 'react-dom/client';
+    
+    const root = createRoot(document.getElementById('gps-app'));
+    root.render(GPSTracker());
+  </script>
+</Layout>

@@ -4,6 +4,8 @@ import Layout from './Layout.astro';
 import PadreSidebar from '../components/dashboard/PadreSidebar.jsx';
 import { ProfesorSidebar } from '../components/dashboard/ProfesorSidebar.jsx';
 import { AdminSidebar } from '../components/dashboard/AdminSidebar.jsx';
+import ConductorSidebar from '../components/dashboard/ConductorSidebar.jsx';
+
 
 // Obtener datos del usuario desde middleware
 const { profile } = Astro.locals;
@@ -35,6 +37,12 @@ function getDashboardConfig(role: string | undefined) {
         sidebar: PadreSidebar,
         title: 'Mi Panel - Club Canino',
         sections: ['mis-mascotas', 'progreso', 'citas']
+      };
+      case 'conductor':
+      return {
+        sidebar: ConductorSidebar,
+        title: 'Panel del Conductor - Club Canino',
+        sections: ['rutas', 'perros', 'historial']
       };
     default:
       return defaultConfig;

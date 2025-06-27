@@ -12,7 +12,8 @@ import {
   markRoutineAsCompleted, 
   snoozeRoutine, 
   getRoutineStatusForDog, 
-  isRoutineCompletedToday 
+  isRoutineCompletedToday,
+  deleteRoutine as deleteRoutineHelper  // 🔧 AGREGAR ESTA LÍNEA
 } from '../../lib/routineHelpers.js';
 
 const RoutineManager = ({ currentUser, dogs = [] }) => {
@@ -551,12 +552,16 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
                           ✏️
                         </button>
                         <button
-                          onClick={() => deleteRoutine(routine.id)}
-                          className="text-red-600 hover:text-red-800 p-1"
-                          title="Eliminar rutina"
-                        >
-                          🗑️
-                        </button>
+  onClick={() => {
+    console.log('🔍 Datos de rutina para eliminar:', routine);
+    console.log('🎯 ID de rutina a eliminar:', routine.dog_routines?.id);
+    deleteRoutine(routine.dog_routines?.id);
+  }}
+  className="text-red-600 hover:text-red-800 p-1"
+  title="Eliminar rutina"
+>
+  🗑️
+</button>
                       </div>
                     </div>
                   ))}
@@ -612,28 +617,31 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
   );
 
   const deleteRoutine = async (routineId) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta rutina?')) return;
+  if (!confirm('¿Estás seguro de que quieres eliminar esta rutina?')) return;
+  
+  console.log('🗑️ Intentando eliminar rutina con ID:', routineId);
+  
+  try {
+    setLoading(true);
     
-    try {
-      // Eliminar horarios asociados
-      await supabase
-        .from('routine_schedules')
-        .delete()
-        .eq('routine_id', routineId);
-      
-      // Eliminar rutina
-      await supabase
-        .from('dog_routines')
-        .delete()
-        .eq('id', routineId);
-      
-      // Refrescar datos
-      fetchRoutinesAndVaccines();
-    } catch (error) {
-      console.error('Error deleting routine:', error);
-      alert('Error eliminando la rutina');
-    }
-  };
+    // 🔧 USAR EL HELPER EN LUGAR DE CONSULTAS DIRECTAS
+    const result = await deleteRoutineHelper(routineId, currentUser?.id);
+    
+    console.log('✅ Rutina eliminada exitosamente:', result);
+    
+    // Refrescar datos
+    await fetchRoutinesAndVaccines();
+    
+    alert('✅ Rutina eliminada correctamente!');
+    
+  } catch (error) {
+    console.error('❌ Error eliminando la rutina:', error);
+    alert(`Error eliminando la rutina: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Vista placeholder para configuración
   const PlaceholderView = ({ title, icon, description }) => (

@@ -1,0 +1,193 @@
+---
+// src/pages/dashboard/tracking.astro
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout title="Tracking del Transporte - Club Canino">
+  <div class="min-h-screen bg-[#FFFBF0]">
+    
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 px-6 py-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-[#2C3E50]">📍 Ubicación del Transporte</h1>
+          <p class="text-[#5B9BD5] mt-1">Seguimiento en tiempo real</p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <div id="transport-status" class="flex items-center text-sm">
+            <div class="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+            <span class="text-gray-600">Transporte en camino</span>
+          </div>
+          <button 
+            id="refresh-location"
+            class="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+          >
+            🔄 Actualizar
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="px-6 py-6">
+      <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Información del Perro y ETA -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Info del Perro -->
+            <div class="text-center">
+              <div class="w-20 h-20 bg-[#56CCF2] rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="text-white text-2xl">🐕</span>
+              </div>
+              <h3 class="font-semibold text-[#2C3E50]" id="dog-name">Max</h3>
+              <p class="text-sm text-gray-600" id="dog-breed">Golden Retriever</p>
+              <div class="mt-2 px-3 py-1 bg-[#ACF0F4] bg-opacity-30 rounded-full">
+                <span class="text-xs font-medium text-[#2C3E50]" id="route-status">En ruta</span>
+              </div>
+            </div>
+
+            <!-- ETA -->
+            <div class="text-center">
+              <div class="text-3xl font-bold text-[#56CCF2] mb-2" id="eta-time">
+                25 min
+              </div>
+              <p class="text-sm text-gray-600">Tiempo estimado de llegada</p>
+              <div class="mt-4 text-xs text-gray-500">
+                <div>Distancia: <span id="distance">4.2 km</span></div>
+                <div>Velocidad: <span id="vehicle-speed">35 km/h</span></div>
+              </div>
+            </div>
+
+            <!-- Estado del Transporte -->
+            <div class="text-center">
+              <div class="w-16 h-16 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="text-white text-xl">🚐</span>
+              </div>
+              <p class="font-medium text-[#2C3E50]">ABC-123</p>
+              <p class="text-sm text-gray-600">Juan Carlos - Conductor</p>
+              <button 
+                id="call-driver"
+                class="mt-2 text-xs bg-[#56CCF2] text-white px-3 py-1 rounded-full hover:bg-[#5B9BD5] transition-colors"
+              >
+                📞 Llamar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mapa de Tracking -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-[#2C3E50]">🗺️ Mapa en Tiempo Real</h2>
+            <div class="flex items-center space-x-2">
+              <div class="flex items-center text-xs text-gray-500">
+                <div class="w-2 h-2 bg-[#56CCF2] rounded-full mr-1"></div>
+                <span>Transporte</span>
+              </div>
+              <div class="flex items-center text-xs text-gray-500">
+                <div class="w-2 h-2 bg-[#C7EA46] rounded-full mr-1"></div>
+                <span>Tu casa</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Controles del mapa -->
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex space-x-2">
+              <button id="center-vehicle" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">
+                🚐 Ver Vehículo
+              </button>
+              <button id="show-route" class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
+                🗺️ Ver Ruta
+              </button>
+            </div>
+            <div id="map-status" class="text-xs text-gray-500">
+              ⏳ Cargando mapa...
+            </div>
+          </div>
+          
+          <div 
+            id="tracking-map" 
+            class="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center"
+          >
+            <div class="text-center text-gray-600">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+              <p>Cargando mapa...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline de Eventos -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 class="text-lg font-semibold text-[#2C3E50] mb-4">⏱️ Timeline del Viaje</h2>
+          
+          <div class="space-y-4">
+            <div class="flex items-center space-x-4">
+              <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                <span class="text-white text-sm">✓</span>
+              </div>
+              <div class="flex-1">
+                <p class="font-medium text-sm">Transporte salió del colegio</p>
+                <p class="text-xs text-gray-500">15:45 - Hace 8 minutos</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+              <div class="w-8 h-8 bg-[#56CCF2] rounded-full flex items-center justify-center animate-pulse">
+                <span class="text-white text-sm">🚐</span>
+              </div>
+              <div class="flex-1">
+                <p class="font-medium text-sm">En camino a tu casa</p>
+                <p class="text-xs text-gray-500" id="timeline-eta">Llegada estimada: 16:10</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+              <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                <span class="text-white text-sm">🏠</span>
+              </div>
+              <div class="flex-1">
+                <p class="font-medium text-sm text-gray-500">Llegada a casa</p>
+                <p class="text-xs text-gray-400">Pendiente</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Acciones Rápidas -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 class="text-lg font-semibold text-[#2C3E50] mb-4">⚡ Acciones Rápidas</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button 
+              id="share-location"
+              class="bg-[#56CCF2] text-white py-3 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+            >
+              📤 Compartir Ubicación
+            </button>
+            
+            <button 
+              id="emergency-contact"
+              class="bg-red-500 text-white py-3 px-4 rounded-lg hover:bg-red-600 transition-colors"
+            >
+              🚨 Contacto Emergencia
+            </button>
+            
+            <button 
+              id="feedback"
+              class="bg-[#C7EA46] text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors"
+            >
+              💬 Enviar Comentario
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Usar archivo JavaScript externo para evitar errores de TypeScript -->
+  <script src="/js/tracking.js" is:inline></script>
+</Layout>

@@ -1,3 +1,4 @@
+/// <reference path="../.astro/types.d.ts" />
 // src/env.d.ts
 // TIPOS COMPLETOS PARA CLUB CANINO DOS HUELLITAS
 /// <reference types="astro/client" />
@@ -12,7 +13,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 interface UserProfile {
   id: string;
   email: string;
-  role: 'padre' | 'profesor' | 'admin';
+role: 'padre' | 'profesor' | 'admin' | 'conductor';
   full_name: string | null;
   phone: string | null;
   avatar_url: string | null;
