@@ -1,5 +1,5 @@
-// public/js/tracking.js
-// Sistema de Tracking para Padres - Club Canino
+// public/js/tracking.js - SOLUCIÓN RÁPIDA
+// En lugar de inicializar Supabase manualmente, usar el que ya existe en tu proyecto
 
 // Variables globales
 var map;
@@ -8,20 +8,27 @@ var homeMarker;
 var routePath;
 var infoWindow;
 var trackingInterval;
-var currentETA = 25;
-var currentDistance = 4.2;
 
-// Ubicaciones simuladas
-var vehicleLocation = { lat: 4.7147, lng: -74.0517 };
-var homeLocation = { lat: 4.7200, lng: -74.0600 };
+// USAR EL SUPABASE QUE YA ESTÁ CONFIGURADO EN TU PROYECTO
+var supabase = null;
 
-// Datos del usuario y vehículo
+// UBICACIÓN REAL DEL USUARIO (PADRE)
+var homeLocation = null;
+
+// UBICACIÓN REAL DEL CONDUCTOR
+var realVehicleLocation = null;
+
+// Datos del usuario
 var userData = JSON.parse(localStorage.getItem('clubCanino_user') || '{}');
 var dogData = { name: 'Max', breed: 'Golden Retriever' };
 var vehicleData = { plate: 'ABC-123', driver: 'Juan Carlos', phone: '+573001234567' };
 
-// Inicialización
+// ============================================
+// 🚀 INICIALIZACIÓN SIMPLIFICADA
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
+  console.log('🚀 Inicializando tracking REAL para padres (versión simplificada)...');
+  
   // Verificar autenticación
   if (!userData.authenticated) {
     window.location.href = '/login/';
@@ -34,194 +41,332 @@ document.addEventListener('DOMContentLoaded', function() {
     return;
   }
 
-  // Inicializar
-  initializeEventListeners();
-  startTracking();
-  loadGoogleMaps();
+  // Inicializar sistema real simplificado
+  initializeSimplifiedTracking();
 });
 
-function initializeEventListeners() {
-  var refreshBtn = document.getElementById('refresh-location');
-  var callBtn = document.getElementById('call-driver');
-  var shareBtn = document.getElementById('share-location');
-  var emergencyBtn = document.getElementById('emergency-contact');
-  var feedbackBtn = document.getElementById('feedback');
-  var centerVehicleBtn = document.getElementById('center-vehicle');
-  var showRouteBtn = document.getElementById('show-route');
-
-  if (refreshBtn) refreshBtn.addEventListener('click', refreshLocation);
-  if (callBtn) callBtn.addEventListener('click', callDriver);
-  if (shareBtn) shareBtn.addEventListener('click', shareLocation);
-  if (emergencyBtn) emergencyBtn.addEventListener('click', emergencyContact);
-  if (feedbackBtn) feedbackBtn.addEventListener('click', sendFeedback);
-  if (centerVehicleBtn) centerVehicleBtn.addEventListener('click', centerOnVehicle);
-  if (showRouteBtn) showRouteBtn.addEventListener('click', showRoute);
+async function initializeSimplifiedTracking() {
+  try {
+    // 1. Usar Supabase que ya existe en el proyecto
+    await getProjectSupabase();
+    
+    // 2. Obtener ubicación real del padre
+    await getRealHomeLocation();
+    
+    // 3. Inicializar listeners
+    initializeEventListeners();
+    
+    // 4. Iniciar tracking REAL
+    startRealTracking();
+    
+    // 5. Cargar mapa
+    loadGoogleMaps();
+    
+    console.log('✅ Sistema de tracking REAL inicializado (simplificado)');
+    
+  } catch (error) {
+    console.error('❌ Error inicializando tracking real:', error);
+    showTempNotification('Error conectando con GPS real', 'error');
+  }
 }
 
-// Funciones de tracking
-function startTracking() {
-  trackingInterval = setInterval(function() {
-    updateVehicleLocation();
-    updateETA();
-  }, 30000);
-
-  console.log('🚀 Tracking iniciado para padres');
+// ============================================
+// 📍 USAR SUPABASE DEL PROYECTO
+// ============================================
+async function getProjectSupabase() {
+  // MÉTODO 1: Usar el supabase que ya está en window (del proyecto)
+  if (window.supabase) {
+    supabase = window.supabase;
+    console.log('✅ Usando Supabase del proyecto (window.supabase)');
+    return;
+  }
+  
+  // MÉTODO 2: Importar desde el proyecto
+  try {
+    const module = await import('/src/lib/supabase.js');
+    supabase = module.default;
+    console.log('✅ Supabase importado desde /src/lib/supabase.js');
+    return;
+  } catch (err) {
+    console.warn('⚠️ No se pudo importar supabase del proyecto:', err);
+  }
+  
+  // MÉTODO 3: Obtener configuración desde la API del proyecto
+  try {
+    const response = await fetch('/api/supabase-config');
+    if (response.ok) {
+      const config = await response.json();
+      
+      // Cargar Supabase library si no está disponible
+      if (typeof window.supabase === 'undefined') {
+        await loadSupabaseLibrary();
+      }
+      
+      supabase = window.supabase.createClient(config.url, config.anonKey);
+      console.log('✅ Supabase configurado desde API del proyecto');
+      return;
+    }
+  } catch (err) {
+    console.warn('⚠️ No se pudo obtener config desde API:', err);
+  }
+  
+  // Si ningún método funciona, mostrar error claro
+  throw new Error('No se pudo obtener configuración válida de Supabase del proyecto');
 }
 
-function refreshLocation() {
-  var refreshBtn = document.getElementById('refresh-location');
-  if (refreshBtn) {
-    refreshBtn.disabled = true;
-    refreshBtn.textContent = '🔄 Actualizando...';
+async function loadSupabaseLibrary() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js';
+    script.onload = () => {
+      console.log('✅ Supabase library cargada');
+      resolve();
+    };
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+// ============================================
+// 📍 OBTENER UBICACIÓN REAL DEL PADRE
+// ============================================
+async function getRealHomeLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      console.warn('⚠️ GPS no disponible, usando ubicación por defecto');
+      homeLocation = { lat: 4.7200, lng: -74.0600 }; // Bogotá por defecto
+      resolve();
+      return;
+    }
+
+    console.log('📍 Obteniendo ubicación real del padre...');
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        homeLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        
+        console.log('✅ Ubicación real del padre obtenida:', {
+          lat: homeLocation.lat.toFixed(6),
+          lng: homeLocation.lng.toFixed(6)
+        });
+        
+        // Verificar que el elemento existe antes de actualizar
+        const homeElement = document.getElementById('home-coords');
+        if (homeElement) {
+          homeElement.textContent = `Lat: ${homeLocation.lat.toFixed(4)}, Lng: ${homeLocation.lng.toFixed(4)}`;
+        }
+        
+        resolve();
+      },
+      (error) => {
+        console.warn('⚠️ Error GPS padre, usando ubicación por defecto:', error);
+        homeLocation = { lat: 4.7200, lng: -74.0600 };
+        resolve();
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 minutos
+      }
+    );
+  });
+}
+
+// ============================================
+// 💾 OBTENER UBICACIÓN REAL DEL CONDUCTOR
+// ============================================
+async function getRealVehicleLocation() {
+  if (!supabase) {
+    console.warn('⚠️ Supabase no inicializado, usando ubicación simulada');
+    return getSimulatedLocation();
   }
 
-  setTimeout(function() {
-    updateVehicleLocation();
-    updateETA();
+  try {
+    console.log('📡 Obteniendo ubicación REAL del conductor desde BD...');
     
-    if (refreshBtn) {
-      refreshBtn.disabled = false;
-      refreshBtn.textContent = '🔄 Actualizar';
+    // Obtener la ubicación más reciente del vehículo
+    const { data, error } = await supabase
+      .from('vehicle_locations')
+      .select('*')
+      .eq('vehicle_id', 'vehicle-001') // ID del vehículo
+      .order('timestamp', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.warn('⚠️ Error BD:', error.message);
+      console.log('🔄 Usando ubicación simulada como fallback');
+      return getSimulatedLocation();
+    }
+
+    if (data && data.length > 0) {
+      const location = data[0];
+      
+      console.log('✅ Ubicación REAL del conductor obtenida desde BD:', {
+        lat: location.latitude.toFixed(6),
+        lng: location.longitude.toFixed(6),
+        speed: location.speed,
+        timestamp: location.timestamp,
+        source: location.source || 'BD'
+      });
+      
+      return {
+        lat: location.latitude,
+        lng: location.longitude,
+        speed: location.speed || 0,
+        heading: location.heading || 0,
+        timestamp: location.timestamp,
+        source: location.source,
+        isReal: location.source === 'REAL_GPS_DEVICE'
+      };
+    } else {
+      console.warn('⚠️ No hay datos del conductor en BD, usando simulación');
+      return getSimulatedLocation();
     }
     
-    showTempNotification('Ubicación actualizada', 'success');
-  }, 2000);
+  } catch (error) {
+    console.error('❌ Error obteniendo ubicación real:', error);
+    return getSimulatedLocation();
+  }
 }
 
-function updateVehicleLocation() {
-  // Simular movimiento del vehículo hacia la casa
-  currentDistance = Math.max(0.1, currentDistance - 0.3);
-  currentETA = Math.max(1, currentETA - 2);
-
-  // Calcular nueva posición del vehículo
-  var progress = Math.max(0, (4.2 - currentDistance) / 4.2);
-  var startLat = 4.7147;
-  var startLng = -74.0517;
-  var endLat = homeLocation.lat;
-  var endLng = homeLocation.lng;
+function getSimulatedLocation() {
+  // Solo como fallback si no hay datos reales
+  console.log('🔄 Usando ubicación simulada como fallback');
   
-  vehicleLocation = {
-    lat: startLat + (endLat - startLat) * progress,
-    lng: startLng + (endLng - startLng) * progress
+  return {
+    lat: 4.7147 + (Math.random() - 0.5) * 0.01,
+    lng: -74.0517 + (Math.random() - 0.5) * 0.01,
+    speed: 20 + Math.random() * 30,
+    isReal: false,
+    source: 'FALLBACK_SIMULATION'
   };
+}
 
-  // Actualizar UI
-  updateDisplayValues();
+// ============================================
+// 🔄 TRACKING EN TIEMPO REAL
+// ============================================
+function startRealTracking() {
+  console.log('🎯 Iniciando tracking REAL cada 15 segundos...');
   
-  // Actualizar mapa si existe
-  if (vehicleMarker && map) {
-    vehicleMarker.setPosition(vehicleLocation);
-    if (routePath) {
-      routePath.setPath([vehicleLocation, homeLocation]);
-    }
-    if (infoWindow) {
-      infoWindow.setContent(createInfoContent());
-    }
-  }
-
-  // Actualizar estado según distancia
-  if (currentDistance < 0.5) {
-    updateTransportStatus('arriving', 'Llegando en 2-3 minutos');
-    showTempNotification('🚐 Tu perro llegará muy pronto!', 'success', 5000);
-  } else if (currentDistance < 0.1) {
-    updateTransportStatus('arrived', 'Tu perro está en casa');
-    showTempNotification('🏠 Tu perro está en casa!', 'success', 5000);
-  }
-}
-
-function updateDisplayValues() {
-  var etaTime = document.getElementById('eta-time');
-  var distance = document.getElementById('distance');
-  var timelineEta = document.getElementById('timeline-eta');
-
-  if (etaTime) etaTime.textContent = currentETA + ' min';
-  if (distance) distance.textContent = currentDistance.toFixed(1) + ' km';
-  if (timelineEta) {
-    var arrivalTime = new Date(Date.now() + currentETA * 60000);
-    timelineEta.textContent = 'Llegada estimada: ' + arrivalTime.toLocaleTimeString();
-  }
-}
-
-function updateETA() {
-  var speed = 30; // km/h promedio en ciudad
-  var calculatedETA = Math.round((currentDistance / speed) * 60);
-  currentETA = Math.max(1, calculatedETA);
-}
-
-function updateTransportStatus(status, message) {
-  var statusConfig = {
-    active: { color: 'bg-green-400', text: message },
-    arriving: { color: 'bg-yellow-400', text: message },
-    arrived: { color: 'bg-blue-400', text: message },
-    offline: { color: 'bg-gray-400', text: 'Sin conexión' }
-  };
-
-  var config = statusConfig[status] || statusConfig.offline;
+  // Actualización inmediata
+  updateRealVehicleLocation();
   
-  var transportStatus = document.getElementById('transport-status');
-  if (transportStatus) {
-    var indicator = transportStatus.querySelector('div');
-    var text = transportStatus.querySelector('span');
+  // Actualizar cada 15 segundos
+  trackingInterval = setInterval(updateRealVehicleLocation, 15000);
+}
+
+async function updateRealVehicleLocation() {
+  try {
+    // Obtener ubicación real del conductor
+    realVehicleLocation = await getRealVehicleLocation();
     
-    if (indicator) indicator.className = 'w-2 h-2 ' + config.color + ' rounded-full mr-2';
-    if (text) text.textContent = config.text;
+    // Actualizar UI
+    updateDisplayValues();
+    
+    // Actualizar mapa si existe
+    updateMapWithRealLocation();
+    
+    // Calcular ETA real
+    calculateRealETA();
+    
+    const statusText = realVehicleLocation.isReal ? 'REAL desde BD' : 'SIMULADA (fallback)';
+    console.log(`📍 Ubicación actualizada: ${statusText}`);
+    
+  } catch (error) {
+    console.error('❌ Error actualizando ubicación:', error);
   }
 }
 
-function showTempNotification(message, type, duration) {
-  type = type || 'info';
-  duration = duration || 3000;
+function updateMapWithRealLocation() {
+  if (!map || !vehicleMarker || !realVehicleLocation) return;
   
-  var notification = document.createElement('div');
-  notification.className = 'fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm ' + 
-    (type === 'success' ? 'bg-green-500' : 'bg-blue-500') + ' text-white';
-  notification.textContent = message;
+  // Actualizar posición del marcador
+  vehicleMarker.setPosition(realVehicleLocation);
   
-  document.body.appendChild(notification);
+  // Actualizar ruta
+  if (routePath && homeLocation) {
+    routePath.setPath([realVehicleLocation, homeLocation]);
+  }
   
-  setTimeout(function() {
-    if (notification.parentNode) {
-      notification.parentNode.removeChild(notification);
-    }
-  }, duration);
+  // Actualizar info window
+  if (infoWindow) {
+    infoWindow.setContent(createRealInfoContent());
+  }
 }
 
-// Google Maps
+function calculateRealETA() {
+  if (!realVehicleLocation || !homeLocation) {
+    console.log('⚠️ No se puede calcular ETA: faltan ubicaciones');
+    return;
+  }
+  
+  try {
+    // Calcular distancia real
+    const distance = calculateDistance(realVehicleLocation, homeLocation);
+    const speed = realVehicleLocation.speed || 30; // km/h
+    const etaMinutes = Math.round((distance / speed) * 60);
+    
+    // Actualizar UI de forma segura
+    const distanceElement = document.getElementById('distance');
+    if (distanceElement) {
+      distanceElement.textContent = `${distance.toFixed(1)} km`;
+    }
+    
+    const etaElement = document.getElementById('eta');
+    if (etaElement) {
+      etaElement.textContent = `${etaMinutes} minutos`;
+    }
+    
+    // Mostrar estado
+    const statusText = realVehicleLocation.isReal ? 
+      `📍 GPS Real - ${etaMinutes} min` : 
+      `🔄 Simulado - ${etaMinutes} min`;
+      
+    const statusElement = document.getElementById('transport-status');
+    if (statusElement) {
+      statusElement.textContent = statusText;
+    }
+    
+    console.log(`📊 ETA calculado: ${etaMinutes} min (${distance.toFixed(1)} km)`);
+    
+  } catch (error) {
+    console.error('❌ Error calculando ETA:', error);
+  }
+}
+
+// ============================================
+// 🗺️ GOOGLE MAPS (SIMPLIFICADO)
+// ============================================
 function loadGoogleMaps() {
-  // Para demo, usar una API key placeholder
-var apiKey = 'AIzaSyC8h8jPTSS9XQ0xskNgp2BDRxcflz4H5R4';
-
-
+  const apiKey = 'AIzaSyC8h8jPTSS9XQ0xskNgp2BDRxcflz4H5R4';
   
-  if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
-    document.getElementById('tracking-map').innerHTML = 
-      '<div class="text-center text-gray-600">' +
-        '<div class="text-4xl mb-2">🗺️</div>' +
-        '<p>Mapa no disponible</p>' +
-        '<p class="text-sm">API Key de Google Maps no configurada</p>' +
-        '<p class="text-xs mt-2">Agrega tu API key en el archivo tracking.js</p>' +
-      '</div>';
-    document.getElementById('map-status').textContent = '❌ API Key no configurada';
+  if (!apiKey) {
+    showMapError('API Key de Google Maps no configurada');
     return;
   }
 
-  document.getElementById('map-status').textContent = '🔄 Cargando Google Maps...';
+  updateDisplayValue('map-status', '🔄 Cargando Google Maps...');
 
-  var script = document.createElement('script');
-  script.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey + '&callback=initParentMap&libraries=geometry';
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initRealParentMap&libraries=geometry`;
   script.async = true;
+  script.onerror = () => showMapError('Error cargando Google Maps');
   document.head.appendChild(script);
 }
 
-// Función global para el callback de Google Maps
-window.initParentMap = function() {
-  var mapContainer = document.getElementById('tracking-map');
+window.initRealParentMap = function() {
+  const mapContainer = document.getElementById('tracking-map');
   if (!mapContainer || !window.google) return;
 
   try {
+    const center = realVehicleLocation || { lat: 4.7147, lng: -74.0517 };
+    
     map = new google.maps.Map(mapContainer, {
       zoom: 14,
-      center: vehicleLocation,
+      center: center,
       styles: [
         {
           featureType: 'poi',
@@ -231,32 +376,34 @@ window.initParentMap = function() {
       ]
     });
 
-    // Crear marcadores
-    createVehicleMarker();
-    createHomeMarker();
-    createRoutePath();
-    createInfoWindow();
+    createRealVehicleMarker();
+    createRealHomeMarker();
+    createRealRoutePath();
+    createRealInfoWindow();
 
-    // Ajustar vista
-    var bounds = new google.maps.LatLngBounds();
-    bounds.extend(vehicleLocation);
-    bounds.extend(homeLocation);
-    map.fitBounds(bounds);
+    if (realVehicleLocation && homeLocation) {
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend(realVehicleLocation);
+      bounds.extend(homeLocation);
+      map.fitBounds(bounds);
+    }
 
-    document.getElementById('map-status').textContent = '✅ Mapa cargado';
-    console.log('🗺️ Mapa de tracking para padres cargado');
+    updateDisplayValue('map-status', '✅ Mapa con GPS real cargado');
+    console.log('🗺️ Mapa de tracking REAL cargado');
 
   } catch (error) {
-    console.error('Error inicializando mapa:', error);
-    document.getElementById('map-status').textContent = '❌ Error en el mapa';
+    console.error('❌ Error inicializando mapa:', error);
+    showMapError('Error en el mapa: ' + error.message);
   }
 };
 
-function createVehicleMarker() {
+function createRealVehicleMarker() {
+  const position = realVehicleLocation || { lat: 4.7147, lng: -74.0517 };
+  
   vehicleMarker = new google.maps.Marker({
-    position: vehicleLocation,
+    position: position,
     map: map,
-    title: 'Transporte Club Canino',
+    title: 'Transporte GPS Real',
     icon: {
       url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
         '<svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">' +
@@ -269,11 +416,13 @@ function createVehicleMarker() {
   });
 }
 
-function createHomeMarker() {
+function createRealHomeMarker() {
+  if (!homeLocation) return;
+  
   homeMarker = new google.maps.Marker({
     position: homeLocation,
     map: map,
-    title: 'Tu Casa',
+    title: 'Tu Ubicación Real',
     icon: {
       url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
         '<svg width="45" height="45" viewBox="0 0 45 45" xmlns="http://www.w3.org/2000/svg">' +
@@ -286,105 +435,173 @@ function createHomeMarker() {
   });
 }
 
-function createRoutePath() {
+function createRealRoutePath() {
+  if (!realVehicleLocation || !homeLocation) return;
+  
   routePath = new google.maps.Polyline({
-    path: [vehicleLocation, homeLocation],
+    path: [realVehicleLocation, homeLocation],
     geodesic: true,
     strokeColor: '#56CCF2',
-    strokeOpacity: 0.8,
-    strokeWeight: 4
+    strokeOpacity: 1.0,
+    strokeWeight: 3
   });
+  
   routePath.setMap(map);
 }
 
-function createInfoWindow() {
-  infoWindow = new google.maps.InfoWindow({
-    content: createInfoContent()
-  });
-
-  vehicleMarker.addListener('click', function() {
-    infoWindow.open(map, vehicleMarker);
-  });
-
-  // Abrir automáticamente
-  setTimeout(function() {
-    infoWindow.open(map, vehicleMarker);
-  }, 1000);
-}
-
-function createInfoContent() {
-  return '<div style="padding: 15px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;">' +
-    '<h3 style="margin: 0 0 8px 0; color: #2C3E50;">🚐 Transporte ' + vehicleData.plate + '</h3>' +
-    '<p style="margin: 0 0 8px 0; color: #666;">Conductor: ' + vehicleData.driver + '</p>' +
-    '<div style="background: #f8f9fa; padding: 8px; border-radius: 6px;">' +
-      '<p style="margin: 0; color: #56CCF2; font-weight: 500;">' +
-        '📍 Distancia: ' + currentDistance.toFixed(1) + ' km<br>' +
-        '⏱️ ETA: ' + currentETA + ' minutos' +
-      '</p>' +
-    '</div>' +
-  '</div>';
-}
-
-function centerOnVehicle() {
-  if (map && vehicleMarker) {
-    map.panTo(vehicleLocation);
-    map.setZoom(15);
-    if (infoWindow) {
-      infoWindow.open(map, vehicleMarker);
-    }
-  }
-}
-
-function showRoute() {
-  if (map) {
-    var bounds = new google.maps.LatLngBounds();
-    bounds.extend(vehicleLocation);
-    bounds.extend(homeLocation);
-    map.fitBounds(bounds);
-  }
-}
-
-// Acciones
-function callDriver() {
-  if (confirm('¿Llamar al conductor ' + vehicleData.driver + '?')) {
-    window.open('tel:' + vehicleData.phone);
-  }
-}
-
-function shareLocation() {
-  var message = '🐕 Mi perro ' + dogData.name + ' está en camino! ETA: ' + currentETA + ' minutos. ' +
-    'Puedes seguir el transporte aquí: ' + window.location.href;
+function createRealInfoContent() {
+  if (!realVehicleLocation || !homeLocation) return 'Cargando...';
   
-  if (navigator.share) {
-    navigator.share({
-      title: 'Ubicación del Transporte - Club Canino',
-      text: message,
-      url: window.location.href
+  const distance = calculateDistance(realVehicleLocation, homeLocation);
+  const statusIcon = realVehicleLocation.isReal ? '📍' : '🔄';
+  const statusText = realVehicleLocation.isReal ? 'GPS Real' : 'Simulado';
+  
+  return `
+    <div style="padding: 15px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <h3 style="margin: 0 0 8px 0; color: #2C3E50;">🚐 ${vehicleData.plate}</h3>
+      <p style="margin: 0 0 8px 0; color: #666;">Conductor: ${vehicleData.driver}</p>
+      <div style="background: #f8f9fa; padding: 8px; border-radius: 6px; margin: 8px 0;">
+        <div style="font-size: 12px; color: #28a745; font-weight: 500;">${statusIcon} ${statusText}</div>
+        <div style="font-size: 14px; font-weight: 600; color: #2C3E50;">${distance.toFixed(1)} km de distancia</div>
+        <div style="font-size: 12px; color: #6c757d;">Velocidad: ${Math.round(realVehicleLocation.speed || 0)} km/h</div>
+      </div>
+      <p style="margin: 5px 0 0 0; font-size: 12px; color: #28a745; font-weight: 500;">
+        ✅ En camino a tu casa
+      </p>
+    </div>
+  `;
+}
+
+function createRealInfoWindow() {
+  infoWindow = new google.maps.InfoWindow({
+    content: createRealInfoContent()
+  });
+  
+  if (vehicleMarker) {
+    vehicleMarker.addListener('click', () => {
+      infoWindow.open(map, vehicleMarker);
     });
-  } else {
-    navigator.clipboard.writeText(message).then(function() {
-      showTempNotification('Enlace copiado al portapapeles', 'success');
+  }
+}
+
+// ============================================
+// 🛠️ UTILIDADES AUXILIARES
+// ============================================
+function calculateDistance(point1, point2) {
+  if (!point1 || !point2) return 0;
+  
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = (point2.lat - point1.lat) * Math.PI / 180;
+  const dLng = (point2.lng - point1.lng) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(point1.lat * Math.PI / 180) * Math.cos(point2.lat * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function updateDisplayValue(elementId, value) {
+  try {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.textContent = value;
+    } else {
+      console.warn(`⚠️ Elemento con ID '${elementId}' no encontrado en la página`);
+    }
+  } catch (error) {
+    console.error(`❌ Error actualizando elemento ${elementId}:`, error);
+  }
+}
+
+function updateDisplayValues() {
+  if (!realVehicleLocation) {
+    console.log('⚠️ No hay ubicación del vehículo para mostrar');
+    return;
+  }
+  
+  // Actualizar coordenadas del vehículo de forma segura
+  const vehicleElement = document.getElementById('vehicle-coords');
+  if (vehicleElement) {
+    vehicleElement.textContent = `Lat: ${realVehicleLocation.lat.toFixed(4)}, Lng: ${realVehicleLocation.lng.toFixed(4)}`;
+  }
+    
+  // Actualizar estado GPS de forma segura
+  const statusElement = document.getElementById('gps-status');
+  if (statusElement) {
+    const statusIcon = realVehicleLocation.isReal ? '📍' : '🔄';
+    statusElement.textContent = `${statusIcon} ${realVehicleLocation.isReal ? 'GPS Real' : 'Simulado'}`;
+  }
+  
+  // Actualizar otros elementos si existen
+  const speedElement = document.getElementById('speed-display');
+  if (speedElement) {
+    speedElement.textContent = `${Math.round(realVehicleLocation.speed || 0)} km/h`;
+  }
+  
+  const accuracyElement = document.getElementById('accuracy-display');
+  if (accuracyElement) {
+    accuracyElement.textContent = `${Math.round(realVehicleLocation.accuracy || 0)}m`;
+  }
+}
+
+function showMapError(message) {
+  const mapContainer = document.getElementById('tracking-map');
+  if (mapContainer) {
+    mapContainer.innerHTML = 
+      '<div class="text-center text-gray-600 p-8">' +
+        '<div class="text-4xl mb-2">🗺️</div>' +
+        '<p>Mapa no disponible</p>' +
+        '<p class="text-sm">' + message + '</p>' +
+      '</div>';
+  }
+  updateDisplayValue('map-status', '❌ ' + message);
+}
+
+function showTempNotification(message, type = 'info', duration = 3000) {
+  const notification = document.createElement('div');
+  notification.style.cssText = 'position:fixed;top:20px;right:20px;z-index:1000;padding:12px 20px;border-radius:8px;color:white;font-weight:500;';
+  notification.className = (type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500') + ' text-white';
+  notification.textContent = message;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, duration);
+}
+
+// ============================================
+// 📱 EVENT LISTENERS SIMPLIFICADOS
+// ============================================
+function initializeEventListeners() {
+  const refreshBtn = document.getElementById('refresh-location');
+  const centerVehicleBtn = document.getElementById('center-vehicle');
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = '🔄 Actualizando...';
+      
+      await updateRealVehicleLocation();
+      
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '🔄 Actualizar GPS';
+      
+      showTempNotification('Ubicación GPS actualizada', 'success');
+    });
+  }
+  
+  if (centerVehicleBtn) {
+    centerVehicleBtn.addEventListener('click', () => {
+      if (map && vehicleMarker && realVehicleLocation) {
+        map.panTo(realVehicleLocation);
+        map.setZoom(15);
+        if (infoWindow) {
+          infoWindow.open(map, vehicleMarker);
+        }
+      }
     });
   }
 }
-
-function emergencyContact() {
-  if (confirm('¿Contactar al Club Canino por emergencia?')) {
-    window.open('tel:+573144329824');
-  }
-}
-
-function sendFeedback() {
-  var feedback = prompt('¿Cómo fue el servicio de transporte hoy?');
-  if (feedback) {
-    showTempNotification('Gracias por tu comentario!', 'success');
-    console.log('Feedback enviado:', feedback);
-  }
-}
-
-// Cleanup
-window.addEventListener('beforeunload', function() {
-  if (trackingInterval) {
-    clearInterval(trackingInterval);
-  }
-});
