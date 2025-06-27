@@ -1,15 +1,10 @@
 ---
+// src/pages/gps-tracker.astro - CORREGIDO
 import Layout from '../layouts/Layout.astro';
+import GPSTracker from '../components/GPSTracker.jsx';
 ---
 
 <Layout title="GPS Tracker - Club Canino">
-  <div id="gps-app"></div>
-  
-  <script type="module">
-    import GPSTracker from '../components/GPSTracker.jsx';
-    import { createRoot } from 'react-dom/client';
-    
-    const root = createRoot(document.getElementById('gps-app'));
-    root.render(GPSTracker());
-  </script>
+  <!-- USAR ASTRO NATIVO CON client:load -->
+  <GPSTracker client:load />
 </Layout>
