@@ -1,323 +1,371 @@
-// public/sw.js - Service Worker Mobile-Optimized para Club Canino
-const CACHE_NAME = 'club-canino-mobile-v1.0.0';
+// public/sw.js - Service Worker FINAL para Club Canino (SIN conflictos MIME)
+const CACHE_NAME = 'club-canino-final-v1.3.0';
+const STATIC_CACHE = 'club-canino-static-v1.3.0';
 
-// 🔍 DETECCIÓN DE DISPOSITIVO
-const isMobile = () => {
-  return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
+// 🚨 CRÍTICO: URLs que NUNCA deben ser cacheadas
+const NEVER_CACHE_PATTERNS = [
+  // 🔥 SUPABASE - NUNCA cachear
+  /supabase\.co/,
+  /\.supabase\.co/,
+  
+  // 🔥 JAVASCRIPT - NUNCA cachear (evita MIME type error)
+  /\.js$/,
+  /\.jsx$/,
+  /\.ts$/,
+  /\.tsx$/,
+  /\.mjs$/,
+  /\.cjs$/,
+  
+  // 🔥 ASSETS DINÁMICOS - NUNCA cachear
+  /_astro\/.*\.js/,
+  /chunks\/.*\.js/,
+  /\.css$/,
+  /\.map$/,
+  
+  // 🔥 APIs y RUTAS DINÁMICAS - NUNCA cachear
+  /\/api\//,
+  /\/auth\//,
+  /\/rest\//,
+  /\/storage\//,
+  /\/dashboard\//,
+  /\/admin\//,
+  /\/login/,
+  /\/register/,
+  /\/evaluacion/,
+  
+  // 🔥 DEVELOPMENT - NUNCA cachear
+  /\/@vite/,
+  /\/@id/,
+  /\/__vite/,
+  /\/src\//,
+  /localhost/,
+  /127\.0\.0\.1/
+];
 
-const isIOS = () => {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent);
-};
+// ✅ SOLO estos recursos estáticos PUEDEN ser cacheados
+const ALLOWED_CACHE_PATTERNS = [
+  /\.(png|jpg|jpeg|gif|svg|ico|webp)$/,
+  /\.(woff|woff2|ttf|eot)$/,
+  /\/icons\//,
+  /\/images\//
+];
 
-// 📱 RECURSOS MÍNIMOS para móviles (sin conflictos)
-const MOBILE_CORE_ASSETS = [
+// ✅ PÁGINAS estáticas que SÍ pueden cachearse
+const STATIC_PAGES = [
   '/',
-  '/app'
+  '/servicios',
+  '/instalaciones',
+  '/contacto',
+  '/preguntas-frecuentes'
 ];
 
 // ============================================
-// 🚀 INSTALACIÓN SIMPLIFICADA
+// 🔍 FUNCIÓN CRÍTICA: Verificar si NO cachear
+// ============================================
+function shouldNeverCache(request) {
+  const url = new URL(request.url);
+  
+  // Verificar cada patrón de NEVER_CACHE
+  const shouldSkip = NEVER_CACHE_PATTERNS.some(pattern => {
+    if (pattern instanceof RegExp) {
+      return pattern.test(url.href) || pattern.test(url.pathname);
+    }
+    return url.href.includes(pattern) || url.pathname.includes(pattern);
+  });
+  
+  if (shouldSkip) {
+    console.log('🚫 SW: NO cacheando (patrón bloqueado):', url.pathname);
+    return true;
+  }
+  
+  return false;
+}
+
+// ============================================
+// 🔍 FUNCIÓN: Verificar si SÍ puede cachearse
+// ============================================
+function canBeCached(request) {
+  const url = new URL(request.url);
+  
+  // Solo assets estáticos permitidos
+  return ALLOWED_CACHE_PATTERNS.some(pattern => 
+    pattern.test(url.pathname)
+  );
+}
+
+// ============================================
+// 🚀 INSTALACIÓN ULTRA CONSERVADORA
 // ============================================
 self.addEventListener('install', (event) => {
-  console.log('📱 Club Canino Mobile SW: Instalando...');
+  console.log('📦 Club Canino SW v1.3.0: Instalando (modo ultra-seguro)...');
   
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        // Cache solo recursos esenciales para evitar conflictos
-        console.log('💾 Cacheando recursos móviles básicos...');
+    caches.open(STATIC_CACHE)
+      .then(cache => {
+        console.log('💾 Pre-cacheando SOLO páginas estáticas seguras...');
+        
         return Promise.allSettled(
-          MOBILE_CORE_ASSETS.map(url => 
-            fetch(url)
-              .then(response => {
-                if (response.ok) {
-                  return cache.put(url, response.clone());
-                }
-                return Promise.resolve();
-              })
-              .catch(err => {
-                console.warn(`⚠️ No se pudo pre-cachear ${url}:`, err);
-                return Promise.resolve();
-              })
-          )
+          STATIC_PAGES.map(async (url) => {
+            try {
+              const response = await fetch(url, { 
+                cache: 'no-cache',
+                headers: { 'Cache-Control': 'no-cache' }
+              });
+              
+              if (response.ok && response.status === 200) {
+                console.log(`✅ Pre-cacheado: ${url}`);
+                return cache.put(url, response.clone());
+              } else {
+                console.warn(`⚠️ No pre-cacheado: ${url} (status: ${response.status})`);
+              }
+            } catch (err) {
+              console.warn(`❌ Error pre-cacheando ${url}:`, err.message);
+            }
+          })
         );
       })
       .then(() => {
-        console.log('✅ Mobile SW instalado');
+        console.log('✅ SW instalado - solo páginas estáticas cacheadas');
         return self.skipWaiting();
       })
-      .catch((error) => {
-        console.error('❌ Error instalación mobile SW:', error);
+      .catch(error => {
+        console.error('❌ Error instalando SW:', error);
       })
   );
 });
 
 // ============================================
-// 🔄 ACTIVACIÓN MÓVIL
+// 🔄 ACTIVACIÓN Y LIMPIEZA AGRESIVA
 // ============================================
 self.addEventListener('activate', (event) => {
-  console.log('🔄 Mobile SW: Activando...');
+  console.log('🔄 SW: Activando y limpiando caches problemáticos...');
   
   event.waitUntil(
     Promise.all([
-      // Limpiar caches antiguos
-      caches.keys().then((cacheNames) => {
+      // Limpiar TODOS los caches antiguos agresivamente
+      caches.keys().then(cacheNames => {
         return Promise.all(
           cacheNames
-            .filter((cacheName) => cacheName !== CACHE_NAME)
-            .map((cacheName) => {
-              console.log('🗑️ Eliminando cache móvil antiguo:', cacheName);
+            .filter(cacheName => 
+              cacheName !== CACHE_NAME && 
+              cacheName !== STATIC_CACHE
+            )
+            .map(cacheName => {
+              console.log('🗑️ Eliminando cache antiguo/problemático:', cacheName);
               return caches.delete(cacheName);
             })
         );
       }),
       
-      // Claim clients
+      // Tomar control inmediato
       self.clients.claim()
-    ])
-    .then(() => {
-      console.log('✅ Mobile SW activado');
-    })
-    .catch((error) => {
-      console.error('❌ Error activación mobile SW:', error);
+      
+    ]).then(() => {
+      console.log('✅ SW activado - caches limpios');
+      
+      // Notificar a la app que estamos activos
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'SW_ACTIVATED',
+            version: CACHE_NAME
+          });
+        });
+      });
     })
   );
 });
 
 // ============================================
-// 🌐 FETCH - ESTRATEGIA ULTRA SIMPLE PARA MÓVILES
+// 🌐 FETCH: ESTRATEGIA ULTRA CONSERVADORA
 // ============================================
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
+  const request = event.request;
   const url = new URL(request.url);
   
-  // 🚫 SOLO interceptar lo mínimo necesario en móviles
-  if (shouldIgnoreMobileRequest(request)) {
-    // Dejar que el navegador maneje la request normalmente
+  // 🚨 PASO 1: NUNCA interceptar recursos críticos
+  if (shouldNeverCache(request)) {
+    // Dejar que pase directo al servidor SIN interceptar
+    console.log('🚫 SW: Pasando directo (no interceptado):', url.pathname);
+    return; // ← CLAVE: No usar event.respondWith()
+  }
+  
+  // 🔍 PASO 2: Solo interceptar navegación de páginas estáticas
+  if (request.mode === 'navigate') {
+    // Solo para páginas estáticas conocidas
+    if (STATIC_PAGES.includes(url.pathname)) {
+      event.respondWith(handleStaticNavigation(request));
+    }
+    // Para todo lo demás, dejar pasar directo
     return;
   }
   
-  // 📱 SOLO para navegación de páginas principales
-  if (request.mode === 'navigate' && isMainPageRequest(url)) {
-    event.respondWith(handleMobileNavigation(request));
+  // 🖼️ PASO 3: Solo interceptar assets estáticos seguros
+  if (canBeCached(request)) {
+    event.respondWith(handleStaticAsset(request));
   }
   
-  // Para todo lo demás, usar la red directamente
+  // Para todo lo demás (JS, CSS, APIs), NUNCA interceptar
 });
 
 // ============================================
-// 🔍 FILTROS MÓVILES MUY ESTRICTOS
+// 📄 MANEJAR NAVEGACIÓN ESTÁTICA
 // ============================================
-function shouldIgnoreMobileRequest(request) {
-  const url = request.url;
-  
-  // SOLO AÑADIR ESTAS 3 LÍNEAS:
-  if (url.includes('supabase') || url.includes('/rest/') || url.includes('/auth/')) {
-    return true; // Nunca cachear Supabase
-  }
-  
-  // Ignorar TODO excepto navegación principal
-  return (
-    !url.startsWith('http') ||                    // Solo HTTP
-    url.includes('api/') ||                       // No APIs
-    url.includes('_astro/') ||                    // No assets Astro
-    url.includes('.css') ||                       // No CSS
-    url.includes('.js') ||                        // No JS
-    url.includes('.png') ||                       // No imágenes
-    url.includes('.jpg') ||                       // No imágenes
-    url.includes('.svg') ||                       // No SVG
-    url.includes('analytics') ||                  // No analytics
-    url.includes('font') ||                       // No fonts
-    request.method !== 'GET' ||                   // Solo GET
-    request.destination === 'image' ||            // No imágenes
-    request.destination === 'script' ||           // No scripts
-    request.destination === 'style'               // No estilos
-  );
-}
-
-function isMainPageRequest(url) {
-  const pathname = url.pathname;
-  
-  // Solo interceptar páginas principales
-  return (
-    pathname === '/' ||
-    pathname === '/app' ||
-    pathname === '/login' ||
-    pathname.startsWith('/dashboard/')
-  );
-}
-
-// ============================================
-// 📱 NAVEGACIÓN MÓVIL SUPER SIMPLE
-// ============================================
-async function handleMobileNavigation(request) {
+async function handleStaticNavigation(request) {
   try {
-    console.log('📱 Navegación móvil:', request.url);
+    console.log('🔍 SW: Manejando navegación estática:', request.url);
     
-    // SIEMPRE intentar red primero en móviles
+    // Network First para páginas (siempre datos frescos)
     const networkResponse = await fetch(request, {
-      // Configuración optimizada para móviles
-      credentials: 'same-origin',
-      redirect: 'follow',
-      mode: 'same-origin'
+      cache: 'no-cache'
     });
     
-    if (networkResponse && networkResponse.ok) {
-      // Solo cachear si la respuesta es perfecta
-      if (networkResponse.status === 200 && networkResponse.headers.get('content-type')?.includes('text/html')) {
-        try {
-          const cache = await caches.open(CACHE_NAME);
-          await cache.put(request, networkResponse.clone());
-          console.log('✅ Página cacheada para móvil:', request.url);
-        } catch (cacheError) {
-          console.warn('⚠️ Error cacheando en móvil:', cacheError);
-          // Continuar sin cachear
-        }
-      }
-      
+    if (networkResponse.ok) {
+      // Cachear respuesta fresca
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, networkResponse.clone());
       return networkResponse;
     }
     
     throw new Error('Network response not ok');
     
-  } catch (networkError) {
-    console.log('📱 Red falló en móvil, buscando cache:', request.url);
+  } catch (error) {
+    console.log('🌐 SW: Red falló, buscando en cache...');
     
-    // Fallback a cache solo si existe
-    try {
-      const cache = await caches.open(CACHE_NAME);
-      const cachedResponse = await cache.match(request);
-      
-      if (cachedResponse) {
-        console.log('✅ Cache hit en móvil:', request.url);
-        return cachedResponse;
-      }
-    } catch (cacheError) {
-      console.warn('⚠️ Error accediendo cache móvil:', cacheError);
+    // Fallback a cache
+    const cached = await caches.match(request);
+    if (cached) {
+      console.log('✅ SW: Sirviendo desde cache:', request.url);
+      return cached;
     }
     
-    // Último recurso: página offline mínima
-    return createMobileOfflineResponse(request);
+    // Último fallback: página de error offline
+    return createOfflineResponse();
   }
 }
 
 // ============================================
-// 🚫 RESPUESTA OFFLINE MÓVIL MÍNIMA
+// 🖼️ MANEJAR ASSETS ESTÁTICOS
 // ============================================
-function createMobileOfflineResponse(request) {
-  const url = new URL(request.url);
-  
-  // HTML mínimo sin conflictos
-  const offlineHTML = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Club Canino - Sin Conexión</title>
-  <style>
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      margin: 0; padding: 20px; text-align: center; background: #FFFBF0; 
-      min-height: 100vh; display: flex; flex-direction: column; 
-      justify-content: center; align-items: center;
+async function handleStaticAsset(request) {
+  try {
+    // Cache First para assets estáticos
+    const cached = await caches.match(request);
+    if (cached) {
+      return cached;
     }
-    .container { max-width: 300px; }
-    h1 { color: #2C3E50; margin-bottom: 20px; }
-    button { 
-      background: #56CCF2; color: white; border: none; 
-      padding: 12px 24px; border-radius: 8px; font-size: 16px;
-      cursor: pointer; width: 100%; margin-top: 20px;
+    
+    // Si no está en cache, obtener de red
+    const response = await fetch(request);
+    
+    if (response.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put(request, response.clone());
     }
-    .icon { font-size: 48px; margin-bottom: 20px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="icon">🐕</div>
-    <h1>Sin Conexión</h1>
-    <p>Club Canino no está disponible sin internet.</p>
-    <button onclick="window.location.reload()">🔄 Reintentar</button>
-    <button onclick="window.history.back()" style="background: #ccc; color: #333; margin-top: 10px;">
-      ← Volver
-    </button>
-  </div>
-</body>
-</html>`;
+    
+    return response;
+    
+  } catch (error) {
+    console.warn('⚠️ SW: Error obteniendo asset:', request.url);
+    throw error;
+  }
+}
 
+// ============================================
+// 📄 RESPUESTA OFFLINE
+// ============================================
+function createOfflineResponse() {
+  const offlineHTML = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Sin Conexión | Club Canino</title>
+      <style>
+        body { 
+          font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+          background: linear-gradient(135deg, #FFFBF0, #ACF0F4);
+          display: flex; align-items: center; justify-content: center;
+          min-height: 100vh; margin: 0; padding: 20px;
+        }
+        .container { 
+          background: white; border-radius: 16px; padding: 40px;
+          text-align: center; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2C3E50; margin-bottom: 16px; }
+        p { color: #666; margin-bottom: 24px; }
+        button { 
+          background: #56CCF2; color: white; border: none;
+          padding: 12px 24px; border-radius: 8px; cursor: pointer;
+          font-size: 16px; width: 100%;
+        }
+        button:hover { background: #2C3E50; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div style="font-size: 48px; margin-bottom: 16px;">📡</div>
+        <h1>Sin Conexión</h1>
+        <p>Verifica tu conexión a internet y vuelve a intentarlo.</p>
+        <button onclick="window.location.reload()">🔄 Reintentar</button>
+      </div>
+    </body>
+    </html>
+  `;
+  
   return new Response(offlineHTML, {
-    status: 503,
-    statusText: 'Service Unavailable',
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-cache'
-    }
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
   });
 }
 
 // ============================================
-// 🔔 NOTIFICACIONES MÓVILES BÁSICAS
+// 📬 MENSAJES DE LA APP
 // ============================================
-self.addEventListener('push', (event) => {
-  console.log('📱 Push móvil recibido');
+self.addEventListener('message', (event) => {
+  const { type, data } = event.data || {};
   
-  // Configuración básica para móviles
-  const options = {
-    body: 'Nueva actualización de tu mascota',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
-    tag: 'club-canino-mobile',
-    requireInteraction: false,
-    silent: false,
-    vibrate: [100, 50, 100]
-  };
-  
-  // Parse data si está disponible
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      options.title = data.title || 'Club Canino';
-      options.body = data.body || options.body;
-    } catch (error) {
-      console.warn('⚠️ Error parsing push data móvil:', error);
-      options.title = 'Club Canino';
-    }
-  } else {
-    options.title = 'Club Canino';
+  switch (type) {
+    case 'SKIP_WAITING':
+      console.log('⏭️ SW: Skip waiting solicitado');
+      self.skipWaiting();
+      break;
+      
+    case 'GET_VERSION':
+      event.ports[0]?.postMessage({ 
+        version: CACHE_NAME,
+        timestamp: new Date().toISOString()
+      });
+      break;
+      
+    case 'CLEAR_ALL_CACHES':
+      console.log('🧹 SW: Limpiando todos los caches...');
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => caches.delete(cacheName))
+        );
+      }).then(() => {
+        console.log('✅ SW: Todos los caches eliminados');
+        event.ports[0]?.postMessage({ success: true });
+      });
+      break;
+      
+    default:
+      console.log('📨 SW: Mensaje no reconocido:', type);
   }
-  
-  event.waitUntil(
-    self.registration.showNotification(options.title, options)
-      .catch(error => {
-        console.error('❌ Error mostrando notificación móvil:', error);
-      })
-  );
-});
-
-// Click en notificación móvil
-self.addEventListener('notificationclick', (event) => {
-  console.log('📱 Click notificación móvil');
-  
-  event.notification.close();
-  
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clients) => {
-        // Si hay una ventana abierta, enfocarla
-        if (clients.length > 0) {
-          return clients[0].focus();
-        }
-        
-        // Si no, abrir nueva ventana
-        return self.clients.openWindow('/app');
-      })
-      .catch((error) => {
-        console.error('❌ Error manejando click notificación móvil:', error);
-      })
-  );
 });
 
 // ============================================
-// 📱 LOG FINAL
+// 🔧 MANEJO DE ERRORES
 // ============================================
-console.log('📱 Club Canino Mobile SW v1.0.0 - Optimizado para móviles ✅');
+self.addEventListener('error', (event) => {
+  console.error('❌ SW Error:', event.error);
+});
+
+self.addEventListener('unhandledrejection', (event) => {
+  console.error('❌ SW Promise Rejection:', event.reason);
+  event.preventDefault();
+});
+
+console.log('🐕 Club Canino Service Worker v1.3.0 ULTRA-SEGURO activado');
