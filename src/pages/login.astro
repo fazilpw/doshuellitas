@@ -1,12 +1,518 @@
 ---
 // src/pages/login.astro
+// 🔐 PÁGINA DE LOGIN SIN ERRORES TYPESCRIPT + AUTHSERVICE INTELIGENTE
+// Club Canino Dos Huellitas
+
 import Layout from '../layouts/Layout.astro';
-import { AuthProvider } from '../components/auth/AuthContext.jsx';
-import LoginForm from '../components/auth/LoginForm.jsx';
+
+// Verificar variables de entorno en build time
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+
+// Banner de configuración si faltan variables
+const showConfigBanner = !supabaseUrl || !supabaseKey;
 ---
 
 <Layout title="Iniciar Sesión | Club Canino Dos Huellitas">
-  <AuthProvider client:only="react">
-    <LoginForm client:only="react" />
-  </AuthProvider>
+  <!-- Banner de configuración -->
+  {showConfigBanner && (
+    <div class="bg-red-500 text-white p-4 text-center">
+      <strong>⚠️ CONFIGURACIÓN REQUERIDA:</strong>
+      Faltan variables de entorno de Supabase. Configura PUBLIC_SUPABASE_URL y PUBLIC_SUPABASE_ANON_KEY
+    </div>
+  )}
+
+  <!-- Contenedor principal de login -->
+  <div id="login-container" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4]">
+    <!-- Loading inicial -->
+    <div id="initial-loading" class="text-center">
+      <div class="text-6xl mb-4">🐕</div>
+      <div class="text-xl font-semibold text-[#2C3E50]">Cargando Club Canino...</div>
+      <div class="mt-2 text-sm text-gray-600">Preparando sistema de login</div>
+    </div>
+  </div>
 </Layout>
+
+<!-- Script de login completamente tipado y funcional -->
+<script>
+  // ===============================================
+  // 🔧 TIPOS E INTERFACES EXPLÍCITAS
+  // ===============================================
+
+  interface AuthServiceInterface {
+    isInitialized: boolean;
+    initialize(): Promise<any>;
+    signIn(email: string, password: string): Promise<any>;
+    getDashboard(): string;
+    getDebugInfo(): any;
+    signOut(): Promise<void>;
+  }
+
+  interface HTMLInputElementTyped extends HTMLElement {
+    value: string;
+    type: string;
+  }
+
+  interface HTMLButtonElementTyped extends HTMLElement {
+    disabled: boolean;
+    textContent: string | null;
+  }
+
+  interface WindowWithDebug extends Window {
+    loginDebug?: {
+      authService: () => AuthServiceInterface | null;
+      testLogin: (email?: string, password?: string) => Promise<any>;
+      checkAuth: () => any;
+      clearAuth: () => Promise<void>;
+    };
+  }
+
+  // ===============================================
+  // 🔧 VARIABLES GLOBALES TIPADAS
+  // ===============================================
+
+  let authService: AuthServiceInterface | null = null;
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const container = document.getElementById('login-container') as HTMLElement | null;
+    const loading = document.getElementById('initial-loading') as HTMLElement | null;
+
+    if (!container || !loading) {
+      console.error('❌ Elementos del DOM no encontrados');
+      return;
+    }
+
+    try {
+      // Inicializar AuthService
+      console.log('🔄 Inicializando AuthService inteligente...');
+      const authModule = await import('../lib/authService.js');
+      authService = authModule.authService || authModule.default;
+      
+      const existingUser = await authService.initialize();
+
+      // Si ya está logueado, redirigir
+      if (existingUser) {
+        console.log('✅ Usuario ya autenticado, redirigiendo...');
+        const dashboard = authService.getDashboard();
+        window.location.href = dashboard;
+        return;
+      }
+
+      // Renderizar formulario de login
+      renderLoginForm(container, loading);
+
+    } catch (error) {
+      console.error('❌ Error inicializando:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      renderErrorView(container, loading, errorMessage);
+    }
+  });
+
+  // ===============================================
+  // 🎨 FUNCIONES DE RENDERIZADO TIPADAS
+  // ===============================================
+
+  function renderLoginForm(container: HTMLElement, loading: HTMLElement): void {
+    loading.style.display = 'none';
+    
+    container.innerHTML = `
+      <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+          <div class="text-5xl mb-4">🐕</div>
+          <h1 class="text-2xl font-bold text-[#2C3E50] mb-2">Club Canino Dos Huellitas</h1>
+          <p class="text-gray-600">Iniciar sesión en tu cuenta</p>
+        </div>
+
+        <!-- Formulario -->
+        <form id="login-form" class="space-y-4">
+          <!-- Email -->
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent transition-colors"
+              placeholder="tu@email.com"
+            />
+          </div>
+
+          <!-- Contraseña -->
+          <div>
+            <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+              Contraseña
+            </label>
+            <div class="relative">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent transition-colors"
+                placeholder="Tu contraseña"
+              />
+              <button
+                type="button"
+                id="toggle-password"
+                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                <span id="eye-icon">👁️</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Botón de login -->
+          <button
+            type="submit"
+            id="login-btn"
+            class="w-full bg-[#56CCF2] hover:bg-[#4AB8E0] text-white p-3 rounded-lg font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            Iniciar Sesión
+          </button>
+        </form>
+
+        <!-- Mensajes -->
+        <div id="error-message" class="mt-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg hidden">
+          <div class="flex items-center">
+            <span class="mr-2">❌</span>
+            <span id="error-text"></span>
+          </div>
+        </div>
+
+        <div id="success-message" class="mt-4 p-3 bg-green-100 border border-green-300 text-green-700 rounded-lg hidden">
+          <div class="flex items-center">
+            <span class="mr-2">✅</span>
+            <span id="success-text"></span>
+          </div>
+        </div>
+
+        <div id="loading-message" class="mt-4 p-3 bg-blue-100 border border-blue-300 text-blue-700 rounded-lg hidden">
+          <div class="flex items-center">
+            <span class="mr-2">🔄</span>
+            <span>Iniciando sesión...</span>
+          </div>
+        </div>
+
+        <!-- Usuarios de prueba (solo en desarrollo) -->
+        ${import.meta.env.MODE === 'development' ? `
+          <div class="mt-6 pt-6 border-t border-gray-200">
+            <p class="text-sm text-gray-600 mb-3">🧪 Usuarios de prueba:</p>
+            <div class="space-y-2">
+              <button type="button" class="quick-login w-full text-left text-sm text-blue-600 hover:text-blue-800 hover:underline" data-email="maria@gmail.com">
+                👩 María (Padre) - maria@gmail.com
+              </button>
+              <button type="button" class="quick-login w-full text-left text-sm text-blue-600 hover:text-blue-800 hover:underline" data-email="carlos@doshuellitas.com">
+                👨‍🏫 Carlos (Profesor) - carlos@doshuellitas.com
+              </button>
+              <button type="button" class="quick-login w-full text-left text-sm text-blue-600 hover:text-blue-800 hover:underline" data-email="admin@doshuellitas.com">
+                👑 Admin (JP) - admin@doshuellitas.com
+              </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Contraseña para todos: 123456</p>
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    // Configurar event listeners
+    setupFormEvents();
+  }
+
+  function renderErrorView(container: HTMLElement, loading: HTMLElement, errorMessage: string): void {
+    loading.style.display = 'none';
+    
+    container.innerHTML = `
+      <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+        <div class="text-5xl mb-4">⚠️</div>
+        <h2 class="text-xl font-bold text-red-600 mb-4">Error de Configuración</h2>
+        <p class="text-gray-600 mb-6">
+          No se pudo cargar el sistema de autenticación.
+        </p>
+        <button 
+          onclick="window.location.reload()"
+          class="w-full bg-red-500 hover:bg-red-600 text-white p-3 rounded-lg font-semibold transition-colors"
+        >
+          🔄 Recargar Página
+        </button>
+        ${import.meta.env.MODE === 'development' ? `
+          <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-left">
+            <h3 class="font-semibold text-yellow-800 mb-2">🔧 Debug Info:</h3>
+            <pre class="text-xs text-yellow-700 overflow-auto">${errorMessage}</pre>
+            <p class="text-xs text-yellow-600 mt-2">
+              Verifica las variables de entorno en .env.local
+            </p>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // ===============================================
+  // 🎯 EVENT LISTENERS COMPLETAMENTE TIPADOS
+  // ===============================================
+
+  function setupFormEvents(): void {
+    // Toggle de contraseña
+    const togglePassword = document.getElementById('toggle-password') as HTMLButtonElement | null;
+    const passwordInput = document.getElementById('password') as HTMLInputElementTyped | null;
+    const eyeIcon = document.getElementById('eye-icon') as HTMLElement | null;
+
+    if (togglePassword && passwordInput && eyeIcon) {
+      togglePassword.addEventListener('click', () => {
+        const isPassword = passwordInput.type === 'password';
+        passwordInput.type = isPassword ? 'text' : 'password';
+        eyeIcon.textContent = isPassword ? '🙈' : '👁️';
+      });
+    }
+
+    // Quick login buttons (desarrollo)
+    document.querySelectorAll('.quick-login').forEach(button => {
+      button.addEventListener('click', (e: Event) => {
+        const target = e.target as HTMLElement;
+        const email = target.dataset.email;
+        const emailInput = document.getElementById('email') as HTMLInputElementTyped | null;
+        const passwordInput = document.getElementById('password') as HTMLInputElementTyped | null;
+        
+        if (email && emailInput && passwordInput) {
+          emailInput.value = email;
+          passwordInput.value = '123456';
+        }
+      });
+    });
+
+    // Formulario principal
+    const loginForm = document.getElementById('login-form') as HTMLFormElement | null;
+    if (loginForm) {
+      loginForm.addEventListener('submit', handleLoginSubmit);
+    }
+  }
+
+  async function handleLoginSubmit(e: Event): Promise<void> {
+    e.preventDefault();
+    
+    const emailInput = document.getElementById('email') as HTMLInputElementTyped | null;
+    const passwordInput = document.getElementById('password') as HTMLInputElementTyped | null;
+    const loginBtn = document.getElementById('login-btn') as HTMLButtonElementTyped | null;
+
+    if (!emailInput || !passwordInput || !loginBtn) {
+      console.error('❌ Elementos del formulario no encontrados');
+      return;
+    }
+    
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+
+    // Limpiar mensajes previos
+    clearMessages();
+
+    // Validaciones básicas en el frontend
+    if (!email || !password) {
+      showError('Por favor ingresa email y contraseña');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      showError('Por favor ingresa un email válido');
+      return;
+    }
+
+    try {
+      // Mostrar loading
+      showLoading();
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Iniciando sesión...';
+
+      // Verificar que authService esté disponible
+      if (!authService) {
+        throw new Error('AuthService no está disponible');
+      }
+
+      // Intentar login con sincronización automática
+      console.log('🔄 Intentando login con AuthService inteligente...');
+      await authService.signIn(email, password);
+
+      // Login exitoso
+      showSuccess('¡Login exitoso! Redirigiendo...');
+      
+      // Pequeña pausa para mostrar el mensaje de éxito
+      setTimeout(() => {
+        if (authService) {
+          const dashboard = authService.getDashboard();
+          console.log('✅ Redirigiendo a:', dashboard);
+          window.location.href = dashboard;
+        }
+      }, 800);
+
+    } catch (error) {
+      console.error('❌ Error en login:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error inesperado en el login';
+      showError(errorMessage);
+      
+      // Restaurar botón
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Iniciar Sesión';
+      hideLoading();
+    }
+  }
+
+  // ===============================================
+  // 🎨 FUNCIONES DE UI COMPLETAMENTE TIPADAS
+  // ===============================================
+
+  function showError(message: string): void {
+    const errorDiv = document.getElementById('error-message') as HTMLElement | null;
+    const errorText = document.getElementById('error-text') as HTMLElement | null;
+    
+    if (!errorDiv || !errorText) return;
+    
+    errorText.textContent = message;
+    errorDiv.classList.remove('hidden');
+    
+    // Auto-hide después de 5 segundos
+    setTimeout(() => {
+      errorDiv.classList.add('hidden');
+    }, 5000);
+  }
+
+  function showSuccess(message: string): void {
+    const successDiv = document.getElementById('success-message') as HTMLElement | null;
+    const successText = document.getElementById('success-text') as HTMLElement | null;
+    
+    if (!successDiv || !successText) return;
+    
+    successText.textContent = message;
+    successDiv.classList.remove('hidden');
+    successDiv.classList.add('success-bounce');
+  }
+
+  function showLoading(): void {
+    const loadingDiv = document.getElementById('loading-message') as HTMLElement | null;
+    if (loadingDiv) {
+      loadingDiv.classList.remove('hidden');
+    }
+  }
+
+  function hideLoading(): void {
+    const loadingDiv = document.getElementById('loading-message') as HTMLElement | null;
+    if (loadingDiv) {
+      loadingDiv.classList.add('hidden');
+    }
+  }
+
+  function clearMessages(): void {
+    const errorDiv = document.getElementById('error-message') as HTMLElement | null;
+    const successDiv = document.getElementById('success-message') as HTMLElement | null;
+    const loadingDiv = document.getElementById('loading-message') as HTMLElement | null;
+    
+    if (errorDiv) errorDiv.classList.add('hidden');
+    if (successDiv) successDiv.classList.add('hidden');
+    if (loadingDiv) loadingDiv.classList.add('hidden');
+  }
+
+  // ===============================================
+  // 🛠️ DEBUG HELPERS COMPLETAMENTE TIPADOS
+  // ===============================================
+
+  if (import.meta.env.MODE === 'development') {
+    interface LoginDebugInterface {
+      authService: () => AuthServiceInterface | null;
+      testLogin: (email?: string, password?: string) => Promise<any>;
+      checkAuth: () => any;
+      clearAuth: () => Promise<void>;
+    }
+
+    const loginDebugObj: LoginDebugInterface = {
+      authService: () => authService,
+      testLogin: async (email: string = 'maria@gmail.com', password: string = '123456') => {
+        try {
+          console.log('🧪 Testing login con sincronización...');
+          if (!authService) {
+            throw new Error('AuthService no disponible');
+          }
+          const user = await authService.signIn(email, password);
+          console.log('✅ Test login successful:', user);
+          return user;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+          console.error('❌ Test login failed:', errorMessage);
+          return null;
+        }
+      },
+      checkAuth: () => {
+        if (authService) {
+          console.log('🔍 Auth status:', authService.getDebugInfo());
+          return authService.getDebugInfo();
+        } else {
+          console.log('❌ AuthService no disponible');
+          return null;
+        }
+      },
+      clearAuth: async () => {
+        if (authService) {
+          await authService.signOut();
+          console.log('🗑️ Auth cleared');
+        }
+      }
+    };
+
+    // Extender window de forma segura para TypeScript
+    (window as WindowWithDebug).loginDebug = loginDebugObj;
+    
+    console.log('🔧 Debug helpers disponibles:');
+    console.log('📖 window.loginDebug.testLogin() - Test login con maria@gmail.com');
+    console.log('📖 window.loginDebug.checkAuth() - Ver estado actual');
+    console.log('📖 window.loginDebug.clearAuth() - Limpiar sesión');
+    console.log('🔥 NUEVA FUNCIONALIDAD: Sincronización automática de IDs');
+  }
+</script>
+
+<!-- Estilos adicionales -->
+<style>
+  /* Animaciones suaves */
+  #login-container {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Hover effects */
+  .quick-login:hover {
+    transform: translateX(4px);
+    transition: transform 0.2s ease;
+  }
+
+  /* Focus styles */
+  input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(86, 204, 242, 0.1);
+  }
+
+  /* Loading animation */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  #loading-message {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  /* Success animation */
+  .success-bounce {
+    animation: successBounce 0.6s ease-out;
+  }
+
+  @keyframes successBounce {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+</style>

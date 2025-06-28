@@ -1,19 +1,22 @@
-/// <reference path="../.astro/types.d.ts" />
-// src/env.d.ts
-// TIPOS COMPLETOS PARA CLUB CANINO DOS HUELLITAS
-/// <reference types="astro/client" />
-
-import type { SupabaseClient, User } from '@supabase/supabase-js';
+// src/types/auth.d.ts
+// 🔐 TIPOS DE AUTENTICACIÓN PARA CLUB CANINO DOS HUELLITAS
+// Asegura compatibilidad entre authService y componentes
 
 // ===============================================
-// 🏷️ INTERFACES DEL CLUB CANINO
+// 🏷️ INTERFACES PRINCIPALES
 // ===============================================
 
-// Perfil de usuario del Club Canino
-interface UserProfile {
+export interface AuthUser {
   id: string;
   email: string;
-role: 'padre' | 'profesor' | 'admin' | 'conductor';
+  created_at: string;
+  last_sign_in_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: 'padre' | 'profesor' | 'admin' | 'conductor';
   full_name: string | null;
   phone: string | null;
   avatar_url: string | null;
@@ -23,347 +26,279 @@ role: 'padre' | 'profesor' | 'admin' | 'conductor';
   updated_at: string;
 }
 
-// Datos del perro
-interface Dog {
-  id: string;
-  name: string;
-  owner_id: string;
-  breed: string | null;
-  size: 'pequeño' | 'mediano' | 'grande' | 'gigante' | null;
-  age: number | null;
-  weight: string | null;
-  color: string | null;
-  active: boolean;
-  notes: string | null;
-  photo_url: string | null;
-  created_at: string;
-  updated_at: string;
+export interface AuthServiceInterface {
+  // Estado
+  isInitialized: boolean;
+  currentUser: AuthUser | null;
+  currentProfile: UserProfile | null;
+  debug: boolean;
+
+  // Métodos principales
+  initialize(): Promise<AuthUser | null>;
+  signIn(email: string, password: string): Promise<AuthUser>;
+  signOut(): Promise<void>;
+
+  // Getters
+  readonly isAuthenticated: boolean;
+  readonly user: AuthUser | null;
+  readonly profile: UserProfile | null;
+  readonly userRole: string | undefined;
+
+  // Utilidades
+  getDashboard(): string;
+  getDebugInfo(): DebugInfo;
+  translateAuthError(errorMessage: string): string;
+  onAuthStateChange(callback: (event: string, session: any) => void): any;
 }
 
-// Evaluación de comportamiento
-interface Evaluation {
-  id: string;
-  dog_id: string;
-  evaluator_id: string;
-  date: string;
-  location: 'casa' | 'colegio';
-  energy_level: number | null;
-  sociability_level: number | null;
-  obedience_level: number | null;
-  anxiety_level: number | null;
-  barks_much: string | null;
-  begs_food: string | null;
-  destructive: string | null;
-  social_with_dogs: string | null;
-  follows_everywhere: string | null;
-  window_watching: string | null;
-  ate_well: string | null;
-  bathroom_accidents: string | null;
-  played_with_toys: string | null;
-  responded_to_commands: string | null;
-  interaction_quality: string | null;
-  notes: string | null;
-  highlights: string | null;
-  concerns: string | null;
-  created_at: string;
-  updated_at: string;
+export interface DebugInfo {
+  isInitialized: boolean;
+  hasUser: boolean;
+  hasProfile: boolean;
+  isAuthenticated: boolean;
+  userEmail?: string;
+  userRole?: string;
+  debugMode: boolean;
 }
 
-// Notificación
-interface Notification {
-  id: string;
-  user_id: string;
-  title: string;
+// ===============================================
+// 🛠️ TIPOS DE FORMULARIOS
+// ===============================================
+
+export interface LoginFormData {
+  email: string;
+  password: string;
+}
+
+export interface LoginFormErrors {
+  email?: string;
+  password?: string;
+  general?: string;
+}
+
+export interface LoginFormState {
+  isSubmitting: boolean;
+  errors: LoginFormErrors;
+  showPassword: boolean;
+}
+
+// ===============================================
+// 🎯 TIPOS DE RESPUESTA AUTH
+// ===============================================
+
+export interface AuthResponse {
+  success: boolean;
+  user?: AuthUser;
+  profile?: UserProfile;
+  error?: string;
+  redirectTo?: string;
+}
+
+export interface AuthError {
   message: string;
-  type: 'tip' | 'reminder' | 'progress' | 'transport' | 'general';
-  read: boolean;
-  created_at: string;
+  code?: string;
+  status?: number;
 }
 
-// Foto del perro
-interface Photo {
-  id: string;
-  dog_id: string;
+// ===============================================
+// 🌐 EXTENSIONES DOM TIPADAS
+// ===============================================
+
+export interface HTMLInputElementTyped extends HTMLInputElement {
+  value: string;
+  type: string;
+  checked?: boolean;
+}
+
+export interface HTMLButtonElementTyped extends HTMLButtonElement {
+  disabled: boolean;
+  textContent: string | null;
+}
+
+export interface HTMLFormElementTyped extends HTMLFormElement {
+  elements: HTMLFormControlsCollection;
+}
+
+// ===============================================
+// 🔧 TIPOS DE CONFIGURACIÓN
+// ===============================================
+
+export interface AuthConfig {
+  supabaseUrl: string;
+  supabaseKey: string;
+  debug: boolean;
+  enableFallback: boolean;
+  redirectAfterLogin: string;
+  redirectAfterLogout: string;
+}
+
+export interface SupabaseConfig {
   url: string;
-  caption: string | null;
-  uploaded_by: string;
-  created_at: string;
+  anonKey: string;
+  serviceRoleKey?: string;
 }
 
 // ===============================================
-// 🌐 TIPOS DE ASTRO EXTENDIDOS
+// 🧪 TIPOS PARA DEBUGGING
 // ===============================================
 
-declare namespace App {
-  interface Locals {
-    // Usuario autenticado de Supabase
-    user: User | null;
-    // Cliente Supabase
-    supabase: SupabaseClient;
-    // Perfil del usuario en nuestra base de datos
-    profile: UserProfile | null;
-    // Modo fallback para desarrollo
-    fallbackMode?: boolean;
-  }
+export interface LoginDebugInterface {
+  authService: () => AuthServiceInterface | null;
+  testLogin: (email?: string, password?: string) => Promise<any>;
+  checkAuth: () => DebugInfo | null;
+  clearAuth: () => Promise<void>;
+  simulateError: (type: 'network' | 'auth' | 'profile') => void;
+  getState: () => any;
 }
 
-// ===============================================
-// 🔧 VARIABLES DE ENTORNO TIPADAS
-// ===============================================
-
-interface ImportMetaEnv {
-  // Supabase (servidor y cliente)
-  readonly SUPABASE_URL: string;
-  readonly SUPABASE_ANON_KEY: string;
-  readonly SUPABASE_SERVICE_ROLE_KEY?: string;
-  
-  // Supabase públicas (cliente)
-  readonly PUBLIC_SUPABASE_URL: string;
-  readonly PUBLIC_SUPABASE_ANON_KEY: string;
-  
-  // Configuración del entorno
-  readonly MODE: 'development' | 'staging' | 'production' | 'test';
-  readonly NODE_ENV: string;
-  
-  // Debug y desarrollo
-  readonly DEBUG_AUTH?: string;
-  readonly FALLBACK_TO_SIMPLE?: string;
-  readonly EMERGENCY_BYPASS?: string;
-  
-  // PWA y branding
-  readonly PUBLIC_APP_NAME: string;
-  readonly PUBLIC_APP_SHORT_NAME: string;
-  readonly PUBLIC_BRAND_PRIMARY_COLOR: string;
-  readonly PUBLIC_COMPANY_NAME: string;
-  readonly PUBLIC_COMPANY_PHONE: string;
-  readonly PUBLIC_COMPANY_EMAIL: string;
-  
-  // Versión del Club Canino
-  readonly CLUB_CANINO_VERSION?: string;
-  
-  // APIs externas (para futuras integraciones)
-  readonly GOOGLE_MAPS_API_KEY?: string;
-  readonly VAPID_PUBLIC_KEY?: string;
-  readonly VAPID_PRIVATE_KEY?: string;
-  
-  // Configuración de notificaciones
-  readonly PUSH_NOTIFICATIONS_ENABLED?: string;
-  readonly EMAIL_NOTIFICATIONS_ENABLED?: string;
-  
-  // URLs base
-  readonly PUBLIC_BASE_URL?: string;
-  readonly PUBLIC_API_URL?: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
+export interface WindowWithDebug extends Window {
+  authService?: AuthServiceInterface;
+  loginDebug?: LoginDebugInterface;
+  supabaseDebug?: any;
 }
 
 // ===============================================
-// 🎯 TIPOS GLOBALES ADICIONALES
+// 🎨 TIPOS DE UI
 // ===============================================
 
-// Tipos para los formularios de evaluación
-type EvaluationStep = 1 | 2 | 3 | 4;
-
-interface EvaluationFormData {
-  dog_id: string;
-  location: 'casa' | 'colegio';
-  // Paso 1: Niveles básicos
-  energy_level?: number;
-  sociability_level?: number;
-  obedience_level?: number;
-  anxiety_level?: number;
-  // Paso 2: Comportamientos específicos
-  barks_much?: string;
-  begs_food?: string;
-  destructive?: string;
-  social_with_dogs?: string;
-  // Paso 3: Actividades del día
-  ate_well?: string;
-  played_with_toys?: string;
-  responded_to_commands?: string;
-  bathroom_accidents?: string;
-  // Paso 4: Observaciones
-  highlights?: string;
-  concerns?: string;
-  notes?: string;
+export interface LoadingState {
+  isLoading: boolean;
+  message?: string;
+  progress?: number;
 }
 
-// Estados de la PWA
-interface PWAState {
-  installed: boolean;
-  installPrompt?: any;
-  updateAvailable: boolean;
-}
-
-// Configuración del middleware
-interface AuthConfig {
-  DEBUG_MODE: boolean;
-  ENABLE_FALLBACK: boolean;
-  DEFENSIVE_MODE: boolean;
-}
-
-// Tipos para las notificaciones push
-interface PushNotificationPayload {
-  title: string;
+export interface MessageState {
+  type: 'success' | 'error' | 'warning' | 'info';
   message: string;
-  type: Notification['type'];
-  dog_id?: string;
-  evaluation_id?: string;
-  icon?: string;
-  badge?: string;
-  data?: Record<string, any>;
+  visible: boolean;
+  autoHide?: boolean;
+  duration?: number;
+}
+
+export interface FormFieldState {
+  value: string;
+  error?: string;
+  touched: boolean;
+  valid: boolean;
 }
 
 // ===============================================
-// 🗺️ TIPOS PARA TRACKING GPS (FUTURO)
+// 🚨 TIPOS DE ERRORES
 // ===============================================
 
-interface VehicleLocation {
-  id: string;
-  driver_id: string;
-  latitude: number;
-  longitude: number;
-  heading?: number;
-  speed?: number;
+export type AuthErrorCode = 
+  | 'invalid_credentials'
+  | 'user_not_found'
+  | 'email_not_confirmed'
+  | 'too_many_requests'
+  | 'network_error'
+  | 'profile_not_found'
+  | 'unauthorized'
+  | 'session_expired';
+
+export interface AuthErrorWithCode extends AuthError {
+  code: AuthErrorCode;
+  retry?: boolean;
+  retryAfter?: number;
+}
+
+// ===============================================
+// 🎯 TIPOS DE EVENTOS
+// ===============================================
+
+export type AuthEventType = 
+  | 'SIGNED_IN'
+  | 'SIGNED_OUT'
+  | 'TOKEN_REFRESHED'
+  | 'USER_UPDATED'
+  | 'PROFILE_UPDATED'
+  | 'PASSWORD_RECOVERY';
+
+export interface AuthEvent {
+  type: AuthEventType;
+  user?: AuthUser;
+  profile?: UserProfile;
   timestamp: string;
+  metadata?: Record<string, any>;
 }
 
-interface TransportRoute {
+export type AuthEventCallback = (event: AuthEvent) => void | Promise<void>;
+
+// ===============================================
+// 🔄 TIPOS DE SINCRONIZACIÓN
+// ===============================================
+
+export interface SyncState {
+  isOnline: boolean;
+  lastSync: string | null;
+  pendingOperations: number;
+  hasConflicts: boolean;
+}
+
+export interface SyncOperation {
   id: string;
-  vehicle_id: string;
-  date: string;
-  status: 'planned' | 'active' | 'completed' | 'cancelled';
-  estimated_start: string;
-  actual_start?: string;
-  estimated_end: string;
-  actual_end?: string;
-  dogs: string[]; // Array de dog_ids
-  stops: TransportStop[];
-}
-
-interface TransportStop {
-  id: string;
-  route_id: string;
-  dog_id: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  estimated_time: string;
-  actual_time?: string;
-  status: 'pending' | 'completed' | 'skipped';
-  order: number;
+  type: 'create' | 'update' | 'delete';
+  table: string;
+  data: Record<string, any>;
+  timestamp: string;
+  status: 'pending' | 'synced' | 'failed';
 }
 
 // ===============================================
-// 🎨 TIPOS PARA TEMAS Y BRANDING
+// 🌟 TIPOS PARA CONTEXT PROVIDERS
 // ===============================================
 
-interface ClubCaninoTheme {
-  primary: string;    // #56CCF2
-  secondary: string;  // #FFFBF0
-  accent: string;     // #C7EA46
-  neutral: string;    // #2C3E50
-  background: string; // #FFFBF0
-  surface: string;    // #ACF0F4
+export interface AuthContextValue {
+  // Estado
+  user: AuthUser | null;
+  profile: UserProfile | null;
+  loading: boolean;
+  error: AuthError | null;
+  
+  // Métodos
+  signIn: (email: string, password: string) => Promise<AuthResponse>;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  
+  // Estado del formulario (opcional)
+  formState?: LoginFormState;
+  setFormState?: (state: Partial<LoginFormState>) => void;
+  
+  // Debug (solo desarrollo)
+  debug?: DebugInfo;
 }
 
 // ===============================================
-// 📱 EXTENSIONES PARA PWA
+// 🚀 TIPOS PARA PWA Y NAVEGACIÓN
+// ===============================================
+
+export interface NavigationState {
+  canGoBack: boolean;
+  currentPath: string;
+  previousPath?: string;
+  isNavigating: boolean;
+}
+
+export interface PWAState {
+  installed: boolean;
+  updateAvailable: boolean;
+  installPrompt?: any;
+  networkStatus: 'online' | 'offline' | 'slow';
+}
+
+// ===============================================
+// 🎨 EXPORT POR DEFECTO PARA COMPATIBILIDAD
 // ===============================================
 
 declare global {
-  interface Window {
-    // Service Worker
-    swRegistration?: ServiceWorkerRegistration;
-    
-    // PWA Install
-    deferredPrompt?: any;
-    
-    // Supabase global (para debugging)
-    supabase?: SupabaseClient;
-    
-    // Club Canino específicos
-    clubCanino?: {
-      version: string;
-      config: AuthConfig;
-      theme: ClubCaninoTheme;
-    };
+  interface Window extends WindowWithDebug {}
+  
+  namespace JSX {
+    interface IntrinsicElements {
+      'login-form': any;
+      'auth-provider': any;
+    }
   }
 }
 
-// ===============================================
-// 📊 TIPOS PARA ANALYTICS Y REPORTES
-// ===============================================
-
-interface DogProgress {
-  dog_id: string;
-  period_start: string;
-  period_end: string;
-  energy_trend: 'improving' | 'stable' | 'declining';
-  sociability_trend: 'improving' | 'stable' | 'declining';
-  obedience_trend: 'improving' | 'stable' | 'declining';
-  anxiety_trend: 'improving' | 'stable' | 'declining';
-  total_evaluations: number;
-  casa_evaluations: number;
-  colegio_evaluations: number;
-  average_scores: {
-    energy: number;
-    sociability: number;
-    obedience: number;
-    anxiety: number;
-  };
-}
-
-interface CollegeSummary {
-  date: string;
-  total_dogs: number;
-  evaluations_completed: number;
-  average_scores: {
-    energy: number;
-    sociability: number;
-    obedience: number;
-    anxiety: number;
-  };
-  top_performing_dogs: string[];
-  dogs_needing_attention: string[];
-}
-
-// ===============================================
-// 🔄 TIPOS PARA ESTADOS DE CARGA
-// ===============================================
-
-type LoadingState = 'idle' | 'loading' | 'success' | 'error';
-
-interface APIResponse<T> {
-  data?: T;
-  error?: string;
-  loading: boolean;
-  status: LoadingState;
-}
-
-// ===============================================
-// 🎯 EXPORTACIONES FINALES
-// ===============================================
-
-export type {
-  UserProfile,
-  Dog,
-  Evaluation,
-  Notification,
-  Photo,
-  EvaluationFormData,
-  EvaluationStep,
-  PWAState,
-  AuthConfig,
-  PushNotificationPayload,
-  VehicleLocation,
-  TransportRoute,
-  TransportStop,
-  ClubCaninoTheme,
-  DogProgress,
-  CollegeSummary,
-  LoadingState,
-  APIResponse
-};
+export default AuthServiceInterface;

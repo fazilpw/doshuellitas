@@ -1,11 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { AuthProvider } from '../../components/auth/AuthProvider.jsx';
-import ParentDashboard from '../../components/dashboard/ParentDashboard.jsx';
+import AdminDashboard from '../../components/dashboard/AdminDashboard.jsx';
 ---
 
-<Layout title="Dashboard Padre | Club Canino">
+<Layout title="Dashboard Admin | Club Canino Dos Huellitas">
   <AuthProvider client:load>
-    <ParentDashboard client:load />
+    <AdminDashboard client:load />
   </AuthProvider>
 </Layout>

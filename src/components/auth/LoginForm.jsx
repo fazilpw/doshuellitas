@@ -1,31 +1,56 @@
-// src/components/auth/LoginForm.jsx - VERSIÓN CON AUTENTICACIÓN REAL
+// src/components/auth/LoginForm.jsx
+// 🛡️ FORMULARIO DE LOGIN ROBUSTO CONTRA PROBLEMAS DE HIDRATACIÓN
 import { useState, useEffect } from 'react';
-import { useAuth } from './AuthContext.jsx';
+import { useAuth } from './AuthProvider.jsx';
 
-const LoginForm = () => {
-  const { signIn, loading, error, clearError } = useAuth();
-  
+export default function LoginForm() {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
-  const [showRegisteredMessage, setShowRegisteredMessage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+
+  // Obtener contexto con protección
+  let authContext;
+  try {
+    authContext = useAuth();
+  } catch (error) {
+    console.error('❌ Error obteniendo contexto de auth:', error);
+    authContext = null;
+  }
 
   // ============================================
-  // 🔄 EFFECT PARA DETECTAR REGISTRO EXITOSO
+  // 🛡️ PROTECCIONES DE HIDRATACIÓN
   // ============================================
   
   useEffect(() => {
-    // Solo ejecutar en el cliente
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('registered') === 'true') {
-        setShowRegisteredMessage(true);
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient && authContext) {
+      // Esperar un poco para que el AuthProvider se inicialice completamente
+      const timer = setTimeout(() => {
+        setAuthReady(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isClient, authContext]);
+
+  useEffect(() => {
+    // Si ya está autenticado, redirigir
+    if (authReady && authContext?.isAuthenticated) {
+      console.log('✅ Usuario ya autenticado, redirigiendo...');
+      const dashboard = authContext.redirectToDashboard();
+      if (typeof window !== 'undefined') {
+        window.location.href = dashboard;
       }
     }
-  }, []);
+  }, [authReady, authContext?.isAuthenticated]);
 
   // ============================================
   // 📝 MANEJO DEL FORMULARIO
@@ -40,203 +65,239 @@ const LoginForm = () => {
     
     // Limpiar errores al escribir
     if (localError) setLocalError('');
-    if (error) clearError();
+    if (authContext?.error) authContext.clearError();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError('');
+    setIsSubmitting(true);
     
-    // Validación básica
-    if (!formData.email || !formData.password) {
-      setLocalError('Por favor ingresa email y contraseña');
-      return;
-    }
-
-    if (!formData.email.includes('@')) {
-      setLocalError('Por favor ingresa un email válido');
-      return;
-    }
-
     try {
-      // Intentar login con Supabase
-      const result = await signIn(formData.email, formData.password);
+      // Validación básica
+      if (!formData.email || !formData.password) {
+        setLocalError('Por favor ingresa email y contraseña');
+        return;
+      }
+
+      if (!formData.email.includes('@')) {
+        setLocalError('Por favor ingresa un email válido');
+        return;
+      }
+
+      // Verificación robusta del contexto
+      if (!authContext) {
+        setLocalError('Sistema de autenticación no disponible. Recarga la página.');
+        return;
+      }
+
+      if (!authContext.signIn) {
+        setLocalError('Función de login no disponible. Recarga la página.');
+        return;
+      }
+
+      if (typeof authContext.signIn !== 'function') {
+        setLocalError('Error en el sistema de autenticación. Intenta recargar.');
+        console.error('❌ signIn no es una función:', typeof authContext.signIn);
+        return;
+      }
+
+      console.log('🔄 Intentando login con:', formData.email);
       
-      if (result.success) {
-        // El AuthContext se encargará de la redirección automática
+      // Intentar login
+      const result = await authContext.signIn(formData.email, formData.password);
+      
+      if (result?.success) {
         console.log('✅ Login exitoso');
+        // El AuthProvider manejará la redirección
       } else {
-        // Mostrar error específico
-        setLocalError(result.error || 'Error al iniciar sesión');
+        setLocalError(result?.error || 'Error al iniciar sesión');
       }
     } catch (err) {
       console.error('❌ Error en login:', err);
       setLocalError('Error de conexión. Intenta nuevamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // ============================================
-  // 🎯 UTILIDADES DE UI
-  // ============================================
-  
-  const togglePassword = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const getErrorMessage = () => {
-    return localError || error;
+  // Quick login para facilitar testing
+  const handleQuickLogin = (email) => {
+    setFormData({
+      email: email,
+      password: '123456'
+    });
   };
 
   // ============================================
   // 🎨 RENDERIZADO
   // ============================================
-  
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        
-        {/* Header */}
-        <div className="text-center">
-          <img className="mx-auto h-20 w-auto" src="/images/logo.png" alt="Club Canino Dos Huellitas" />
-          <h2 className="mt-6 text-3xl font-bold text-[#2C3E50]">
-            Bienvenido de vuelta
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Inicia sesión en tu cuenta de Club Canino
-          </p>
-        </div>
 
-        {/* Formulario */}
+  // Mostrar loading hasta que todo esté listo
+  if (!isClient || !authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4]">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🐕</div>
+          <div className="text-xl font-semibold text-[#2C3E50]">Cargando Club Canino...</div>
+          <div className="mt-2 text-sm text-gray-600">
+            {!isClient ? 'Iniciando aplicación...' : 'Preparando autenticación...'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error de contexto
+  if (!authContext) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4]">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-red-600 mb-4">Error del Sistema</h2>
+          <p className="text-gray-600 mb-6">
+            No se pudo inicializar el sistema de autenticación.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700"
+          >
+            🔄 Recargar Página
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4] flex items-center justify-center py-12 px-4">
+      <div className="max-w-md w-full">
+        {/* Tarjeta principal */}
         <div className="bg-white rounded-xl shadow-lg p-8">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4">🐕</div>
+            <h2 className="text-3xl font-bold text-[#2C3E50] mb-2">
+              ¡Hola de nuevo!
+            </h2>
+            <p className="text-gray-600">
+              Ingresa a tu cuenta del Club Canino
+            </p>
+          </div>
+
+          {/* Quick Login para testing */}
+          {import.meta.env.DEV && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">🚀 Login Rápido</h3>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => handleQuickLogin('admin@clubcanino.com')}
+                  className="text-xs bg-red-100 text-red-700 px-3 py-2 rounded hover:bg-red-200"
+                >
+                  👑 Admin
+                </button>
+                <button
+                  onClick={() => handleQuickLogin('profesor@clubcanino.com')}
+                  className="text-xs bg-blue-100 text-blue-700 px-3 py-2 rounded hover:bg-blue-200"
+                >
+                  👨‍🏫 Profesor
+                </button>
+                <button
+                  onClick={() => handleQuickLogin('maria@gmail.com')}
+                  className="text-xs bg-green-100 text-green-700 px-3 py-2 rounded hover:bg-green-200"
+                >
+                  👩 Padre
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Correo electrónico
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📧 Email
               </label>
               <input
-                id="email"
-                name="email"
                 type="email"
+                name="email"
                 value={formData.email}
                 onChange={handleChange}
-                required
-                disabled={loading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
                 placeholder="tu@email.com"
+                required
+                disabled={isSubmitting}
               />
             </div>
 
-            {/* Contraseña */}
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Contraseña
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                🔒 Contraseña
               </label>
               <div className="relative">
                 <input
-                  id="password"
+                  type={showPassword ? "text" : "password"}
                   name="password"
-                  type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleChange}
-                  required
-                  disabled={loading}
-                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent pr-12"
                   placeholder="Tu contraseña"
+                  required
+                  disabled={isSubmitting}
                 />
                 <button
                   type="button"
-                  onClick={togglePassword}
-                  disabled={loading}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  disabled={isSubmitting}
                 >
-                  <span>{showPassword ? '🙈' : '👁️'}</span>
+                  {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
             </div>
 
-            {/* Mensaje de error */}
-            {getErrorMessage() && (
-              <div className="p-4 rounded-lg bg-red-50 border border-red-200">
-                <p className="text-sm text-red-800">
-                  {getErrorMessage()}
-                </p>
+            {/* Error Messages */}
+            {(localError || authContext?.error) && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="text-red-400 mr-3">⚠️</div>
+                  <div className="text-sm text-red-700">
+                    {localError || authContext.error}
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Mensaje de registro exitoso */}
-            {new URLSearchParams(window.location.search).get('registered') === 'true' && (
-              <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-                <p className="text-sm text-green-800">
-                  🎉 ¡Registro exitoso! Revisa tu email para confirmar tu cuenta y luego inicia sesión.
-                </p>
-              </div>
-            )}
-
-            {/* Botón de submit */}
+            {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !formData.email || !formData.password}
-              className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#56CCF2] hover:bg-[#2C3E50] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting || authContext?.loading}
+              className="w-full bg-[#56CCF2] text-white py-3 px-4 rounded-lg font-medium hover:bg-[#4BB8E8] focus:outline-none focus:ring-2 focus:ring-[#56CCF2] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              {isSubmitting ? (
+                <span className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
                   Iniciando sesión...
-                </>
+                </span>
               ) : (
-                'Iniciar sesión'
+                '🚀 Ingresar'
               )}
             </button>
-
-            {/* Enlaces adicionales */}
-            <div className="text-center space-y-2">
-              <p className="text-sm text-gray-600">
-                ¿No tienes cuenta? 
-                <a href="/register" className="font-medium text-[#56CCF2] hover:text-[#2C3E50] transition-colors ml-1">
-                  Regístrate aquí
-                </a>
-              </p>
-              
-              <a href="/forgot-password" className="text-sm text-gray-500 hover:text-[#56CCF2] transition-colors">
-                ¿Olvidaste tu contraseña?
-              </a>
-            </div>
-
           </form>
-        </div>
 
-        {/* Credenciales de prueba para desarrollo */}
-        {typeof window !== 'undefined' && import.meta.env.MODE === 'development' && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h4 className="font-medium text-yellow-800 mb-2">🧪 Cuentas de Prueba:</h4>
-            <div className="text-xs text-yellow-700 space-y-1">
-              <div><strong>Admin:</strong> admin@clubcanino.com / 123456</div>
-              <div><strong>Profesor:</strong> profesor@clubcanino.com / 123456</div>
-              <div><strong>Padre:</strong> maria@gmail.com / 123456</div>
-            </div>
-          </div>
-        )}
-
-        {/* Info adicional */}
-        <div className="text-center">
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="flex items-center justify-center mb-2">
-              <span className="text-2xl">🐕</span>
-            </div>
-            <p className="text-sm text-blue-800 font-medium">
-              Club Canino Dos Huellitas
-            </p>
-            <p className="text-xs text-blue-700 mt-1">
-              Plataforma integral para el bienestar de tu mascota
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <p className="text-sm text-gray-600">
+              ¿Problemas para ingresar?{' '}
+              <a href="/contacto" className="text-[#56CCF2] hover:underline">
+                Contáctanos
+              </a>
             </p>
           </div>
         </div>
-
       </div>
     </div>
   );
-};
-
-export default LoginForm;
+}
