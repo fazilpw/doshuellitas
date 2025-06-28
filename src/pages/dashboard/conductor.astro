@@ -1,17 +1,11 @@
 ---
-// src/pages/dashboard/conductor.astro - COMPLETAMENTE REEMPLAZADO
 import Layout from '../../layouts/Layout.astro';
+import { ConductorDashboardWrapper } from '../../components/dashboard/DashboardWrapper.jsx';
 import CleanRealGPSConductor from '../../components/tracking/CleanRealGPSConductor.jsx';
 ---
 
 <Layout title="Conductor GPS Real - Club Canino">
-  <!-- SOLO EL COMPONENTE LIMPIO - SIN JAVASCRIPT EXTERNO -->
-  <CleanRealGPSConductor client:load />
+  <ConductorDashboardWrapper client:only="react">
+    <CleanRealGPSConductor />
+  </ConductorDashboardWrapper>
 </Layout>
-
-<!-- 
-  NOTA: Este archivo reemplaza completamente el anterior conductor.astro
-  que tenía HTML estático + conductor.js con simulaciones.
-  
-  Ahora SOLO usa el componente React limpio con GPS real.
--->

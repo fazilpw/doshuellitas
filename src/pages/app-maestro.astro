@@ -1,9 +1,11 @@
 ---
-// src/pages/app-maestro.astro - USANDO REACT NATIVO DE ASTRO
 import Layout from '../layouts/Layout.astro';
+import { TeacherDashboardWrapper } from '../components/dashboard/DashboardWrapper.jsx';
 import MaestroApp from '../components/MaestroApp.jsx';
 ---
 
-<Layout title="Dashboard Maestro - Conectado">
-  <MaestroApp client:load />
+<Layout title="App Maestro | Club Canino">
+  <TeacherDashboardWrapper client:only="react">
+    <MaestroApp />
+  </TeacherDashboardWrapper>
 </Layout>

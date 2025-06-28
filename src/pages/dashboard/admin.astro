@@ -1,11 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { AuthProvider } from '../../components/auth/AuthProvider.jsx';
+import { AdminDashboardWrapper } from '../../components/dashboard/DashboardWrapper.jsx';
 import AdminDashboard from '../../components/dashboard/AdminDashboard.jsx';
 ---
 
 <Layout title="Dashboard Admin | Club Canino Dos Huellitas">
-  <AuthProvider client:load>
-    <AdminDashboard client:load />
-  </AuthProvider>
+  <AdminDashboardWrapper client:only="react">
+    <AdminDashboard />
+  </AdminDashboardWrapper>
 </Layout>
