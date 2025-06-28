@@ -1,7 +1,8 @@
-// src/hooks/useClubCaninoAuth.js
+// src/hooks/useClubCaninoAuth.js - IMPORTS CORREGIDOS
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../components/auth/AuthProvider.jsx';
-import { supabase, getUserDogs, getRecentEvaluations } from '../lib/supabase.js';
+// 🔧 CORREGIDO: supabase como default export, funciones como named exports
+import supabase, { getUserDogs, getRecentEvaluations } from '../lib/supabase.js';
 
 // ============================================
 // 🐕 HOOK ESPECÍFICO CLUB CANINO
@@ -63,19 +64,23 @@ export function useClubCaninoAuth() {
   const loadUserDogs = async () => {
     try {
       const userId = baseAuth.user.id;
-      const userDogs = await getUserDogs(supabase, userId);
+      // 🔧 CORREGIDO: usar getUserDogs directamente sin pasar supabase
+      const { data: userDogs, error } = await getUserDogs(userId);
       
-      setDogs(userDogs);
+      if (error) {
+        console.error('Error cargando perros:', error);
+        return;
+      }
+      
+      setDogs(userDogs || []);
       
       // Seleccionar primer perro por defecto
-      if (userDogs.length > 0 && !selectedDog) {
+      if (userDogs && userDogs.length > 0 && !selectedDog) {
         setSelectedDog(userDogs[0]);
       }
       
-      console.log(`🐕 Perros cargados: ${userDogs.length}`);
     } catch (error) {
-      console.error('Error cargando perros:', error);
-      setDogs([]);
+      console.error('Error cargando perros del usuario:', error);
     }
   };
 
@@ -83,26 +88,37 @@ export function useClubCaninoAuth() {
     try {
       const userId = baseAuth.user.id;
       
-      // Obtener estadísticas generales
-      const [dogsResult, evaluationsResult] = await Promise.all([
-        supabase
-          .from('dogs')
-          .select('id', { count: 'exact', head: true })
-          .eq('owner_id', userId)
-          .eq('active', true),
-        
-        supabase
-          .from('evaluations')
-          .select('id, date, dog_id', { count: 'exact' })
-          .in('dog_id', dogs.map(d => d.id))
-          .order('date', { ascending: false })
-          .limit(1)
-      ]);
+      // Obtener estadísticas básicas
+      const { data: dogsData, error: dogsError } = await getUserDogs(userId);
+      
+      if (dogsError) {
+        console.error('Error obteniendo estadísticas de perros:', dogsError);
+        return;
+      }
+
+      const dogIds = dogsData?.map(dog => dog.id) || [];
+      
+      if (dogIds.length === 0) {
+        setStats({
+          totalDogs: 0,
+          totalEvaluations: 0,
+          lastEvaluation: null
+        });
+        return;
+      }
+
+      // 🔧 CORREGIDO: usar getRecentEvaluations directamente
+      const { data: evaluationsData, error: evalError } = await getRecentEvaluations(dogIds, 30);
+      
+      if (evalError) {
+        console.error('Error obteniendo evaluaciones recientes:', evalError);
+        return;
+      }
 
       setStats({
-        totalDogs: dogsResult.count || 0,
-        totalEvaluations: evaluationsResult.count || 0,
-        lastEvaluation: evaluationsResult.data?.[0] || null
+        totalDogs: dogsData?.length || 0,
+        totalEvaluations: evaluationsData?.length || 0,
+        lastEvaluation: evaluationsData && evaluationsData.length > 0 ? evaluationsData[0] : null
       });
       
     } catch (error) {
@@ -166,7 +182,7 @@ export function useClubCaninoAuth() {
 
   const selectDog = useCallback((dog) => {
     setSelectedDog(dog);
-    console.log('🐕 Perro seleccionado:', dog.name);
+    console.log('🐕 Perro seleccionado:', dog?.name);
   }, []);
 
   const addDog = useCallback(async (dogData) => {
@@ -247,8 +263,8 @@ export function useClubCaninoAuth() {
         .insert([newEvaluation])
         .select(`
           *,
-          dog:dogs(name, breed),
-          evaluator:users!evaluations_evaluator_id_fkey(name, role)
+          dogs(name, breed),
+          profiles!evaluations_evaluator_id_fkey(full_name, role)
         `)
         .single();
 
@@ -263,9 +279,6 @@ export function useClubCaninoAuth() {
       
       console.log('✅ Evaluación creada:', data.id);
       
-      // Notificar a otros componentes
-      notifyEvaluationChange('CREATED', data);
-      
       return { data, error: null };
       
     } catch (error) {
@@ -276,110 +289,123 @@ export function useClubCaninoAuth() {
 
   const getEvaluationsForDog = useCallback(async (dogId, limit = 10) => {
     try {
-      const evaluations = await getRecentEvaluations(supabase, dogId, limit);
-      return evaluations;
+      const { data, error } = await supabase
+        .from('evaluations')
+        .select(`
+          *,
+          profiles!evaluations_evaluator_id_fkey(full_name, role)
+        `)
+        .eq('dog_id', dogId)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
       console.error('Error obteniendo evaluaciones:', error);
-      return [];
+      return { data: null, error: error.message };
     }
   }, []);
 
   // ============================================
-  // 🔔 NOTIFICACIONES Y EVENTOS
+  // 🔄 SINCRONIZACIÓN OFFLINE (PWA)
   // ============================================
 
-  const notifyEvaluationChange = (event, data) => {
+  const syncOfflineData = useCallback(async () => {
     try {
-      const bc = new BroadcastChannel('club-canino-evaluations');
-      bc.postMessage({
-        type: `EVALUATION_${event}`,
-        data,
-        timestamp: Date.now()
-      });
-      bc.close();
+      // Aquí iría la lógica de sincronización offline con IndexedDB
+      console.log('🔄 Sincronizando datos offline...');
+      
+      const pendingEvaluations = await getPendingOfflineEvaluations();
+      
+      for (const evaluation of pendingEvaluations) {
+        try {
+          await createEvaluation(evaluation.data);
+          await removePendingEvaluation(evaluation.id);
+          console.log('✅ Evaluación offline sincronizada:', evaluation.id);
+        } catch (error) {
+          console.error('❌ Error sincronizando evaluación:', evaluation.id, error);
+        }
+      }
+      
+      // Recargar datos después de sincronizar
+      await loadUserStats();
+      
     } catch (error) {
-      console.warn('Error notificando cambio de evaluación:', error);
+      console.error('Error en sincronización offline:', error);
     }
-  };
+  }, [createEvaluation, loadUserStats]);
 
   // ============================================
-  // 🔍 FUNCIONES DE PERMISOS
+  // 🎯 FUNCIONES DE UTILIDAD
   // ============================================
 
   const hasPermission = useCallback((permission) => {
     return permissions.includes(permission);
   }, [permissions]);
 
-  const canManagePets = hasPermission('view_all_pets');
-  const canViewAllEvaluations = hasPermission('view_all_evaluations');
-  const canAdminClub = hasPermission('manage_club_settings');
-  const canCreateEvaluation = hasPermission('create_evaluation');
-  const canContactTeachers = hasPermission('contact_teachers');
-  const canContactParents = hasPermission('contact_parents');
+  const canManageDog = useCallback((dogId) => {
+    if (hasPermission('view_all_pets')) return true;
+    
+    const dog = dogs.find(d => d.id === dogId);
+    return dog?.owner_id === baseAuth.user?.id;
+  }, [dogs, baseAuth.user, hasPermission]);
+
+  const notifyEvaluationChange = useCallback((action, evaluation) => {
+    // Aquí se podría implementar un sistema de eventos global
+    // o integración con notificaciones push
+    console.log(`🔔 Evaluación ${action}:`, evaluation?.id);
+  }, []);
 
   // ============================================
-  // 📱 FUNCIONES PWA ESPECÍFICAS
+  // 📱 INFORMACIÓN PARA LA PWA
   // ============================================
 
-  const syncOfflineData = useCallback(async () => {
-    try {
-      console.log('🔄 Sincronizando datos offline...');
-      
-      // Buscar datos pendientes en IndexedDB
-      const pendingEvaluations = await getPendingOfflineEvaluations();
-      
-      for (const evaluation of pendingEvaluations) {
-        try {
-          await createEvaluation(evaluation);
-          await removePendingEvaluation(evaluation.id);
-          console.log('✅ Evaluación offline sincronizada');
-        } catch (error) {
-          console.error('Error sincronizando evaluación:', error);
-        }
-      }
-      
-    } catch (error) {
-      console.error('Error en sincronización offline:', error);
-    }
-  }, [createEvaluation]);
+  const getPWAInfo = useCallback(() => {
+    return {
+      isOfflineCapable: 'serviceWorker' in navigator,
+      hasNotifications: 'Notification' in window,
+      networkStatus: navigator.onLine ? 'online' : 'offline',
+      storageQuota: navigator.storage?.estimate(),
+    };
+  }, []);
 
   // ============================================
-  // 🎁 RETURN DEL HOOK
+  // 🎯 RETURN DEL HOOK
   // ============================================
 
   return {
-    // Datos base de autenticación
+    // Estado base del auth
     ...baseAuth,
     
-    // Datos específicos del Club Canino
+    // Estado específico del club
     dogs,
     selectedDog,
     permissions,
     stats,
-    loading: baseAuth.loading || loading,
+    loading: loading || baseAuth.loading,
     
     // Funciones de perros
     selectDog,
     addDog,
     updateDog,
+    canManageDog,
     
     // Funciones de evaluaciones
     createEvaluation,
     getEvaluationsForDog,
     
-    // Funciones de permisos específicas
+    // Funciones de permisos
     hasPermission,
-    canManagePets,
-    canViewAllEvaluations,
-    canAdminClub,
-    canCreateEvaluation,
-    canContactTeachers,
-    canContactParents,
     
-    // Funciones PWA
+    // Funciones de utilidad
     syncOfflineData,
+    getPWAInfo,
     
-    // Estados computados específicos
+    // Información del club específica
+    clubRole: baseAuth.profile?.role,
+    clubDisplayName: baseAuth.profile?.full_name || baseAuth.user?.email,
     hasSelectedDog: !!selectedDog,
     totalDogs: stats.totalDogs,
     totalEvaluations: stats.totalEvaluations,
@@ -387,8 +413,7 @@ export function useClubCaninoAuth() {
     
     // Información del club
     clubMemberSince: baseAuth.profile?.created_at,
-    clubRole: baseAuth.profile?.role,
-    clubDisplayName: baseAuth.profile?.name
+    clubDisplayName: baseAuth.profile?.full_name
   };
 }
 

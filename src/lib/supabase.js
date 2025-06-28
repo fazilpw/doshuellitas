@@ -1,4 +1,4 @@
-// src/lib/supabase.js - VERSIÓN COMPLETA CON TODAS LAS FUNCIONES ✅
+// src/lib/supabase.js - VERSIÓN COMPLETA CON EXPORTS CORREGIDOS ✅
 import { createClient } from '@supabase/supabase-js';
 
 // ============================================
@@ -20,6 +20,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Obtiene los perros de un usuario específico
+ * 🔧 CORREGIDO: Función independiente que no necesita parámetro supabase
  */
 export async function getUserDogs(userId) {
   try {
@@ -37,6 +38,87 @@ export async function getUserDogs(userId) {
     return { data, error: null };
   } catch (error) {
     console.error('Error fetching user dogs:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene evaluaciones recientes de perros
+ * 🔧 CORREGIDO: Función independiente que no necesita parámetro supabase
+ */
+export async function getRecentEvaluations(dogIds, days = 7) {
+  try {
+    if (!dogIds || dogIds.length === 0) {
+      return { data: [], error: null };
+    }
+
+    const dateFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split('T')[0];
+
+    const { data, error } = await supabase
+      .from('evaluations')
+      .select(`
+        *,
+        dogs(id, name, breed, size),
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
+      .in('dog_id', dogIds)
+      .gte('date', dateFrom)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching recent evaluations:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * 🔍 FUNCIÓN QUE FALTABA: Obtiene todas las evaluaciones de un perro específico
+ */
+export async function getDogEvaluations(dogId, limit = 50) {
+  try {
+    const { data, error } = await supabase
+      .from('evaluations')
+      .select(`
+        *,
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
+      .eq('dog_id', dogId)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching dog evaluations:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Crea una nueva evaluación
+ */
+export async function createEvaluation(evaluationData) {
+  try {
+    const { data, error } = await supabase
+      .from('evaluations')
+      .insert([evaluationData])
+      .select(`
+        *,
+        dogs(name, breed),
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error creating evaluation:', error);
     return { data: null, error };
   }
 }
@@ -81,149 +163,39 @@ export async function getDogAverages(dogId) {
       anxiety: Math.round(data.reduce((sum, item) => sum + (item.anxiety_level || 0), 0) / totalEvaluations)
     };
 
-    // Convertir a porcentajes (1-10 → 0-100%)
-    const percentages = {
-      energy_percentage: Math.round((averages.energy / 10) * 100),
-      sociability_percentage: Math.round((averages.sociability / 10) * 100),
-      obedience_percentage: Math.round((averages.obedience / 10) * 100),
-      anxiety_percentage: Math.round((averages.anxiety / 10) * 100)
-    };
+    // Separar por ubicación
+    const casaEvaluations = data.filter(e => e.location === 'casa');
+    const colegioEvaluations = data.filter(e => e.location === 'colegio');
 
-    // Contar evaluaciones por ubicación
-    const casaEvaluations = data.filter(item => item.location === 'casa').length;
-    const colegioEvaluations = data.filter(item => item.location === 'colegio').length;
-
-    // Calcular tendencia (comparar últimas 3 vs anteriores)
+    // Calcular tendencia (últimas 3 vs anteriores)
+    const recent = data.slice(0, 3);
+    const older = data.slice(3, 6);
+    
     let trend = 'estable';
-    if (totalEvaluations >= 6) {
-      const recent = data.slice(0, 3);
-      const older = data.slice(3, 6);
+    if (recent.length >= 2 && older.length >= 2) {
+      const recentAvg = recent.reduce((sum, e) => sum + (e.energy_level || 0), 0) / recent.length;
+      const olderAvg = older.reduce((sum, e) => sum + (e.energy_level || 0), 0) / older.length;
       
-      const recentAvg = recent.reduce((sum, item) => sum + (item.obedience_level || 0), 0) / 3;
-      const olderAvg = older.reduce((sum, item) => sum + (item.obedience_level || 0), 0) / 3;
-      
-      if (recentAvg > olderAvg + 0.5) trend = 'mejorando';
-      else if (recentAvg < olderAvg - 0.5) trend = 'empeorando';
+      if (recentAvg > olderAvg + 1) trend = 'mejorando';
+      else if (recentAvg < olderAvg - 1) trend = 'decreciendo';
     }
 
     return {
       data: {
-        ...percentages,
+        energy_percentage: Math.round((averages.energy / 10) * 100),
+        sociability_percentage: Math.round((averages.sociability / 10) * 100),
+        obedience_percentage: Math.round((averages.obedience / 10) * 100),
+        anxiety_percentage: Math.round((averages.anxiety / 10) * 100),
         total_evaluations: totalEvaluations,
-        casa_evaluations: casaEvaluations,
-        colegio_evaluations: colegioEvaluations,
-        last_evaluation_date: data[0]?.date || null,
-        trend,
-        // Datos en escala 1-10 para gráficos
-        raw_averages: averages
+        casa_evaluations: casaEvaluations.length,
+        colegio_evaluations: colegioEvaluations.length,
+        last_evaluation_date: data[0].date,
+        trend
       },
       error: null
     };
-
   } catch (error) {
-    console.error('Error calculating dog averages:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * 📊 Obtiene promedios de múltiples perros de una vez
- */
-export async function getMultipleDogsAverages(dogIds) {
-  try {
-    const results = {};
-    
-    // Procesar cada perro
-    for (const dogId of dogIds) {
-      const { data, error } = await getDogAverages(dogId);
-      if (!error && data) {
-        results[dogId] = data;
-      }
-    }
-
-    return { data: results, error: null };
-  } catch (error) {
-    console.error('Error fetching multiple dog averages:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * 🔍 FUNCIÓN QUE FALTABA: Obtiene todas las evaluaciones de un perro específico
- */
-export async function getDogEvaluations(dogId, limit = 50) {
-  try {
-    const { data, error } = await supabase
-      .from('evaluations')
-      .select(`
-        *,
-        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
-      `)
-      .eq('dog_id', dogId)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error fetching dog evaluations:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Obtiene evaluaciones recientes de perros
- */
-export async function getRecentEvaluations(dogIds, days = 7) {
-  try {
-    if (!dogIds || dogIds.length === 0) {
-      return { data: [], error: null };
-    }
-
-    const dateFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split('T')[0];
-
-    const { data, error } = await supabase
-      .from('evaluations')
-      .select(`
-        *,
-        dogs(id, name, breed, size),
-        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
-      `)
-      .in('dog_id', dogIds)
-      .gte('date', dateFrom)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error fetching recent evaluations:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Crea una nueva evaluación
- */
-export async function createEvaluation(evaluationData) {
-  try {
-    const { data, error } = await supabase
-      .from('evaluations')
-      .insert([evaluationData])
-      .select(`
-        *,
-        dogs(name, breed),
-        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
-      `)
-      .single();
-
-    if (error) throw error;
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error creating evaluation:', error);
+    console.error('Error fetching dog averages:', error);
     return { data: null, error };
   }
 }
@@ -243,23 +215,28 @@ export async function getTeacherStats(teacherId) {
 
     if (dogsError) throw dogsError;
 
-    // Contar evaluaciones del profesor hoy
-    const { count: evaluationsToday, error: evalError } = await supabase
+    // Evaluaciones de hoy por este profesor
+    const { count: todayEvaluations, error: evalError } = await supabase
       .from('evaluations')
       .select('*', { count: 'exact', head: true })
       .eq('evaluator_id', teacherId)
-      .eq('date', today)
-      .eq('location', 'colegio');
+      .eq('date', today);
 
     if (evalError) throw evalError;
 
-    const pendingToday = (totalDogs || 0) - (evaluationsToday || 0);
+    // Evaluaciones totales del profesor
+    const { count: totalEvaluations, error: totalError } = await supabase
+      .from('evaluations')
+      .select('*', { count: 'exact', head: true })
+      .eq('evaluator_id', teacherId);
+
+    if (totalError) throw totalError;
 
     return {
       data: {
         total_dogs: totalDogs || 0,
-        evaluations_today: evaluationsToday || 0,
-        pending_today: Math.max(0, pendingToday)
+        today_evaluations: todayEvaluations || 0,
+        total_evaluations: totalEvaluations || 0
       },
       error: null
     };
@@ -270,7 +247,7 @@ export async function getTeacherStats(teacherId) {
 }
 
 /**
- * Obtiene estadísticas rápidas para un padre
+ * Obtiene estadísticas para un padre
  */
 export async function getParentStats(parentId) {
   try {
@@ -283,41 +260,42 @@ export async function getParentStats(parentId) {
 
     if (dogsError) throw dogsError;
 
-    // Contar evaluaciones totales de los perros del padre
-    const { data: dogIds, error: dogIdsError } = await supabase
-      .from('dogs')
-      .select('id')
-      .eq('owner_id', parentId)
-      .eq('active', true);
-
-    if (dogIdsError) throw dogIdsError;
-
+    // Evaluaciones totales de mis perros
     let totalEvaluations = 0;
     let weekEvaluations = 0;
 
-    if (dogIds && dogIds.length > 0) {
-      const dogIdsList = dogIds.map(dog => dog.id);
-      
-      // Evaluaciones totales
-      const { count: total, error: totalError } = await supabase
-        .from('evaluations')
-        .select('*', { count: 'exact', head: true })
-        .in('dog_id', dogIdsList);
+    if (myDogs && myDogs > 0) {
+      // Obtener IDs de mis perros
+      const { data: dogIds, error: idsError } = await supabase
+        .from('dogs')
+        .select('id')
+        .eq('owner_id', parentId)
+        .eq('active', true);
 
-      if (!totalError) totalEvaluations = total || 0;
+      if (!idsError && dogIds) {
+        const ids = dogIds.map(d => d.id);
+        
+        // Total evaluaciones
+        const { count: total, error: totalError } = await supabase
+          .from('evaluations')
+          .select('*', { count: 'exact', head: true })
+          .in('dog_id', ids);
 
-      // Evaluaciones de esta semana
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split('T')[0];
-      
-      const { count: week, error: weekError } = await supabase
-        .from('evaluations')
-        .select('*', { count: 'exact', head: true })
-        .in('dog_id', dogIdsList)
-        .gte('date', weekAgo);
+        if (!totalError) totalEvaluations = total || 0;
 
-      if (!weekError) weekEvaluations = week || 0;
+        // Evaluaciones de esta semana
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split('T')[0];
+
+        const { count: week, error: weekError } = await supabase
+          .from('evaluations')
+          .select('*', { count: 'exact', head: true })
+          .in('dog_id', ids)
+          .gte('date', weekAgo);
+
+        if (!weekError) weekEvaluations = week || 0;
+      }
     }
 
     return {
@@ -442,7 +420,8 @@ export async function testSupabaseConnection() {
 export const ROLES = {
   PADRE: 'padre',
   PROFESOR: 'profesor',
-  ADMIN: 'admin'
+  ADMIN: 'admin',
+  CONDUCTOR: 'conductor'
 };
 
 export const LOCATIONS = {
@@ -458,7 +437,7 @@ export const DOG_SIZES = {
 };
 
 // ============================================
-// 🚀 EXPORTACIÓN PRINCIPAL
+// 🔧 DEBUG HELPERS PARA DESARROLLO
 // ============================================
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.supabase = supabase;
@@ -501,10 +480,38 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
         console.log('❌ routine_completions query falló:', err);
         return { data: null, error: err };
       }
+    },
+
+    // Test específico para getUserDogs
+    async testGetUserDogs(userId = 'test-user-id') {
+      try {
+        const result = await getUserDogs(userId);
+        console.log('✅ getUserDogs test:', result);
+        return result;
+      } catch (err) {
+        console.log('❌ getUserDogs test falló:', err);
+        return { data: null, error: err };
+      }
+    },
+
+    // Test específico para getRecentEvaluations
+    async testGetRecentEvaluations(dogIds = ['test-dog-id']) {
+      try {
+        const result = await getRecentEvaluations(dogIds);
+        console.log('✅ getRecentEvaluations test:', result);
+        return result;
+      } catch (err) {
+        console.log('❌ getRecentEvaluations test falló:', err);
+        return { data: null, error: err };
+      }
     }
   };
   
   console.log('🔧 Supabase debug disponible en window.debugSupabase');
+  console.log('📝 Funciones exportadas: getUserDogs, getRecentEvaluations, getDogEvaluations, createEvaluation');
 }
 
+// ============================================
+// 🚀 EXPORTACIÓN PRINCIPAL
+// ============================================
 export default supabase;
