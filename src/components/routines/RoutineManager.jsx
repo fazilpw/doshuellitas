@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
 
-const RoutineManager = ({ dogs = [], currentUser, onRoutineUpdated }) => {
+const RoutineManager = ({ dogs = [], currentUser, parentLoading = false, onRoutineUpdated }) => {
   // Estados principales
   const [selectedDogId, setSelectedDogId] = useState('');
   const [activeTab, setActiveTab] = useState('today');
@@ -799,67 +799,81 @@ const RoutineManager = ({ dogs = [], currentUser, onRoutineUpdated }) => {
   );
 
   // ===============================================
-  // 🎨 RENDERIZADO PRINCIPAL
-  // ===============================================
-  if (!currentUser) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-4xl mb-4">⚠️</div>
-        <p className="text-gray-600">Error: Usuario no autenticado</p>
-      </div>
-    );
-  }
-
-  if (dogs.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-6xl mb-4">🐕</div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">No hay perros registrados</h3>
-        <p className="text-gray-600 mb-6">Agrega un perro para comenzar a gestionar rutinas</p>
-      </div>
-    );
-  }
-
+// 🎨 RENDERIZADO PRINCIPAL COMPLETO Y CORREGIDO
+// ===============================================
+if (!currentUser) {
   return (
-    <div className="space-y-6">
-      {renderDogSelector()}
-      {renderTabs()}
-      
-      {activeTab === 'today' && renderTodayView()}
-      {activeTab === 'manage' && renderManageView()}
-
-      {/* Modales */}
-      {showAddRoutine && renderForm()}
-      
-      {/* Modal de confirmación de eliminación */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4 text-red-600">🗑️ Eliminar Rutina</h3>
-            <p className="text-gray-600 mb-6">
-              ¿Estás seguro de que quieres eliminar la rutina "{showDeleteConfirm.routine_name}"?
-              Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(showDeleteConfirm)}
-                disabled={loading}
-                className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Eliminando...' : 'Eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="text-center py-8">
+      <div className="text-4xl mb-4">⚠️</div>
+      <p className="text-gray-600">Error: Usuario no autenticado</p>
     </div>
   );
+}
+
+// 🔧 CORREGIDO: Verificar parentLoading PRIMERO
+if (parentLoading) {
+  return (
+    <div className="text-center py-12">
+      <div className="w-16 h-16 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+        <span className="text-2xl">📅</span>
+      </div>
+      <h3 className="text-xl font-bold text-gray-900 mb-2">Cargando rutinas...</h3>
+      <p className="text-gray-600">Obteniendo información de tus mascotas...</p>
+    </div>
+  );
+}
+
+// 🔧 CORREGIDO: Solo mostrar "sin perros" si NO está loading Y dogs está vacío
+if (!parentLoading && dogs.length === 0) {
+  return (
+    <div className="text-center py-12">
+      <div className="text-6xl mb-4">🐕</div>
+      <h3 className="text-xl font-bold text-gray-900 mb-2">No hay perros registrados</h3>
+      <p className="text-gray-600 mb-6">Agrega un perro para comenzar a gestionar rutinas</p>
+    </div>
+  );
+}
+
+return (
+  <div className="space-y-6">
+    {renderDogSelector()}
+    {renderTabs()}
+    
+    {activeTab === 'today' && renderTodayView()}
+    {activeTab === 'manage' && renderManageView()}
+
+    {/* Modales */}
+    {showAddRoutine && renderForm()}
+    
+    {/* Modal de confirmación de eliminación */}
+    {showDeleteConfirm && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <h3 className="text-lg font-semibold mb-4 text-red-600">🗑️ Eliminar Rutina</h3>
+          <p className="text-gray-600 mb-6">
+            ¿Estás seguro de que quieres eliminar la rutina "{showDeleteConfirm.routine_name}"?
+            Esta acción no se puede deshacer.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDeleteConfirm(null)}
+              className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => handleDelete(showDeleteConfirm)}
+              disabled={loading}  // ← Este loading SÍ está bien (es el useState interno)
+              className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Eliminando...' : 'Eliminar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+);
 };
 
 export default RoutineManager;

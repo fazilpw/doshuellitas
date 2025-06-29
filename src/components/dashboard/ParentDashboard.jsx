@@ -373,56 +373,74 @@ const ParentDashboard = ({ authUser, authProfile }) => {
   // 🎨 CONTENIDO PRINCIPAL CORREGIDO
   // ===============================================
   const renderDashboardContent = () => {
-    if (dogs.length === 0) {
-      return (
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <div className="text-center max-w-md">
-            <div className="w-20 h-20 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-4xl">🐕</span>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">¡Bienvenido al Club Canino!</h3>
-            <p className="text-gray-600 mb-8">
-              Parece que aún no tienes perros registrados. Contacta al administrador para agregar a tu mascota.
-            </p>
-            <button 
-              onClick={() => window.location.href = 'mailto:clubcaninodoshuellitas@gmail.com'}
-              className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
-            >
-              📧 Contactar Administrador
-            </button>
+  // 🚨 CORREGIDO: Verificar loading ANTES que dogs.length
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+            <span className="text-4xl">🐕</span>
           </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Cargando...</h3>
+          <p className="text-gray-600 mb-8">
+            Obteniendo información de tus mascotas...
+          </p>
         </div>
-      );
-    }
+      </div>
+    );
+  }
+
+  // 🔧 CORREGIDO: Solo mostrar "sin perros" si NO está loading Y dogs está vacío
+  if (!loading && dogs.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">🐕</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">¡Bienvenido al Club Canino!</h3>
+          <p className="text-gray-600 mb-8">
+            Parece que aún no tienes perros registrados. Contacta al administrador para agregar a tu mascota.
+          </p>
+          <button 
+            onClick={() => window.location.href = 'mailto:clubcaninodoshuellitas@gmail.com'}
+            className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+          >
+            📧 Contactar Administrador
+          </button>
+        </div>
+      </div>
+    );
+  }
 
     return (
       <div className="space-y-6 lg:space-y-8">
-        {/* Header con bienvenida */}
-        <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-2xl p-6 lg:p-8 text-white">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-            <div className="mb-4 lg:mb-0">
-              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-                ¡hola {currentUser?.full_name?.split(' ')[0] || 'Papá'}! 👋
-              </h1>
-              <p className="opacity-90 text-lg">
-                Tienes {dogs.length} {dogs.length === 1 ? 'perro registrado' : 'perros registrados'} en el club
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-6xl lg:text-8xl opacity-20">🐕‍🦺</div>
-            </div>
+      {/* Header con bienvenida */}
+      <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-2xl p-6 lg:p-8 text-white">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+          <div className="mb-4 lg:mb-0">
+            <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+              ¡Hola {currentUser?.full_name?.split(' ')[0] || 'Papá'}! 👋
+            </h1>
+            <p className="opacity-90 text-lg">
+              Tienes {dogs.length} {dogs.length === 1 ? 'perro registrado' : 'perros registrados'} en el club
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-6xl lg:text-8xl opacity-20">🐕‍🦺</div>
           </div>
         </div>
+      </div>
 
-        {/* Grid de Perros - CORREGIDO */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
-          {dogs.map(dog => {
-            // 🔧 CORREGIDO: Estructura correcta de dogAverages
-            const averagesData = dogAverages[dog.id];
-            console.log(`📊 Averages para ${dog.name}:`, averagesData);
-            
-            return (
-              <div key={dog.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
+        {dogs.map(dog => {
+          const averagesData = dogAverages[dog.id];
+          console.log(`📊 Averages para ${dog.name}:`, averagesData);
+          
+          return (
+            <div key={dog.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300">
+
                 <div className="p-6 lg:p-8">
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex-1">
@@ -571,75 +589,91 @@ const ParentDashboard = ({ authUser, authProfile }) => {
   // 🎯 RENDERIZADO DE PÁGINAS
   // ===============================================
   const renderPageContent = () => {
-    const contentClasses = "flex-1 lg:ml-64 min-h-screen bg-gray-50";
-    const innerClasses = "p-4 lg:p-8 max-w-7xl mx-auto";
+  const contentClasses = "flex-1 lg:ml-64 min-h-screen bg-gray-50";
+  const innerClasses = "p-4 lg:p-8 max-w-7xl mx-auto";
 
-    switch (currentPage) {
-      case 'rutinas':
-        return (
-          <div className={contentClasses}>
-            <div className={innerClasses}>
-              <RoutineManager currentUser={currentUser} />
-            </div>
+  switch (currentPage) {
+    case 'rutinas':
+      return (
+        <div className={contentClasses}>
+          <div className={innerClasses}>
+            <RoutineManager 
+              currentUser={currentUser} 
+              dogs={dogs}                    // ← AGREGAR ESTA LÍNEA
+              loading={loading}              // ← AGREGAR ESTA LÍNEA TAMBIÉN
+            />
           </div>
-        );
-      
-      case 'salud':
-        return (
-          <div className={contentClasses}>
-            <div className={innerClasses}>
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <VaccineManager currentUser={currentUser} />
-                <MedicineManager currentUser={currentUser} />
-              </div>
-            </div>
-          </div>
-        );
-      
-      case 'tracking':
-        return (
-          <div className={contentClasses}>
-            <div className={innerClasses}>
-              {GPSComponent && selectedDog ? (
-                <GPSComponent dogId={selectedDog.id} />
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-                  <div className="text-4xl mb-4">📍</div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Tracking GPS</h3>
-                  <p className="text-gray-600">
-                    {!selectedDog 
-                      ? 'Selecciona un perro para ver su ubicación en tiempo real'
-                      : 'Cargando componente de tracking...'
-                    }
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      
-      case 'config':
-        return (
-          <div className={contentClasses}>
-            <div className={innerClasses}>
-              <ParentManagementPanel 
+        </div>
+      );
+    
+    case 'salud':
+      return (
+        <div className={contentClasses}>
+          <div className={innerClasses}>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <VaccineManager 
                 currentUser={currentUser}
-                onDataUpdated={handleDataUpdated}
+                dogs={dogs}                  // ← AGREGAR ESTA LÍNEA
+                loading={loading}            // ← AGREGAR ESTA LÍNEA
+              />
+              <MedicineManager 
+                currentUser={currentUser}
+                dogs={dogs}                  // ← AGREGAR ESTA LÍNEA
+                loading={loading}            // ← AGREGAR ESTA LÍNEA
               />
             </div>
           </div>
-        );
-      
-      default: // dashboard
-        return (
-          <div className={contentClasses}>
-            <div className={innerClasses}>
-              {renderDashboardContent()}
-            </div>
+        </div>
+      );
+    
+    case 'tracking':
+      return (
+        <div className={contentClasses}>
+          <div className={innerClasses}>
+            {GPSComponent && selectedDog ? (
+              <GPSComponent 
+                dogId={selectedDog.id}
+                dogs={dogs}                  // ← AGREGAR ESTA LÍNEA
+              />
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                <div className="text-4xl mb-4">📍</div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Tracking GPS</h3>
+                <p className="text-gray-600">
+                  {!selectedDog 
+                    ? 'Selecciona un perro para ver su ubicación en tiempo real'
+                    : 'Cargando componente de tracking...'
+                  }
+                </p>
+              </div>
+            )}
           </div>
-        );
-    }
-  };
+        </div>
+      );
+    
+    case 'config':
+      return (
+        <div className={contentClasses}>
+          <div className={innerClasses}>
+            <ParentManagementPanel 
+              currentUser={currentUser}
+              dogs={dogs}                    // ← AGREGAR ESTA LÍNEA
+              onDataUpdated={handleDataUpdated}
+            />
+          </div>
+        </div>
+      );
+    
+    default: // dashboard
+      return (
+        <div className={contentClasses}>
+          <div className={innerClasses}>
+            {renderDashboardContent()}
+          </div>
+        </div>
+      );
+  }
+};
 
   // ===============================================
   // 🎨 RENDERIZADO PRINCIPAL
