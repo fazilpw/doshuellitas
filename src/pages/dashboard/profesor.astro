@@ -1,11 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { TeacherDashboardWrapper } from '../../components/dashboard/DashboardWrapper.jsx';
-import TeacherDashboard from '../../components/dashboard/TeacherDashboard.jsx';
+import { AuthProvider } from '../../components/auth/AuthProvider.jsx';
+import TeacherDashboardWrapper from '../../components/dashboard/TeacherDashboardWrapper.jsx';
 ---
 
-<Layout title="Dashboard Profesor | Club Canino">
-  <TeacherDashboardWrapper client:only="react">
-    <TeacherDashboard />
-  </TeacherDashboardWrapper>
+<Layout title="Dashboard Profesor | Club Canino Dos Huellitas">
+  <AuthProvider client:load>
+    <TeacherDashboardWrapper client:load />
+  </AuthProvider>
 </Layout>

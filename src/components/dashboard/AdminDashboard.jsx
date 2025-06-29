@@ -1,676 +1,986 @@
 // src/components/dashboard/AdminDashboard.jsx
-// 🔐 DASHBOARD DE ADMINISTRACIÓN COMPLETO PARA CLUB CANINO
+// 👑 DASHBOARD PARA ADMINISTRADORES - GESTIÓN COMPLETA DEL CLUB CANINO
+// ✅ CORREGIDO: Error de 'eval' en línea 173
+
 import { useState, useEffect } from 'react';
-import { useAuth } from '../auth/AuthProvider.jsx';
 import supabase from '../../lib/supabase.js';
-import { UserModal, DogModal, EvaluationDetailModal } from './AdminModals.jsx';
 
-// ============================================
-// 🚀 COMPONENTE PRINCIPAL ADMIN DASHBOARD
-// ============================================
-
-export default function AdminDashboard() {
-  const { user, profile, loading: authLoading } = useAuth();
+const AdminDashboard = ({ authUser, authProfile }) => {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState('dashboard'); // dashboard, usuarios, perros, profesores, conductores, reportes
   
-  // Estados principales
-  const [currentPage, setCurrentPage] = useState('overview');
-  const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalDogs: 0,
-    totalEvaluations: 0,
-    activeUsers: 0
+  // Estados para datos
+  const [allUsers, setAllUsers] = useState([]);
+  const [allDogs, setAllDogs] = useState([]);
+  const [allEvaluations, setAllEvaluations] = useState([]);
+  const [allVehicles, setAllVehicles] = useState([]);
+  const [stats, setStats] = useState({});
+  
+  // Estados para formularios
+  const [showNewUserForm, setShowNewUserForm] = useState(false);
+  const [showNewDogForm, setShowNewDogForm] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [editingDog, setEditingDog] = useState(null);
+  
+  // Estado para formulario de nuevo usuario
+  const [newUserForm, setNewUserForm] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    phone: '',
+    role: 'padre'
   });
   
-  // Datos
-  const [users, setUsers] = useState([]);
-  const [dogs, setDogs] = useState([]);
-  const [evaluations, setEvaluations] = useState([]);
-  const [systemHealth, setSystemHealth] = useState('good');
-
-  // Estados modales
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [showDogModal, setShowDogModal] = useState(false);
-  const [showEvaluationModal, setShowEvaluationModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedDog, setSelectedDog] = useState(null);
-  const [selectedEvaluation, setSelectedEvaluation] = useState(null);
-
-  // ============================================
-  // 🔄 EFECTOS DE INICIALIZACIÓN
-  // ============================================
+  // Estado para formulario de nuevo perro
+  const [newDogForm, setNewDogForm] = useState({
+    name: '',
+    breed: '',
+    size: 'mediano',
+    age: '',
+    weight: '',
+    color: '',
+    owner_id: '',
+    notes: ''
+  });
 
   useEffect(() => {
-    if (user && profile?.role === 'admin') {
-      initializeAdminData();
+    if (authUser && authProfile) {
+      console.log('✅ Admin usando datos de auth recibidos como props');
+      setCurrentUser(authProfile);
+      initializeDashboardWithUser(authUser.id);
+    } else {
+      initializeDashboardWithAuthService();
     }
-  }, [user, profile]);
+  }, [authUser, authProfile]);
 
-  const initializeAdminData = async () => {
-    setLoading(true);
+  // ===============================================
+  // 🚀 INICIALIZACIÓN CON AUTH SERVICE
+  // ===============================================
+  const initializeDashboardWithAuthService = async () => {
     try {
-      await Promise.all([
-        fetchSystemStats(),
-        fetchUsers(),
-        fetchDogs(),
-        fetchRecentEvaluations()
-      ]);
+      console.log('🔄 Admin inicializando dashboard con authService...');
+      
+      const { authService } = await import('../../lib/authService.js');
+      
+      if (!authService.isInitialized) {
+        await authService.initialize();
+      }
+      
+      if (!authService.isAuthenticated) {
+        console.error('❌ Admin usuario no autenticado');
+        window.location.href = '/login/';
+        return;
+      }
+      
+      if (authService.profile?.role !== 'admin') {
+        console.error('❌ Admin acceso denegado - se requiere rol admin');
+        window.location.href = '/login/';
+        return;
+      }
+      
+      console.log('✅ Admin usuario autenticado:', {
+        email: authService.user?.email,
+        role: authService.profile?.role,
+        name: authService.profile?.full_name
+      });
+      
+      setCurrentUser(authService.profile);
+      await fetchAdminData(authService.user.id);
+      
     } catch (error) {
-      console.error('❌ Error inicializando datos admin:', error);
+      console.error('❌ Admin error inicializando dashboard:', error);
+      setLoading(false);
+      window.location.href = '/login/';
+    }
+  };
+
+  // ===============================================
+  // 🎯 INICIALIZACIÓN CON USER ID DIRECTO
+  // ===============================================
+  const initializeDashboardWithUser = async (userId) => {
+    try {
+      console.log('🔄 Admin inicializando dashboard para user ID:', userId);
+      await fetchAdminData(userId);
+    } catch (error) {
+      console.error('❌ Admin error inicializando dashboard:', error);
+      setLoading(false);
+    }
+  };
+
+  // ===============================================
+  // 📊 OBTENER DATOS DE ADMINISTRACIÓN
+  // ===============================================
+  const fetchAdminData = async (userId) => {
+    try {
+      console.log('🔍 Admin buscando datos...');
+      
+      // Obtener todos los usuarios
+      const { data: usersData, error: usersError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (usersError) throw usersError;
+
+      // Obtener todos los perros con información del dueño
+      const { data: dogsData, error: dogsError } = await supabase
+        .from('dogs')
+        .select(`
+          *,
+          owner:profiles(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (dogsError) throw dogsError;
+
+      // Obtener todas las evaluaciones
+      const { data: evaluationsData, error: evaluationsError } = await supabase
+        .from('evaluations')
+        .select(`
+          *,
+          dog:dogs(*),
+          evaluator:profiles(*)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (evaluationsError) throw evaluationsError;
+
+      // Obtener vehículos
+      const { data: vehiclesData, error: vehiclesError } = await supabase
+        .from('vehicles')
+        .select(`
+          *,
+          current_driver:profiles(*)
+        `);
+
+      if (vehiclesError) throw vehiclesError;
+
+      // Calcular estadísticas
+      const statistics = {
+        totalUsers: usersData?.length || 0,
+        totalDogs: dogsData?.length || 0,
+        totalEvaluations: evaluationsData?.length || 0,
+        totalVehicles: vehiclesData?.length || 0,
+        usersByRole: usersData?.reduce((acc, user) => {
+          acc[user.role] = (acc[user.role] || 0) + 1;
+          return acc;
+        }, {}),
+        dogsBySize: dogsData?.reduce((acc, dog) => {
+          acc[dog.size] = (acc[dog.size] || 0) + 1;
+          return acc;
+        }, {}),
+        // ✅ CORREGIDO: Cambio 'eval' por 'evaluation'
+        recentEvaluations: evaluationsData?.filter(evaluation => {
+          const evalDate = new Date(evaluation.created_at);
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return evalDate >= weekAgo;
+        }).length || 0
+      };
+
+      setAllUsers(usersData || []);
+      setAllDogs(dogsData || []);
+      setAllEvaluations(evaluationsData || []);
+      setAllVehicles(vehiclesData || []);
+      setStats(statistics);
+      
+      console.log('✅ Datos del admin cargados:', {
+        users: usersData?.length,
+        dogs: dogsData?.length,
+        evaluations: evaluationsData?.length,
+        vehicles: vehiclesData?.length
+      });
+      
+    } catch (error) {
+      console.error('❌ Error obteniendo datos del admin:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // ============================================
-  // 📊 FUNCIONES DE DATOS
-  // ============================================
-
-  const fetchSystemStats = async () => {
+  // ===============================================
+  // 👥 GESTIÓN DE USUARIOS
+  // ===============================================
+  const createNewUser = async (e) => {
+    e.preventDefault();
+    
     try {
-      const [usersResult, dogsResult, evaluationsResult] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact' }),
-        supabase.from('dogs').select('*', { count: 'exact' }),
-        supabase.from('evaluations').select('*', { count: 'exact' })
-      ]);
-
-      const activeUsersResult = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact' })
-        .eq('active', true);
-
-      setStats({
-        totalUsers: usersResult.count || 0,
-        totalDogs: dogsResult.count || 0,
-        totalEvaluations: evaluationsResult.count || 0,
-        activeUsers: activeUsersResult.count || 0
+      console.log('👤 Creando nuevo usuario:', newUserForm);
+      
+      // Crear usuario en auth.users usando admin
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: newUserForm.email,
+        password: newUserForm.password,
+        email_confirm: true
       });
-    } catch (error) {
-      console.error('❌ Error fetching stats:', error);
-    }
-  };
 
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase
+      if (authError) throw authError;
+
+      // Crear perfil en profiles
+      const { error: profileError } = await supabase
         .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .insert({
+          id: authData.user.id,
+          email: newUserForm.email,
+          full_name: newUserForm.full_name,
+          phone: newUserForm.phone,
+          role: newUserForm.role
+        });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (profileError) throw profileError;
+
+      // Resetear formulario
+      setNewUserForm({
+        email: '',
+        password: '',
+        full_name: '',
+        phone: '',
+        role: 'padre'
+      });
+      setShowNewUserForm(false);
+      
+      // Refrescar datos
+      await fetchAdminData(currentUser.id);
+      alert('✅ Usuario creado exitosamente');
+      
     } catch (error) {
-      console.error('❌ Error fetching users:', error);
+      console.error('❌ Error creando usuario:', error);
+      alert(`Error creando usuario: ${error.message}`);
     }
   };
 
-  const fetchDogs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('dogs')
-        .select(`
-          *,
-          owner:profiles(full_name, email)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setDogs(data || []);
-    } catch (error) {
-      console.error('❌ Error fetching dogs:', error);
-    }
-  };
-
-  const fetchRecentEvaluations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('evaluations')
-        .select(`
-          *,
-          dog:dogs(name),
-          evaluator:profiles(full_name)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      setEvaluations(data || []);
-    } catch (error) {
-      console.error('❌ Error fetching evaluations:', error);
-    }
-  };
-
-  // ============================================
-  // 🔄 FUNCIONES DE GESTIÓN
-  // ============================================
-
-  const handleUserStatusToggle = async (userId, currentStatus) => {
+  const updateUser = async (userId, updates) => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ active: !currentStatus })
+        .update(updates)
         .eq('id', userId);
 
       if (error) throw error;
       
-      await fetchUsers();
-      await fetchSystemStats();
+      await fetchAdminData(currentUser.id);
+      alert('✅ Usuario actualizado exitosamente');
+      
     } catch (error) {
-      console.error('❌ Error toggling user status:', error);
+      console.error('❌ Error actualizando usuario:', error);
+      alert(`Error actualizando usuario: ${error.message}`);
     }
   };
 
-  const handleUserEdit = (user) => {
-    setSelectedUser(user);
-    setShowUserModal(true);
+  const deactivateUser = async (userId) => {
+    if (!confirm('¿Estás seguro de desactivar este usuario?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ active: false })
+        .eq('id', userId);
+
+      if (error) throw error;
+      
+      await fetchAdminData(currentUser.id);
+      alert('✅ Usuario desactivado exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error desactivando usuario:', error);
+      alert(`Error desactivando usuario: ${error.message}`);
+    }
   };
 
-  const handleDogEdit = (dog) => {
-    setSelectedDog(dog);
-    setShowDogModal(true);
+  // ===============================================
+  // 🐕 GESTIÓN DE PERROS
+  // ===============================================
+  const createNewDog = async (e) => {
+    e.preventDefault();
+    
+    try {
+      console.log('🐕 Creando nuevo perro:', newDogForm);
+      
+      const { error } = await supabase
+        .from('dogs')
+        .insert({
+          name: newDogForm.name,
+          breed: newDogForm.breed,
+          size: newDogForm.size,
+          age: newDogForm.age ? parseInt(newDogForm.age) : null,
+          weight: newDogForm.weight ? parseFloat(newDogForm.weight) : null,
+          color: newDogForm.color,
+          owner_id: newDogForm.owner_id,
+          notes: newDogForm.notes
+        });
+
+      if (error) throw error;
+
+      // Resetear formulario
+      setNewDogForm({
+        name: '',
+        breed: '',
+        size: 'mediano',
+        age: '',
+        weight: '',
+        color: '',
+        owner_id: '',
+        notes: ''
+      });
+      setShowNewDogForm(false);
+      
+      // Refrescar datos
+      await fetchAdminData(currentUser.id);
+      alert('✅ Perro agregado exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error creando perro:', error);
+      alert(`Error creando perro: ${error.message}`);
+    }
   };
 
-  const handleEvaluationView = (evaluation) => {
-    setSelectedEvaluation(evaluation);
-    setShowEvaluationModal(true);
-  };
-
-  // ============================================
-  // 🎨 COMPONENTES DE UI
-  // ============================================
-
-  const NavigationBar = () => (
-    <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+  // ===============================================
+  // 🎨 RENDERIZADO DE NAVEGACIÓN
+  // ===============================================
+  const renderNavigation = () => (
+    <div className="bg-white shadow-sm border-b border-gray-200 mb-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4">
-          <div className="flex items-center space-x-6">
-            <h1 className="text-2xl font-bold text-[#2C3E50]">
-              ⚡ Panel de Administración
-            </h1>
-            
-            {/* Navegación de páginas */}
-            <nav className="hidden sm:flex space-x-4">
-              {[
-                { id: 'overview', label: '📊 Resumen', icon: '📊' },
-                { id: 'users', label: '👥 Usuarios', icon: '👥' },
-                { id: 'dogs', label: '🐕 Perros', icon: '🐕' },
-                { id: 'evaluations', label: '📋 Evaluaciones', icon: '📋' },
-                { id: 'reports', label: '📈 Reportes', icon: '📈' }
-              ].map((page) => (
-                <button
-                  key={page.id}
-                  onClick={() => setCurrentPage(page.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    currentPage === page.id
-                      ? 'bg-[#56CCF2] text-white shadow-md'
-                      : 'text-gray-600 hover:text-[#56CCF2] hover:bg-gray-50'
-                  }`}
-                >
-                  {page.label}
-                </button>
-              ))}
-            </nav>
-          </div>
+        <div className="flex space-x-8 overflow-x-auto">
+          <button
+            onClick={() => setCurrentPage('dashboard')}
+            className={`py-4 px-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              currentPage === 'dashboard'
+                ? 'border-[#56CCF2] text-[#56CCF2]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            👑 Dashboard
+          </button>
+          <button
+            onClick={() => setCurrentPage('usuarios')}
+            className={`py-4 px-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              currentPage === 'usuarios'
+                ? 'border-[#56CCF2] text-[#56CCF2]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            👥 Usuarios
+          </button>
+          <button
+            onClick={() => setCurrentPage('perros')}
+            className={`py-4 px-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              currentPage === 'perros'
+                ? 'border-[#56CCF2] text-[#56CCF2]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            🐕 Perros
+          </button>
+          <button
+            onClick={() => setCurrentPage('evaluaciones')}
+            className={`py-4 px-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              currentPage === 'evaluaciones'
+                ? 'border-[#56CCF2] text-[#56CCF2]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📋 Evaluaciones
+          </button>
+          <button
+            onClick={() => setCurrentPage('vehiculos')}
+            className={`py-4 px-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              currentPage === 'vehiculos'
+                ? 'border-[#56CCF2] text-[#56CCF2]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            🚐 Vehículos
+          </button>
+          <button
+            onClick={() => setCurrentPage('reportes')}
+            className={`py-4 px-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              currentPage === 'reportes'
+                ? 'border-[#56CCF2] text-[#56CCF2]'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📊 Reportes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
-          {/* User info */}
-          <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <div className="text-sm font-medium text-gray-900">
-                {profile?.full_name || 'Admin'}
-              </div>
-              <div className="text-xs text-gray-500">
-                Administrador del Sistema
-              </div>
+  // ===============================================
+  // 🏠 CONTENIDO PRINCIPAL DEL DASHBOARD
+  // ===============================================
+  const renderDashboardContent = () => (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Header con bienvenida */}
+      <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-xl p-6 mb-8 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">
+              ¡Hola {currentUser?.full_name || 'Administrador'}! 👑
+            </h1>
+            <p className="text-lg opacity-90">
+              Panel de control del Club Canino Dos Huellitas
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-4xl mb-2">🏢</div>
+            <p className="text-sm opacity-80">Administración General</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Estadísticas principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <span className="text-2xl">👥</span>
             </div>
-            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-              <span className="text-red-600 font-bold">⚡</span>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Usuarios</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <span className="text-2xl">🐕</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total Perros</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalDogs}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <span className="text-2xl">📋</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Evaluaciones</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalEvaluations}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <span className="text-2xl">🚐</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Vehículos</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalVehicles}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Resumen por roles */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-[#2C3E50] mb-4">👥 Usuarios por Rol</h3>
+          <div className="space-y-3">
+            {Object.entries(stats.usersByRole || {}).map(([role, count]) => (
+              <div key={role} className="flex justify-between items-center">
+                <span className="text-gray-600 capitalize">
+                  {role === 'padre' ? '👨‍👩‍👧‍👦 Padres' : 
+                   role === 'profesor' ? '👨‍🏫 Profesores' :
+                   role === 'admin' ? '👑 Administradores' : 
+                   role === 'conductor' ? '🚐 Conductores' : role}
+                </span>
+                <span className="font-semibold text-gray-900">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-[#2C3E50] mb-4">🐕 Perros por Tamaño</h3>
+          <div className="space-y-3">
+            {Object.entries(stats.dogsBySize || {}).map(([size, count]) => (
+              <div key={size} className="flex justify-between items-center">
+                <span className="text-gray-600 capitalize">
+                  {size === 'pequeño' ? '🐕‍🦺 Pequeños' :
+                   size === 'mediano' ? '🐕 Medianos' :
+                   size === 'grande' ? '🐺 Grandes' :
+                   size === 'gigante' ? '🐻 Gigantes' : size}
+                </span>
+                <span className="font-semibold text-gray-900">{count}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     </div>
   );
 
-  const StatsCards = () => {
-    const roleStats = {
-      admin: users.filter(u => u.role === 'admin').length,
-      profesor: users.filter(u => u.role === 'profesor').length,
-      padre: users.filter(u => u.role === 'padre').length,
-      conductor: users.filter(u => u.role === 'conductor').length
-    };
-
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {[
-          { 
-            title: 'Total Usuarios', 
-            value: stats.totalUsers, 
-            icon: '👥', 
-            color: 'blue',
-            subtitle: `${stats.activeUsers} activos`
-          },
-          { 
-            title: 'Total Perros', 
-            value: stats.totalDogs, 
-            icon: '🐕', 
-            color: 'green',
-            subtitle: 'Registrados'
-          },
-          { 
-            title: 'Por Roles', 
-            value: `${roleStats.padre}P ${roleStats.profesor}Pr ${roleStats.conductor}C`, 
-            icon: '🎭', 
-            color: 'purple',
-            subtitle: 'Padres/Profesores/Conductores'
-          },
-          { 
-            title: 'Sistema', 
-            value: systemHealth === 'good' ? 'Operativo' : 'Alerta', 
-            icon: systemHealth === 'good' ? '✅' : '⚠️', 
-            color: systemHealth === 'good' ? 'green' : 'red',
-            subtitle: 'Estado general'
-          }
-        ].map((stat, index) => (
-          <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                <p className="text-xs text-gray-500 mt-1">{stat.subtitle}</p>
-              </div>
-              <div className={`text-3xl`}>
-                {stat.icon}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const UsersManagement = () => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">👥 Gestión de Usuarios</h3>
+  // ===============================================
+  // 👥 RENDERIZADO PÁGINA DE USUARIOS
+  // ===============================================
+  const renderUsersPage = () => (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-[#2C3E50]">👥 Gestión de Usuarios</h2>
         <button
-          onClick={() => setShowUserModal(true)}
+          onClick={() => setShowNewUserForm(true)}
           className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors"
         >
-          ➕ Nuevo Usuario
+          ➕ Agregar Usuario
         </button>
       </div>
-      
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Usuario
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Rol
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Registro
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-sm font-medium text-gray-600">
-                        {user.full_name?.charAt(0) || user.email?.charAt(0) || '?'}
-                      </span>
-                    </div>
+
+      {/* Formulario nuevo usuario */}
+      {showNewUserForm && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">➕ Nuevo Usuario</h3>
+            <button
+              onClick={() => setShowNewUserForm(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <form onSubmit={createNewUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={newUserForm.email}
+                onChange={(e) => setNewUserForm({...newUserForm, email: e.target.value})}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+              <input
+                type="password"
+                value={newUserForm.password}
+                onChange={(e) => setNewUserForm({...newUserForm, password: e.target.value})}
+                required
+                minLength="6"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+              <input
+                type="text"
+                value={newUserForm.full_name}
+                onChange={(e) => setNewUserForm({...newUserForm, full_name: e.target.value})}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+              <input
+                type="tel"
+                value={newUserForm.phone}
+                onChange={(e) => setNewUserForm({...newUserForm, phone: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+              <select
+                value={newUserForm.role}
+                onChange={(e) => setNewUserForm({...newUserForm, role: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              >
+                <option value="padre">👨‍👩‍👧‍👦 Padre</option>
+                <option value="profesor">👨‍🏫 Profesor</option>
+                <option value="conductor">🚐 Conductor</option>
+                <option value="admin">👑 Administrador</option>
+              </select>
+            </div>
+            
+            <div className="md:col-span-2 flex gap-2">
+              <button
+                type="submit"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                ✅ Crear Usuario
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNewUserForm(false)}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Lista de usuarios */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {allUsers.map((user) => (
+                <tr key={user.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {user.full_name || 'Sin nombre'}
-                      </div>
+                      <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
                       <div className="text-sm text-gray-500">{user.email}</div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                    user.role === 'profesor' ? 'bg-blue-100 text-blue-800' :
-                    user.role === 'conductor' ? 'bg-purple-100 text-purple-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {user.role === 'admin' ? '⚡ Admin' :
-                     user.role === 'profesor' ? '🧑‍🏫 Profesor' :
-                     user.role === 'conductor' ? '🚐 Conductor' :
-                     '👤 Padre'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    user.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {user.active ? '✅ Activo' : '⏸️ Inactivo'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(user.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleUserEdit(user)}
-                      className="text-blue-600 hover:text-blue-900"
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                      user.role === 'profesor' ? 'bg-blue-100 text-blue-800' :
+                      user.role === 'conductor' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {user.role === 'padre' ? '👨‍👩‍👧‍👦 Padre' : 
+                       user.role === 'profesor' ? '👨‍🏫 Profesor' :
+                       user.role === 'admin' ? '👑 Admin' : 
+                       user.role === 'conductor' ? '🚐 Conductor' : user.role}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {user.phone || 'Sin teléfono'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {user.active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button 
+                      onClick={() => setEditingUser(user)}
+                      className="text-blue-600 hover:text-blue-900 mr-3"
                     >
-                      ✏️
+                      ✏️ Editar
                     </button>
-                    <button
-                      onClick={() => handleUserStatusToggle(user.id, user.active)}
-                      className={`${user.active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
-                    >
-                      {user.active ? '⏸️' : '▶️'}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    {user.active && user.role !== 'admin' && (
+                      <button 
+                        onClick={() => deactivateUser(user.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        🚫 Desactivar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 
-  const DogsManagement = () => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">🐕 Gestión de Perros</h3>
+  // ===============================================
+  // 🐕 RENDERIZADO PÁGINA DE PERROS
+  // ===============================================
+  const renderDogsPage = () => (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-[#2C3E50]">🐕 Gestión de Perros</h2>
         <button
-          onClick={() => setShowDogModal(true)}
+          onClick={() => setShowNewDogForm(true)}
           className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors"
         >
-          ➕ Nuevo Perro
+          ➕ Agregar Perro
         </button>
       </div>
-      
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Perro
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Dueño
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Raza/Tamaño
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {dogs.map((dog) => (
-              <tr key={dog.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 bg-orange-200 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-sm">🐕</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{dog.name}</div>
-                      <div className="text-sm text-gray-500">
-                        {dog.age ? `${dog.age} años` : 'Edad no especificada'}
+
+      {/* Formulario nuevo perro */}
+      {showNewDogForm && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">➕ Nuevo Perro</h3>
+            <button
+              onClick={() => setShowNewDogForm(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <form onSubmit={createNewDog} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Perro</label>
+              <input
+                type="text"
+                value={newDogForm.name}
+                onChange={(e) => setNewDogForm({...newDogForm, name: e.target.value})}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Dueño</label>
+              <select
+                value={newDogForm.owner_id}
+                onChange={(e) => setNewDogForm({...newDogForm, owner_id: e.target.value})}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              >
+                <option value="">Seleccionar dueño</option>
+                {allUsers.filter(u => u.role === 'padre' && u.active).map(user => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name} ({user.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Raza</label>
+              <input
+                type="text"
+                value={newDogForm.breed}
+                onChange={(e) => setNewDogForm({...newDogForm, breed: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tamaño</label>
+              <select
+                value={newDogForm.size}
+                onChange={(e) => setNewDogForm({...newDogForm, size: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              >
+                <option value="pequeño">🐕‍🦺 Pequeño</option>
+                <option value="mediano">🐕 Mediano</option>
+                <option value="grande">🐺 Grande</option>
+                <option value="gigante">🐻 Gigante</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Edad (años)</label>
+              <input
+                type="number"
+                value={newDogForm.age}
+                onChange={(e) => setNewDogForm({...newDogForm, age: e.target.value})}
+                min="0"
+                max="25"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Peso (kg)</label>
+              <input
+                type="number"
+                value={newDogForm.weight}
+                onChange={(e) => setNewDogForm({...newDogForm, weight: e.target.value})}
+                min="0"
+                max="100"
+                step="0.1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+              <input
+                type="text"
+                value={newDogForm.color}
+                onChange={(e) => setNewDogForm({...newDogForm, color: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+              <textarea
+                value={newDogForm.notes}
+                onChange={(e) => setNewDogForm({...newDogForm, notes: e.target.value})}
+                rows="3"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              />
+            </div>
+            
+            <div className="md:col-span-2 flex gap-2">
+              <button
+                type="submit"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                ✅ Agregar Perro
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNewDogForm(false)}
+                className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Lista de perros */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Perro</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dueño</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Características</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {allDogs.map((dog) => (
+                <tr key={dog.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-[#56CCF2] rounded-full flex items-center justify-center mr-3">
+                        <span className="text-white">🐕</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{dog.name}</div>
+                        <div className="text-sm text-gray-500">{dog.breed}</div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {dog.owner?.full_name || 'Sin asignar'}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {dog.owner?.email || ''}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{dog.breed || 'No especificada'}</div>
-                  <div className="text-sm text-gray-500">{dog.size || 'Tamaño no especificado'}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    dog.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {dog.active ? '✅ Activo' : '⏸️ Inactivo'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleDogEdit(dog)}
-                      className="text-blue-600 hover:text-blue-900"
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{dog.owner?.full_name}</div>
+                    <div className="text-sm text-gray-500">{dog.owner?.email}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div>{dog.size} • {dog.age ? `${dog.age} años` : 'Edad no especificada'}</div>
+                    <div className="text-gray-500">{dog.weight ? `${dog.weight} kg` : ''} {dog.color}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      dog.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {dog.active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button 
+                      onClick={() => setEditingDog(dog)}
+                      className="text-blue-600 hover:text-blue-900 mr-3"
                     >
-                      ✏️
+                      ✏️ Editar
                     </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    <button 
+                      className="text-green-600 hover:text-green-900"
+                    >
+                      📋 Ver Evaluaciones
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 
-  const EvaluationsOverview = () => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">📋 Evaluaciones Recientes</h3>
-      </div>
+  // ===============================================
+  // 🎯 RENDERIZADO PRINCIPAL POR PÁGINA
+  // ===============================================
+  const renderPageContent = () => {
+    switch (currentPage) {
+      case 'usuarios':
+        return renderUsersPage();
       
-      <div className="p-6">
-        <div className="space-y-4">
-          {evaluations.map((evaluation) => (
-            <div 
-              key={evaluation.id} 
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-              onClick={() => handleEvaluationView(evaluation)}
-            >
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600">📊</span>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    {evaluation.dog?.name || 'Perro desconocido'}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Evaluado por {evaluation.evaluator?.full_name || 'Usuario'} • {evaluation.location}
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-gray-900">
-                  {new Date(evaluation.date).toLocaleDateString()}
-                </div>
-                <div className="text-xs text-gray-500">
-                  Energía: {evaluation.energy_level}/10 • Click para detalles
-                </div>
-              </div>
+      case 'perros':
+        return renderDogsPage();
+      
+      case 'evaluaciones':
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <h2 className="text-2xl font-bold text-[#2C3E50] mb-6">📋 Gestión de Evaluaciones</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-center py-8">
+                Vista de evaluaciones en desarrollo...
+              </p>
             </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+          </div>
+        );
+      
+      case 'vehiculos':
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <h2 className="text-2xl font-bold text-[#2C3E50] mb-6">🚐 Gestión de Vehículos</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-center py-8">
+                Gestión de vehículos en desarrollo...
+              </p>
+            </div>
+          </div>
+        );
+      
+      case 'reportes':
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <h2 className="text-2xl font-bold text-[#2C3E50] mb-6">📊 Reportes y Estadísticas</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-center py-8">
+                Reportes avanzados en desarrollo...
+              </p>
+            </div>
+          </div>
+        );
+      
+      default:
+        return renderDashboardContent();
+    }
+  };
 
-  // ============================================
-  // 🎯 RENDERIZADO PRINCIPAL
-  // ============================================
-
-  if (authLoading || loading) {
+  // ===============================================
+  // 🎨 RENDERIZADO PRINCIPAL
+  // ===============================================
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen bg-[#FFFBF0] flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">⚡</div>
-          <div className="text-xl font-semibold text-[#2C3E50]">Cargando Panel de Administración...</div>
-          <div className="mt-2 text-sm text-gray-600">Preparando datos del sistema</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile || profile.role !== 'admin') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-red-50">
-        <div className="text-center">
-          <div className="text-6xl mb-4">⛔</div>
-          <h2 className="text-2xl font-bold text-[#2C3E50] mb-4">Acceso Denegado</h2>
-          <p className="text-gray-600 mb-6">Esta página es solo para administradores del Club Canino</p>
-          <a 
-            href="/dashboard/padre" 
-            className="bg-[#56CCF2] text-white py-3 px-6 rounded-lg hover:bg-[#5B9BD5] transition-colors"
-          >
-            🏠 Ir a Mi Dashboard
-          </a>
+          <div className="w-16 h-16 bg-[#56CCF2] rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <span className="text-2xl">👑</span>
+          </div>
+          <h2 className="text-xl font-semibold text-[#2C3E50] mb-2">Cargando Dashboard Admin</h2>
+          <p className="text-gray-600">Accediendo a datos del sistema...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <NavigationBar />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards - siempre visibles */}
-        <StatsCards />
-
-        {/* Contenido por página */}
-        {currentPage === 'overview' && (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <EvaluationsOverview />
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">🎯 Acciones Rápidas</h3>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setCurrentPage('users')}
-                    className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">👥</span>
-                      <div>
-                        <div className="font-medium">Gestionar Usuarios</div>
-                        <div className="text-sm text-gray-600">Crear, editar y administrar usuarios</div>
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage('dogs')}
-                    className="w-full text-left p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">🐕</span>
-                      <div>
-                        <div className="font-medium">Gestionar Perros</div>
-                        <div className="text-sm text-gray-600">Administrar mascotas registradas</div>
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage('reports')}
-                    className="w-full text-left p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <span className="text-2xl mr-3">📈</span>
-                      <div>
-                        <div className="font-medium">Ver Reportes</div>
-                        <div className="text-sm text-gray-600">Analytics y estadísticas</div>
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentPage === 'users' && (
-          <div className="space-y-8">
-            <UsersManagement />
-          </div>
-        )}
-
-        {currentPage === 'dogs' && (
-          <div className="space-y-8">
-            <DogsManagement />
-          </div>
-        )}
-
-        {currentPage === 'evaluations' && (
-          <div className="space-y-8">
-            <EvaluationsOverview />
-          </div>
-        )}
-
-        {currentPage === 'reports' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Reportes del Sistema</h3>
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4">🚧</div>
-              <div className="text-lg font-medium text-gray-600">Módulo de Reportes</div>
-              <div className="text-sm text-gray-500 mt-2">En desarrollo - Próximamente disponible</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Modales funcionales */}
-      <UserModal
-        isOpen={showUserModal}
-        onClose={() => {
-          setShowUserModal(false);
-          setSelectedUser(null);
-        }}
-        user={selectedUser}
-        onSave={() => {
-          fetchUsers();
-          fetchSystemStats();
-        }}
-      />
-
-      <DogModal
-        isOpen={showDogModal}
-        onClose={() => {
-          setShowDogModal(false);
-          setSelectedDog(null);
-        }}
-        dog={selectedDog}
-        users={users}
-        onSave={() => {
-          fetchDogs();
-          fetchSystemStats();
-        }}
-      />
-      <EvaluationDetailModal
-        isOpen={showEvaluationModal}
-        onClose={() => {
-          setShowEvaluationModal(false);
-          setSelectedEvaluation(null);
-        }}
-        evaluation={selectedEvaluation}
-      />
+    <div className="min-h-screen bg-[#FFFBF0]">
+      {renderNavigation()}
+      {renderPageContent()}
     </div>
   );
-}
+};
+
+export default AdminDashboard;

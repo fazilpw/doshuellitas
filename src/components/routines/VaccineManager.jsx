@@ -1,543 +1,871 @@
-// src/components/routines/VaccineManager.jsx - SISTEMA COMPLETO DE VACUNAS
+// src/components/routines/VaccineManager.jsx
+// 💉 GESTOR COMPLETO DE VACUNAS - TODAS LAS FUNCIONALIDADES
+
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
 
-const VaccineManager = ({ dogs = [], onClose }) => {
+const VaccineManager = ({ dogs = [], currentUser, onVaccineUpdated }) => {
+  // Estados principales
+  const [selectedDogId, setSelectedDogId] = useState('');
+  const [activeTab, setActiveTab] = useState('calendar');
+  const [loading, setLoading] = useState(false);
   const [vaccines, setVaccines] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [selectedDog, setSelectedDog] = useState('');
+  
+  // Estados para modales
+  const [showAddVaccine, setShowAddVaccine] = useState(false);
   const [editingVaccine, setEditingVaccine] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  
+  // Estados para formulario
+  const [formData, setFormData] = useState({
+    vaccine_name: '',
+    vaccine_type: 'vaccine',
+    last_application_date: '',
+    next_due_date: '',
+    veterinarian_name: '',
+    clinic_name: '',
+    vaccine_lot: '',
+    cost: '',
+    notes: ''
+  });
 
-  // Calendarios de vacunación por edad
-  const vaccineSchedules = {
-    puppy: {
-      label: 'Calendario de Cachorro',
-      vaccines: [
-        { name: 'Primera DHPP', weeks: 6, critical: true },
-        { name: 'Segunda DHPP', weeks: 9, critical: true },
-        { name: 'Tercera DHPP + Rabia', weeks: 12, critical: true },
-        { name: 'Cuarta DHPP', weeks: 16, critical: true },
-        { name: 'Bordetella', weeks: 12, critical: false }
-      ]
-    },
-    adult: {
-      label: 'Calendario Adulto (Anual)',
-      vaccines: [
-        { name: 'DHPP', months: 12, critical: true },
-        { name: 'Rabia', months: 12, critical: true },
-        { name: 'Bordetella', months: 6, critical: false },
-        { name: 'Leptospirosis', months: 12, critical: false }
-      ]
-    },
-    treatments: {
-      label: 'Tratamientos Preventivos',
-      vaccines: [
-        { name: 'Desparasitación Interna', months: 3, critical: true },
-        { name: 'Tratamiento Pulgas/Garrapatas', months: 1, critical: true },
-        { name: 'Prevención Heartworm', months: 1, critical: true }
-      ]
-    }
+  const selectedDog = dogs.find(dog => dog.id === selectedDogId);
+
+  // Tipos de vacunas
+  const vaccineTypes = {
+    'vaccine': { label: 'Vacuna', icon: '💉', color: 'bg-blue-50 text-blue-700' },
+    'deworming': { label: 'Desparasitación', icon: '🪱', color: 'bg-green-50 text-green-700' },
+    'flea_tick': { label: 'Pulgas/Garrapatas', icon: '🦟', color: 'bg-red-50 text-red-700' },
+    'heartworm': { label: 'Heartworm', icon: '❤️', color: 'bg-purple-50 text-purple-700' }
   };
 
-  useEffect(() => {
-    if (dogs.length > 0) {
-      fetchVaccines();
-      if (!selectedDog) {
-        setSelectedDog(dogs[0].id);
-      }
-    }
-  }, [dogs]);
+  // Calendarios de vacunación
+  const vaccineSchedules = {
+    puppy: [
+      { name: 'Primera DHPP', weeks: 6, critical: true, description: 'Distemper, Hepatitis, Parvovirus, Parainfluenza' },
+      { name: 'Segunda DHPP', weeks: 9, critical: true, description: 'Refuerzo de DHPP' },
+      { name: 'Tercera DHPP + Rabia', weeks: 12, critical: true, description: 'DHPP + Primera rabia' },
+      { name: 'Cuarta DHPP', weeks: 16, critical: true, description: 'Refuerzo final DHPP' },
+      { name: 'Bordetella', weeks: 12, critical: false, description: 'Tos de perrera' }
+    ],
+    adult: [
+      { name: 'DHPP Anual', months: 12, critical: true, description: 'Refuerzo anual' },
+      { name: 'Rabia Anual', months: 12, critical: true, description: 'Refuerzo anual obligatorio' },
+      { name: 'Bordetella', months: 6, critical: false, description: 'Cada 6 meses' },
+      { name: 'Leptospirosis', months: 12, critical: false, description: 'Recomendada anual' }
+    ],
+    preventive: [
+      { name: 'Desparasitación Interna', months: 3, critical: true, description: 'Cada 3 meses' },
+      { name: 'Pulgas/Garrapatas', months: 1, critical: true, description: 'Mensual' },
+      { name: 'Heartworm', months: 1, critical: true, description: 'Prevención mensual' }
+    ]
+  };
 
+  // Efectos
+  useEffect(() => {
+    if (dogs.length > 0 && !selectedDogId) {
+      setSelectedDogId(dogs[0].id);
+    }
+  }, [dogs, selectedDogId]);
+
+  useEffect(() => {
+    if (selectedDogId) {
+      fetchVaccines();
+    }
+  }, [selectedDogId]);
+
+  // ===============================================
+  // 📊 OBTENER VACUNAS
+  // ===============================================
   const fetchVaccines = async () => {
+    if (!selectedDogId) return;
+    
     setLoading(true);
     try {
-      const dogIds = dogs.map(dog => dog.id);
-      const { data, error } = await supabase
+      const { data: vaccinesData, error } = await supabase
         .from('dog_vaccines')
-        .select(`
-          *,
-          dogs(name, breed, age)
-        `)
-        .in('dog_id', dogIds)
+        .select('*')
+        .eq('dog_id', selectedDogId)
         .order('next_due_date', { ascending: true });
 
-      if (error) throw error;
-      setVaccines(data || []);
+      if (error) {
+        console.error('❌ Error fetching vaccines:', error);
+        return;
+      }
+
+      setVaccines(vaccinesData || []);
+      
     } catch (error) {
-      console.error('Error fetching vaccines:', error);
+      console.error('❌ Error in fetchVaccines:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  // ===============================================
+  // 📝 MANEJO DEL FORMULARIO
+  // ===============================================
+  const resetForm = () => {
+    setFormData({
+      vaccine_name: '',
+      vaccine_type: 'vaccine',
+      last_application_date: '',
+      next_due_date: '',
+      veterinarian_name: '',
+      clinic_name: '',
+      vaccine_lot: '',
+      cost: '',
+      notes: ''
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const vaccineData = {
+        dog_id: selectedDogId,
+        vaccine_name: formData.vaccine_name,
+        vaccine_type: formData.vaccine_type,
+        last_application_date: formData.last_application_date || null,
+        next_due_date: formData.next_due_date,
+        veterinarian_name: formData.veterinarian_name || null,
+        clinic_name: formData.clinic_name || null,
+        vaccine_lot: formData.vaccine_lot || null,
+        cost: formData.cost ? parseFloat(formData.cost) : null,
+        notes: formData.notes || null
+      };
+
+      if (editingVaccine) {
+        // Actualizar vacuna existente
+        const { error } = await supabase
+          .from('dog_vaccines')
+          .update(vaccineData)
+          .eq('id', editingVaccine.id);
+
+        if (error) throw error;
+        console.log('✅ Vacuna actualizada exitosamente');
+      } else {
+        // Crear nueva vacuna
+        const { error } = await supabase
+          .from('dog_vaccines')
+          .insert(vaccineData);
+
+        if (error) throw error;
+        console.log('✅ Vacuna creada exitosamente');
+      }
+      
+      setShowAddVaccine(false);
+      setEditingVaccine(null);
+      resetForm();
+      fetchVaccines();
+      
+      if (onVaccineUpdated) {
+        onVaccineUpdated();
+      }
+      
+    } catch (error) {
+      console.error('❌ Error saving vaccine:', error);
+      alert('Error al guardar la vacuna');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===============================================
+  // 🗑️ ELIMINAR VACUNA
+  // ===============================================
+  const handleDelete = async (vaccine) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('dog_vaccines')
+        .delete()
+        .eq('id', vaccine.id);
+
+      if (error) throw error;
+
+      setShowDeleteConfirm(null);
+      fetchVaccines();
+      
+      if (onVaccineUpdated) {
+        onVaccineUpdated();
+      }
+      
+      console.log('✅ Vacuna eliminada exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error deleting vaccine:', error);
+      alert('Error al eliminar la vacuna');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===============================================
+  // ✏️ EDITAR VACUNA
+  // ===============================================
+  const handleEdit = (vaccine) => {
+    setFormData({
+      vaccine_name: vaccine.vaccine_name,
+      vaccine_type: vaccine.vaccine_type,
+      last_application_date: vaccine.last_application_date || '',
+      next_due_date: vaccine.next_due_date,
+      veterinarian_name: vaccine.veterinarian_name || '',
+      clinic_name: vaccine.clinic_name || '',
+      vaccine_lot: vaccine.vaccine_lot || '',
+      cost: vaccine.cost ? vaccine.cost.toString() : '',
+      notes: vaccine.notes || ''
+    });
+    setEditingVaccine(vaccine);
+    setShowAddVaccine(true);
+  };
+
+  // ===============================================
+  // 📅 CALCULAR ESTADO DE VACUNA
+  // ===============================================
   const getVaccineStatus = (vaccine) => {
     const today = new Date();
     const dueDate = new Date(vaccine.next_due_date);
-    const daysUntil = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+    const diffTime = dueDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (daysUntil < 0) {
-      return { status: 'overdue', label: 'Vencida', color: 'bg-red-100 text-red-800', days: Math.abs(daysUntil) };
-    } else if (daysUntil <= 7) {
-      return { status: 'urgent', label: 'Urgente', color: 'bg-orange-100 text-orange-800', days: daysUntil };
-    } else if (daysUntil <= 30) {
-      return { status: 'due_soon', label: 'Próxima', color: 'bg-yellow-100 text-yellow-800', days: daysUntil };
+    if (diffDays < 0) {
+      return { status: 'overdue', days: Math.abs(diffDays), color: 'text-red-600', bgColor: 'bg-red-50', label: 'Vencida' };
+    } else if (diffDays <= 7) {
+      return { status: 'urgent', days: diffDays, color: 'text-orange-600', bgColor: 'bg-orange-50', label: 'Urgente' };
+    } else if (diffDays <= 30) {
+      return { status: 'upcoming', days: diffDays, color: 'text-yellow-600', bgColor: 'bg-yellow-50', label: 'Próxima' };
     } else {
-      return { status: 'scheduled', label: 'Programada', color: 'bg-green-100 text-green-800', days: daysUntil };
+      return { status: 'current', days: diffDays, color: 'text-green-600', bgColor: 'bg-green-50', label: 'Al día' };
     }
   };
 
-  const groupVaccinesByDog = () => {
-    const grouped = {};
-    dogs.forEach(dog => {
-      grouped[dog.id] = {
-        dog,
-        vaccines: vaccines.filter(v => v.dog_id === dog.id)
-      };
-    });
-    return grouped;
-  };
+  // ===============================================
+  // 📅 GENERAR CALENDARIO AUTOMÁTICO
+  // ===============================================
+  const generateSchedule = (ageGroup) => {
+    if (!selectedDog) return;
 
-  const getUpcomingVaccines = () => {
-    return vaccines
-      .filter(vaccine => {
-        const status = getVaccineStatus(vaccine);
-        return ['overdue', 'urgent', 'due_soon'].includes(status.status);
-      })
-      .sort((a, b) => new Date(a.next_due_date) - new Date(b.next_due_date));
-  };
+    const today = new Date();
+    const scheduleVaccines = vaccineSchedules[ageGroup];
+    const newVaccines = [];
 
-  const markVaccineAsApplied = async (vaccineId) => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const vaccine = vaccines.find(v => v.id === vaccineId);
+    scheduleVaccines.forEach(vaccine => {
+      let nextDate = new Date(today);
       
-      // Calcular próxima fecha según el tipo de vacuna
-      let nextDueDate = new Date();
-      if (vaccine.vaccine_name.includes('DHPP') || vaccine.vaccine_name.includes('Rabia')) {
-        nextDueDate.setFullYear(nextDueDate.getFullYear() + 1); // Anual
-      } else if (vaccine.vaccine_name.includes('Bordetella')) {
-        nextDueDate.setMonth(nextDueDate.getMonth() + 6); // Cada 6 meses
-      } else if (vaccine.vaccine_type === 'deworming') {
-        nextDueDate.setMonth(nextDueDate.getMonth() + 3); // Cada 3 meses
-      } else {
-        nextDueDate.setFullYear(nextDueDate.getFullYear() + 1); // Default anual
+      if (vaccine.weeks) {
+        nextDate.setDate(today.getDate() + (vaccine.weeks * 7));
+      } else if (vaccine.months) {
+        nextDate.setMonth(today.getMonth() + vaccine.months);
       }
 
-      const { error } = await supabase
-        .from('dog_vaccines')
-        .update({
-          last_application_date: today,
-          next_due_date: nextDueDate.toISOString().split('T')[0],
-          reminder_sent: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', vaccineId);
+      newVaccines.push({
+        vaccine_name: vaccine.name,
+        vaccine_type: ageGroup === 'preventive' ? 'deworming' : 'vaccine',
+        next_due_date: nextDate.toISOString().split('T')[0],
+        notes: vaccine.description
+      });
+    });
 
-      if (error) throw error;
+    return newVaccines;
+  };
+
+  const handleGenerateSchedule = async (ageGroup) => {
+    setLoading(true);
+    try {
+      const newVaccines = generateSchedule(ageGroup);
       
-      await fetchVaccines();
-      alert('✅ Vacuna marcada como aplicada y próxima cita programada');
+      for (const vaccine of newVaccines) {
+        await supabase
+          .from('dog_vaccines')
+          .insert({
+            dog_id: selectedDogId,
+            ...vaccine
+          });
+      }
+      
+      setShowScheduleModal(false);
+      fetchVaccines();
+      
+      console.log(`✅ Calendario ${ageGroup} generado exitosamente`);
+      
     } catch (error) {
-      console.error('Error updating vaccine:', error);
-      alert('Error actualizando la vacuna');
+      console.error('❌ Error generating schedule:', error);
+      alert('Error al generar el calendario');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const VaccineCard = ({ vaccine }) => {
-    const status = getVaccineStatus(vaccine);
-    const dog = dogs.find(d => d.id === vaccine.dog_id);
+  // ===============================================
+  // 🎨 COMPONENTES DE RENDERIZADO
+  // ===============================================
+  const renderDogSelector = () => (
+    <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center space-x-4">
+        <div className="text-2xl">💉</div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Vacunas</h2>
+          <p className="text-sm text-gray-600">
+            {selectedDog ? `Para ${selectedDog.name}` : 'Selecciona un perro'}
+          </p>
+        </div>
+      </div>
+      
+      {dogs.length > 0 && (
+        <select
+          value={selectedDogId}
+          onChange={(e) => setSelectedDogId(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+        >
+          {dogs.map(dog => (
+            <option key={dog.id} value={dog.id}>{dog.name}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+
+  const renderTabs = () => (
+    <div className="flex space-x-6 border-b border-gray-200 mb-6">
+      <button
+        onClick={() => setActiveTab('calendar')}
+        className={`py-2 px-4 text-sm font-medium border-b-2 transition-colors ${
+          activeTab === 'calendar'
+            ? 'border-[#56CCF2] text-[#56CCF2]'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        📅 Calendario
+      </button>
+      <button
+        onClick={() => setActiveTab('history')}
+        className={`py-2 px-4 text-sm font-medium border-b-2 transition-colors ${
+          activeTab === 'history'
+            ? 'border-[#56CCF2] text-[#56CCF2]'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        📋 Historial
+      </button>
+    </div>
+  );
+
+  const renderCalendarView = () => {
+    const upcomingVaccines = vaccines.filter(v => {
+      const status = getVaccineStatus(v);
+      return ['overdue', 'urgent', 'upcoming'].includes(status.status);
+    });
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-[#56CCF2] rounded-full flex items-center justify-center">
-              <span className="text-white text-lg">🐕</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">{dog?.name}</h3>
-              <p className="text-sm text-gray-600">{dog?.breed}</p>
-            </div>
-          </div>
-          
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
-            {status.label}
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-gray-900">{vaccine.vaccine_name}</span>
-            <span className="text-sm text-gray-600">
-              {vaccine.vaccine_type === 'vaccine' ? '💉' : 
-               vaccine.vaccine_type === 'deworming' ? '💊' : '🛡️'}
-            </span>
-          </div>
-
-          <div className="text-sm text-gray-600">
-            <div className="flex justify-between">
-              <span>Próxima cita:</span>
-              <span className="font-medium">
-                {new Date(vaccine.next_due_date).toLocaleDateString('es-CO')}
-              </span>
-            </div>
-            
-            {status.status === 'overdue' && (
-              <div className="text-red-600 font-medium">
-                ⚠️ Vencida hace {status.days} días
-              </div>
-            )}
-            
-            {status.status === 'urgent' && (
-              <div className="text-orange-600 font-medium">
-                🚨 Vence en {status.days} días
-              </div>
-            )}
-            
-            {status.status === 'due_soon' && (
-              <div className="text-yellow-600 font-medium">
-                ⏰ Vence en {status.days} días
-              </div>
-            )}
-          </div>
-
-          {vaccine.last_application_date && (
-            <div className="text-xs text-gray-500">
-              Última aplicación: {new Date(vaccine.last_application_date).toLocaleDateString('es-CO')}
-            </div>
-          )}
-
-          {vaccine.veterinarian_name && (
-            <div className="text-xs text-gray-500">
-              Veterinario: {vaccine.veterinarian_name}
-            </div>
-          )}
-        </div>
-
-        <div className="flex space-x-2 mt-4">
+      <div className="space-y-6">
+        {/* Acciones rápidas */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <button
-            onClick={() => markVaccineAsApplied(vaccine.id)}
-            className="flex-1 bg-green-100 text-green-700 py-2 px-3 rounded text-sm hover:bg-green-200 transition-colors"
+            onClick={() => setShowAddVaccine(true)}
+            className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-center"
           >
-            ✅ Ya aplicada
+            <div className="text-2xl mb-2">➕</div>
+            <div className="text-sm font-medium">Nueva Vacuna</div>
           </button>
           
           <button
-            onClick={() => setEditingVaccine(vaccine)}
-            className="flex-1 bg-gray-100 text-gray-700 py-2 px-3 rounded text-sm hover:bg-gray-200 transition-colors"
+            onClick={() => setShowScheduleModal(true)}
+            className="bg-green-50 border border-green-200 rounded-lg p-4 hover:bg-green-100 transition-colors text-center"
           >
-            ✏️ Editar
+            <div className="text-2xl mb-2">📅</div>
+            <div className="text-sm font-medium text-green-700">Calendario Auto</div>
+          </button>
+          
+          <button
+            onClick={() => {
+              setFormData({
+                ...formData,
+                vaccine_name: 'Desparasitación',
+                vaccine_type: 'deworming'
+              });
+              setShowAddVaccine(true);
+            }}
+            className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 hover:bg-yellow-100 transition-colors text-center"
+          >
+            <div className="text-2xl mb-2">🪱</div>
+            <div className="text-sm font-medium text-yellow-700">Desparasitar</div>
+          </button>
+          
+          <button
+            onClick={() => {
+              setFormData({
+                ...formData,
+                vaccine_name: 'Pulgas/Garrapatas',
+                vaccine_type: 'flea_tick'
+              });
+              setShowAddVaccine(true);
+            }}
+            className="bg-red-50 border border-red-200 rounded-lg p-4 hover:bg-red-100 transition-colors text-center"
+          >
+            <div className="text-2xl mb-2">🦟</div>
+            <div className="text-sm font-medium text-red-700">Anti-pulgas</div>
           </button>
         </div>
+
+        {/* Vacunas próximas */}
+        {upcomingVaccines.length > 0 ? (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">🚨 Vacunas Próximas</h3>
+            
+            {upcomingVaccines.map(vaccine => {
+              const status = getVaccineStatus(vaccine);
+              const vaccineType = vaccineTypes[vaccine.vaccine_type] || vaccineTypes.vaccine;
+              
+              return (
+                <div key={vaccine.id} className={`border rounded-lg p-4 ${status.bgColor} border-gray-200`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">{vaccineType.icon}</span>
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{vaccine.vaccine_name}</h4>
+                        <p className="text-sm text-gray-600">
+                          {vaccineType.label} • Vence: {new Date(vaccine.next_due_date).toLocaleDateString()}
+                        </p>
+                        {vaccine.veterinarian_name && (
+                          <p className="text-xs text-gray-500">Dr. {vaccine.veterinarian_name}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${status.color} ${status.bgColor}`}>
+                        {status.days === 0 ? 'HOY' : 
+                         status.days === 1 ? 'MAÑANA' : 
+                         status.status === 'overdue' ? `${status.days} días tarde` :
+                         `${status.days} días`}
+                      </span>
+                      <div className="mt-2 space-x-2">
+                        <button
+                          onClick={() => handleEdit(vaccine)}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          ✏️ Editar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {vaccine.notes && (
+                    <div className="mt-3 p-2 bg-white bg-opacity-50 rounded">
+                      <p className="text-sm text-gray-700">📝 {vaccine.notes}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">✅</div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">¡{selectedDog?.name} está al día!</h3>
+            <p className="text-gray-600 mb-6">No hay vacunas próximas por aplicar</p>
+            <button
+              onClick={() => setShowAddVaccine(true)}
+              className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+            >
+              ➕ Agregar Nueva Vacuna
+            </button>
+          </div>
+        )}
       </div>
     );
   };
 
-  const AddVaccineForm = ({ onClose, onSave }) => {
-    const [formData, setFormData] = useState({
-      dog_id: selectedDog || dogs[0]?.id || '',
-      vaccine_name: '',
-      vaccine_type: 'vaccine',
-      next_due_date: '',
-      veterinarian_name: '',
-      clinic_name: '',
-      notes: ''
-    });
-    const [saving, setSaving] = useState(false);
+  const renderHistoryView = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-bold text-gray-900">📋 Historial de Vacunas</h3>
+        <button
+          onClick={() => setShowAddVaccine(true)}
+          className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+        >
+          ➕ Agregar Vacuna
+        </button>
+      </div>
 
-    const handleSave = async () => {
-      if (!formData.dog_id || !formData.vaccine_name || !formData.next_due_date) {
-        alert('Por favor completa los campos obligatorios');
-        return;
-      }
+      {vaccines.length > 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Vacuna
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Aplicación
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Próxima
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {vaccines.map((vaccine) => {
+                  const status = getVaccineStatus(vaccine);
+                  const vaccineType = vaccineTypes[vaccine.vaccine_type] || vaccineTypes.vaccine;
+                  
+                  return (
+                    <tr key={vaccine.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <span className="text-xl mr-3">{vaccineType.icon}</span>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{vaccine.vaccine_name}</div>
+                            <div className="text-sm text-gray-500">{vaccineType.label}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {vaccine.last_application_date 
+                            ? new Date(vaccine.last_application_date).toLocaleDateString()
+                            : 'No registrada'
+                          }
+                        </div>
+                        {vaccine.veterinarian_name && (
+                          <div className="text-sm text-gray-500">Dr. {vaccine.veterinarian_name}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {new Date(vaccine.next_due_date).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.color} ${status.bgColor}`}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button 
+                          onClick={() => handleEdit(vaccine)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button 
+                          onClick={() => setShowDeleteConfirm(vaccine)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">💉</div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No hay vacunas registradas</h3>
+          <p className="text-gray-600 mb-6">Comienza registrando las vacunas de {selectedDog?.name}</p>
+          <button
+            onClick={() => setShowAddVaccine(true)}
+            className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+          >
+            ➕ Primera Vacuna
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
-      setSaving(true);
-      try {
-        const { error } = await supabase
-          .from('dog_vaccines')
-          .insert([formData]);
-
-        if (error) throw error;
+  const renderForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-semibold mb-4">
+          {editingVaccine ? '✏️ Editar Vacuna' : '💉 Nueva Vacuna'}
+        </h3>
         
-        onSave();
-        onClose();
-      } catch (error) {
-        console.error('Error saving vaccine:', error);
-        alert('Error guardando la vacuna');
-      } finally {
-        setSaving(false);
-      }
-    };
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
-        <div className="bg-white rounded-xl w-full max-w-md">
-          <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] text-white p-6 rounded-t-xl">
-            <h3 className="text-lg font-bold">💉 Agregar Vacuna/Tratamiento</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nombre de la vacuna */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre de la vacuna *
+            </label>
+            <input
+              type="text"
+              value={formData.vaccine_name}
+              onChange={(e) => setFormData({ ...formData, vaccine_name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              placeholder="Ej: DHPP, Rabia, Desparasitación..."
+              required
+            />
           </div>
 
-          <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Perro *</label>
-              <select
-                value={formData.dog_id}
-                onChange={(e) => setFormData({...formData, dog_id: e.target.value})}
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              >
-                {dogs.map(dog => (
-                  <option key={dog.id} value={dog.id}>{dog.name} ({dog.breed})</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo *</label>
-              <select
-                value={formData.vaccine_type}
-                onChange={(e) => setFormData({...formData, vaccine_type: e.target.value})}
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              >
-                <option value="vaccine">💉 Vacuna</option>
-                <option value="deworming">💊 Desparasitación</option>
-                <option value="flea_tick">🛡️ Pulgas/Garrapatas</option>
-                <option value="heartworm">❤️ Prevención Heartworm</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la vacuna/tratamiento *</label>
-              <input
-                type="text"
-                value={formData.vaccine_name}
-                onChange={(e) => setFormData({...formData, vaccine_name: e.target.value})}
-                placeholder="ej: DHPP, Rabia, Nexgard..."
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Próxima fecha de aplicación *</label>
-              <input
-                type="date"
-                value={formData.next_due_date}
-                onChange={(e) => setFormData({...formData, next_due_date: e.target.value})}
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Veterinario</label>
-              <input
-                type="text"
-                value={formData.veterinarian_name}
-                onChange={(e) => setFormData({...formData, veterinarian_name: e.target.value})}
-                placeholder="ej: Dr. García"
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Clínica</label>
-              <input
-                type="text"
-                value={formData.clinic_name}
-                onChange={(e) => setFormData({...formData, clinic_name: e.target.value})}
-                placeholder="ej: Veterinaria Central"
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                placeholder="Información adicional..."
-                rows={3}
-                className="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              />
-            </div>
+          {/* Tipo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo
+            </label>
+            <select
+              value={formData.vaccine_type}
+              onChange={(e) => setFormData({ ...formData, vaccine_type: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+            >
+              {Object.entries(vaccineTypes).map(([key, type]) => (
+                <option key={key} value={key}>
+                  {type.icon} {type.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="border-t border-gray-200 px-6 py-4 flex space-x-3">
+          {/* Fecha de aplicación */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha de aplicación
+            </label>
+            <input
+              type="date"
+              value={formData.last_application_date}
+              onChange={(e) => setFormData({ ...formData, last_application_date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+            />
+          </div>
+
+          {/* Próxima fecha */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Próxima fecha *
+            </label>
+            <input
+              type="date"
+              value={formData.next_due_date}
+              onChange={(e) => setFormData({ ...formData, next_due_date: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              required
+            />
+          </div>
+
+          {/* Veterinario */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Veterinario
+            </label>
+            <input
+              type="text"
+              value={formData.veterinarian_name}
+              onChange={(e) => setFormData({ ...formData, veterinarian_name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              placeholder="Nombre del veterinario"
+            />
+          </div>
+
+          {/* Clínica */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Clínica
+            </label>
+            <input
+              type="text"
+              value={formData.clinic_name}
+              onChange={(e) => setFormData({ ...formData, clinic_name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              placeholder="Nombre de la clínica"
+            />
+          </div>
+
+          {/* Lote */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Lote de vacuna
+            </label>
+            <input
+              type="text"
+              value={formData.vaccine_lot}
+              onChange={(e) => setFormData({ ...formData, vaccine_lot: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              placeholder="Número de lote"
+            />
+          </div>
+
+          {/* Costo */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Costo
+            </label>
+            <input
+              type="number"
+              value={formData.cost}
+              onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              placeholder="0.00"
+              step="0.01"
+            />
+          </div>
+
+          {/* Notas */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notas
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              rows={3}
+              placeholder="Reacciones, observaciones, etc..."
+            />
+          </div>
+
+          {/* Botones */}
+          <div className="flex gap-3 pt-4">
             <button
-              onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded hover:bg-gray-300 transition-colors"
+              type="button"
+              onClick={() => {
+                setShowAddVaccine(false);
+                setEditingVaccine(null);
+                resetForm();
+              }}
+              className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
             >
               Cancelar
             </button>
             <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 bg-[#56CCF2] text-white py-2 px-4 rounded hover:bg-[#5B9BD5] transition-colors disabled:opacity-50"
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-[#56CCF2] text-white py-2 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors disabled:opacity-50"
             >
-              {saving ? 'Guardando...' : '✅ Guardar'}
+              {loading ? 'Guardando...' : editingVaccine ? 'Actualizar' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  // Modal de calendario automático
+  const renderScheduleModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+        <h3 className="text-lg font-semibold mb-4">📅 Generar Calendario Automático</h3>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4">
+            <button
+              onClick={() => handleGenerateSchedule('puppy')}
+              className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left hover:bg-blue-100 transition-colors"
+            >
+              <div className="text-lg font-semibold text-blue-900">🐶 Calendario de Cachorro</div>
+              <div className="text-sm text-blue-700 mt-1">
+                DHPP serie, Rabia, Bordetella (6-16 semanas)
+              </div>
+            </button>
+            
+            <button
+              onClick={() => handleGenerateSchedule('adult')}
+              className="bg-green-50 border border-green-200 rounded-lg p-4 text-left hover:bg-green-100 transition-colors"
+            >
+              <div className="text-lg font-semibold text-green-900">🐕 Calendario Adulto</div>
+              <div className="text-sm text-green-700 mt-1">
+                Refuerzos anuales y semestrales
+              </div>
+            </button>
+            
+            <button
+              onClick={() => handleGenerateSchedule('preventive')}
+              className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left hover:bg-yellow-100 transition-colors"
+            >
+              <div className="text-lg font-semibold text-yellow-900">🛡️ Tratamientos Preventivos</div>
+              <div className="text-sm text-yellow-700 mt-1">
+                Desparasitación, pulgas, heartworm
+              </div>
             </button>
           </div>
         </div>
+
+        <div className="flex gap-3 pt-6">
+          <button
+            onClick={() => setShowScheduleModal(false)}
+            className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ===============================================
+  // 🎨 RENDERIZADO PRINCIPAL
+  // ===============================================
+  if (!currentUser) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-4xl mb-4">⚠️</div>
+        <p className="text-gray-600">Error: Usuario no autenticado</p>
       </div>
     );
-  };
+  }
 
-  const upcomingVaccines = getUpcomingVaccines();
-
-  if (loading) {
+  if (dogs.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#56CCF2] mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando sistema de vacunas...</p>
-        </div>
+      <div className="text-center py-12">
+        <div className="text-6xl mb-4">🐕</div>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">No hay perros registrados</h3>
+        <p className="text-gray-600 mb-6">Agrega un perro para gestionar sus vacunas</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] text-white rounded-xl p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold mb-2">💉 Control de Vacunas</h2>
-            <p className="opacity-90">Mantén al día la salud preventiva de tus peluditos</p>
-          </div>
-          
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
-          >
-            + Agregar
-          </button>
-        </div>
-      </div>
-
-      {/* Alertas urgentes */}
-      {upcomingVaccines.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-          <h3 className="font-bold text-yellow-900 mb-4 flex items-center">
-            <span className="mr-2">🚨</span>
-            Vacunas que Requieren Atención ({upcomingVaccines.length})
-          </h3>
-          
-          <div className="space-y-3">
-            {upcomingVaccines.slice(0, 3).map(vaccine => {
-              const status = getVaccineStatus(vaccine);
-              const dog = dogs.find(d => d.id === vaccine.dog_id);
-              
-              return (
-                <div key={vaccine.id} className="bg-white rounded-lg p-4 border-l-4 border-yellow-400">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-medium text-gray-900">{dog?.name}</span>
-                      <span className="mx-2">•</span>
-                      <span className="text-gray-700">{vaccine.vaccine_name}</span>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-sm font-medium ${
-                        status.status === 'overdue' ? 'text-red-600' : 'text-orange-600'
-                      }`}>
-                        {status.status === 'overdue' 
-                          ? `Vencida hace ${status.days} días` 
-                          : `Vence en ${status.days} días`
-                        }
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(vaccine.next_due_date).toLocaleDateString('es-CO')}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          
-          {upcomingVaccines.length > 3 && (
-            <p className="text-sm text-yellow-700 mt-3">
-              Y {upcomingVaccines.length - 3} más...
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Lista de vacunas por perro */}
-      <div>
-        <h3 className="font-bold text-gray-900 mb-4">📋 Cronograma por Perro</h3>
-        
-        <div className="space-y-6">
-          {Object.entries(groupVaccinesByDog()).map(([dogId, { dog, vaccines: dogVaccines }]) => (
-            <div key={dogId}>
-              <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                <span className="mr-2">🐕</span>
-                {dog.name} ({dog.breed})
-                <span className="ml-2 text-sm text-gray-500">
-                  {dogVaccines.length} vacunas programadas
-                </span>
-              </h4>
-              
-              {dogVaccines.length === 0 ? (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-                  <div className="text-4xl mb-3">💉</div>
-                  <p className="text-gray-600 mb-4">No hay vacunas programadas para {dog.name}</p>
-                  <button
-                    onClick={() => {
-                      setSelectedDog(dogId);
-                      setShowAddForm(true);
-                    }}
-                    className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors"
-                  >
-                    + Agregar primera vacuna
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {dogVaccines.map(vaccine => (
-                    <VaccineCard key={vaccine.id} vaccine={vaccine} />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Información sobre calendarios de vacunación */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-        <h3 className="font-bold text-blue-900 mb-3">📅 Calendarios de Vacunación Recomendados</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(vaccineSchedules).map(([key, schedule]) => (
-            <div key={key} className="bg-white rounded-lg p-4">
-              <h4 className="font-medium text-blue-900 mb-2">{schedule.label}</h4>
-              <ul className="space-y-1 text-sm text-blue-800">
-                {schedule.vaccines.slice(0, 3).map((vaccine, index) => (
-                  <li key={index} className="flex items-center">
-                    <span className={`mr-2 ${vaccine.critical ? 'text-red-500' : 'text-blue-500'}`}>
-                      {vaccine.critical ? '🔴' : '🔵'}
-                    </span>
-                    <span>{vaccine.name}</span>
-                  </li>
-                ))}
-              </ul>
-              {schedule.vaccines.length > 3 && (
-                <p className="text-xs text-blue-600 mt-2">
-                  Y {schedule.vaccines.length - 3} más...
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      {renderDogSelector()}
+      {renderTabs()}
+      
+      {activeTab === 'calendar' && renderCalendarView()}
+      {activeTab === 'history' && renderHistoryView()}
 
       {/* Modales */}
-      {showAddForm && (
-        <AddVaccineForm
-          onClose={() => setShowAddForm(false)}
-          onSave={() => {
-            fetchVaccines();
-            setShowAddForm(false);
-          }}
-        />
+      {showAddVaccine && renderForm()}
+      {showScheduleModal && renderScheduleModal()}
+      
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4 text-red-600">🗑️ Eliminar Vacuna</h3>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro de que quieres eliminar la vacuna "{showDeleteConfirm.vaccine_name}"?
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                disabled={loading}
+                className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

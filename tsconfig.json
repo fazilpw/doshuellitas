@@ -1,14 +1,102 @@
 {
   "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    // Configuración básica
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    
+    // Configuración estricta para TypeScript
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUncheckedIndexedAccess": true,
+    
+    // Configuración de resolución de módulos
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/components/*": ["src/components/*"],
+      "@/layouts/*": ["src/layouts/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/types/*": ["src/types/*"],
+      "@/pages/*": ["src/pages/*"],
+      "@/utils/*": ["src/utils/*"]
+    },
+    
+    // Configuración DOM y librerías
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    // Configuración para desarrollo
+    "sourceMap": true,
+    "declaration": false,
+    "declarationMap": false,
+    "removeComments": false,
+    "preserveConstEnums": true,
+    
+    // Configuración JSX para componentes React en Astro
+    "jsx": "preserve",
+    "jsxImportSource": "react",
+    
+    // Configuración específica para el Club Canino
+    "resolveJsonModule": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedIndexedAccess": false,
+    
+    // Configuración para mejor experiencia de desarrollo
+    "incremental": true,
+    "tsBuildInfoFile": ".astro/tsconfig.tsbuildinfo"
+  },
   "include": [
+    "src/**/*",
+    "src/**/*.astro",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx",
     ".astro/types.d.ts",
-    "**/*"
+    "env.d.ts"
   ],
   "exclude": [
-    "dist"
+    "node_modules",
+    "dist",
+    ".astro/build",
+    ".netlify"
   ],
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "react"
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  },
+  // Configuración específica para archivos del Club Canino
+  "files": [
+    "env.d.ts",
+    "src/types/auth.d.ts"
+  ],
+  // Configuración para mejor rendimiento
+  "watchOptions": {
+    "watchFile": "useFsEvents",
+    "watchDirectory": "useFsEvents",
+    "fallbackPolling": "dynamicPriority",
+    "synchronousWatchDirectory": true,
+    "excludeFiles": ["**/node_modules/**/*"]
+  },
+  // Configuración para debugging
+  "typeAcquisition": {
+    "enable": false,
+    "include": [],
+    "exclude": []
   }
 }

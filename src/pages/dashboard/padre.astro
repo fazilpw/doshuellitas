@@ -1,11 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { ParentDashboardWrapper } from '../../components/dashboard/DashboardWrapper.jsx';
-import ParentDashboard from '../../components/dashboard/ParentDashboard.jsx';
+import { AuthProvider } from '../../components/auth/AuthProvider.jsx';
+import ParentDashboardWrapper from '../../components/dashboard/ParentDashboardWrapper.jsx';
 ---
 
-<Layout title="Dashboard Padre | Club Canino">
-  <ParentDashboardWrapper client:only="react">
-    <ParentDashboard />
-  </ParentDashboardWrapper>
+<Layout title="Dashboard Padre | Club Canino Dos Huellitas">
+  <AuthProvider client:load>
+    <ParentDashboardWrapper client:load />
+  </AuthProvider>
 </Layout>

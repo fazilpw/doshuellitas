@@ -388,6 +388,43 @@ export async function getTodayEvaluations(location, evaluatorId = null) {
 }
 
 /**
+ * 🔧 FUNCIÓN FALTANTE: Obtiene promedios para múltiples perros
+ */
+export async function getMultipleDogsAverages(dogIds) {
+  try {
+    if (!dogIds || dogIds.length === 0) {
+      return {};
+    }
+
+    const averages = {};
+    
+    // Obtener promedios para cada perro
+    for (const dogId of dogIds) {
+      const { data, error } = await getDogAverages(dogId);
+      
+      if (error) {
+        console.error(`Error obteniendo promedios para perro ${dogId}:`, error);
+        averages[dogId] = {
+          energy_percentage: 0,
+          sociability_percentage: 0,
+          obedience_percentage: 0,
+          anxiety_percentage: 0,
+          total_evaluations: 0,
+          trend: 'sin_datos'
+        };
+      } else {
+        averages[dogId] = data;
+      }
+    }
+
+    return averages;
+  } catch (error) {
+    console.error('Error fetching multiple dogs averages:', error);
+    return {};
+  }
+}
+
+/**
  * Función de diagnóstico - verifica conexión con Supabase
  */
 export async function testSupabaseConnection() {

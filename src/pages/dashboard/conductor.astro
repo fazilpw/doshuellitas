@@ -1,11 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { ConductorDashboardWrapper } from '../../components/dashboard/DashboardWrapper.jsx';
-import CleanRealGPSConductor from '../../components/tracking/CleanRealGPSConductor.jsx';
+import { AuthProvider } from '../../components/auth/AuthProvider.jsx';
+import ConductorDashboardWrapper from '../../components/dashboard/ConductorDashboardWrapper.jsx';
 ---
 
-<Layout title="Conductor GPS Real - Club Canino">
-  <ConductorDashboardWrapper client:only="react">
-    <CleanRealGPSConductor />
-  </ConductorDashboardWrapper>
+<Layout title="Dashboard Conductor | Club Canino Dos Huellitas">
+  <AuthProvider client:load>
+    <ConductorDashboardWrapper client:load />
+  </AuthProvider>
 </Layout>

@@ -1,9 +1,14 @@
 ---
+// src/pages/app.astro
+// 🚀 PÁGINA PRINCIPAL DE LA APP (CON NUEVO SISTEMA)
+
 import Layout from '../layouts/Layout.astro';
+import { ClientOnlyAuthGuard } from '../components/auth/ClientOnlyAuthGuard.jsx';
 import AppEntry from '../components/AppEntry.jsx';
 ---
 
-<Layout title="App | Club Canino Dos Huellitas">
-  <!-- 🔧 CORREGIDO: client:only para evitar problemas de SSR -->
-  <AppEntry client:only="react" />
-</Layout>
+<Layout title="Club Canino Dos Huellitas - App">
+ 
+  <ClientOnlyAuthGuard client:only="react">
+    <AppEntry client:load />
+  </ClientOnlyAuthGuard>

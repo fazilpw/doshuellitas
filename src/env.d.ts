@@ -1,3 +1,4 @@
+/// <reference path="../.astro/types.d.ts" />
 // src/types/auth.d.ts
 // 🔐 TIPOS DE AUTENTICACIÓN PARA CLUB CANINO DOS HUELLITAS
 // Asegura compatibilidad entre authService y componentes

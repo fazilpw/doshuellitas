@@ -1,64 +1,49 @@
-// src/components/routines/RoutineManager.jsx - HOOKS CORREGIDOS
+// src/components/routines/RoutineManager.jsx
+// 📅 GESTOR COMPLETO DE RUTINAS - TODAS LAS FUNCIONALIDADES
+
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
 
-// IMPORTS
-import FeedingScheduleManager from './FeedingScheduleManager.jsx';
-import VaccineManager from './VaccineManager.jsx';
-import NotificationSystem from '../notifications/NotificationSystem.jsx';
-import ExerciseManager from './ExerciseManager.jsx';
-import RoutineFormManager from './RoutineFormManager.jsx';
-import { 
-  markRoutineAsCompleted, 
-  snoozeRoutine, 
-  getRoutineStatusForDog, 
-  isRoutineCompletedToday,
-  deleteRoutine as deleteRoutineHelper  // 🔧 AGREGAR ESTA LÍNEA
-} from '../../lib/routineHelpers.js';
-
-const RoutineManager = ({ currentUser, dogs = [] }) => {
+const RoutineManager = ({ dogs = [], currentUser, onRoutineUpdated }) => {
   // Estados principales
   const [selectedDogId, setSelectedDogId] = useState('');
   const [activeTab, setActiveTab] = useState('today');
   const [loading, setLoading] = useState(false);
   const [routines, setRoutines] = useState([]);
-  const [vaccines, setVaccines] = useState([]);
-  const [nextRoutine, setNextRoutine] = useState(null);
+  const [todayRoutines, setTodayRoutines] = useState([]);
+  
+  // Estados para modales
   const [showAddRoutine, setShowAddRoutine] = useState(false);
-  const [showFeedingConfig, setShowFeedingConfig] = useState(false);
-  const [showExerciseConfig, setShowExerciseConfig] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState(null);
-  const [routineStatus, setRoutineStatus] = useState({
-    pending: [],
-    completed: [],
-    stats: {}
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  
+  // Estados para formulario
+  const [formData, setFormData] = useState({
+    name: '',
+    category: 'alimentacion',
+    time: '',
+    days_of_week: [1, 2, 3, 4, 5, 6, 7],
+    reminder_minutes: 5,
+    notes: ''
   });
 
-  // Perro seleccionado
   const selectedDog = dogs.find(dog => dog.id === selectedDogId);
-  
-  // Tiempo actual
-  const now = new Date();
-  const timeString = now.toTimeString().slice(0, 5);
+  const currentTime = new Date().toTimeString().slice(0, 5);
+  const currentDay = new Date().getDay() || 7; // 1=Lunes, 7=Domingo
 
-  // 🔍 DEBUG HOOKS - AHORA ESTÁN EN EL LUGAR CORRECTO
-  useEffect(() => {
-    console.log('🐕 RoutineManager mounted:', { 
-      currentUser: currentUser?.id, 
-      dogsLength: dogs.length,
-      dogs: dogs.map(d => ({ id: d.id, name: d.name }))
-    });
-  }, [currentUser, dogs]);
+  // Categorías de rutinas
+  const categories = {
+    'alimentacion': { label: 'Alimentación', icon: '🍽️', color: 'bg-blue-50 text-blue-700' },
+    'ejercicio': { label: 'Ejercicio', icon: '🏃‍♂️', color: 'bg-green-50 text-green-700' },
+    'medicacion': { label: 'Medicación', icon: '💊', color: 'bg-red-50 text-red-700' },
+    'entrenamiento': { label: 'Entrenamiento', icon: '🎯', color: 'bg-purple-50 text-purple-700' },
+    'higiene': { label: 'Higiene', icon: '🛁', color: 'bg-yellow-50 text-yellow-700' },
+    'descanso': { label: 'Descanso', icon: '😴', color: 'bg-indigo-50 text-indigo-700' },
+    'socialization': { label: 'Socialización', icon: '🐕‍🦺', color: 'bg-pink-50 text-pink-700' },
+    'juego': { label: 'Juego', icon: '🎾', color: 'bg-orange-50 text-orange-700' }
+  };
 
-  useEffect(() => {
-    if (selectedDogId) {
-      console.log('🐕 Dog selector changed:', { 
-        selectedDogId,
-        dogName: dogs.find(d => d.id === selectedDogId)?.name 
-      });
-    }
-  }, [selectedDogId, dogs]);
-
+  // Efectos
   useEffect(() => {
     if (dogs.length > 0 && !selectedDogId) {
       setSelectedDogId(dogs[0].id);
@@ -67,430 +52,490 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
 
   useEffect(() => {
     if (selectedDogId) {
-      fetchRoutinesAndVaccines();
+      fetchRoutines();
     }
   }, [selectedDogId]);
 
-  const fetchRoutinesAndVaccines = async () => {
+  // ===============================================
+  // 📊 OBTENER RUTINAS
+  // ===============================================
+  const fetchRoutines = async () => {
     if (!selectedDogId) return;
     
     setLoading(true);
     try {
-      // Obtener rutinas del día
+      // Obtener rutinas del perro
       const { data: routinesData, error: routinesError } = await supabase
-        .from('routine_schedules')
+        .from('dog_routines')
         .select(`
-          *,
-          dog_routines!inner(*)
+          id,
+          name,
+          routine_category,
+          notes,
+          active,
+          routine_schedules!inner(
+            id,
+            name,
+            time,
+            days_of_week,
+            reminder_minutes,
+            notes,
+            active
+          )
         `)
-        .eq('dog_routines.dog_id', selectedDogId)
-        .eq('dog_routines.active', true)
-        .eq('active', true)
-        .order('time');
-
-      if (!routinesError && routinesData) {
-        // Enriquecer rutinas con estado de completación
-        const enrichedRoutines = await Promise.all(
-          routinesData.map(async (routine) => {
-            const { isCompleted } = await isRoutineCompletedToday(routine.id, selectedDogId);
-            return {
-              ...routine,
-              schedule_name: routine.name,
-              schedule_time: routine.time.slice(0, 5),
-              routine_name: routine.dog_routines.name,
-              category: routine.dog_routines.routine_category,
-              isCompleted
-            };
-          })
-        );
-
-        setRoutines(enrichedRoutines);
-        
-        // Encontrar próxima rutina no completada
-        const upcoming = enrichedRoutines.find(routine => {
-          const routineTime = new Date(`2000-01-01 ${routine.schedule_time}`);
-          const currentTime = new Date(`2000-01-01 ${timeString}`);
-          return routineTime.getTime() > currentTime.getTime() && !routine.isCompleted;
-        });
-        setNextRoutine(upcoming);
-      }
-
-      // Obtener estado completo de rutinas
-      const status = await getRoutineStatusForDog(selectedDogId);
-      setRoutineStatus(status);
-
-      // Obtener vacunas próximas
-      const { data: vaccinesData, error: vaccinesError } = await supabase
-        .from('dog_vaccines')
-        .select('*')
         .eq('dog_id', selectedDogId)
-        .gte('next_due_date', new Date().toISOString().split('T')[0])
-        .order('next_due_date')
-        .limit(3);
+        .eq('active', true)
+        .order('routine_category');
 
-      if (!vaccinesError && vaccinesData) {
-        setVaccines(vaccinesData);
+      if (routinesError) {
+        console.error('❌ Error fetching routines:', routinesError);
+        return;
       }
 
+      // Aplanar los datos para facilitar el manejo
+      const flatRoutines = [];
+      routinesData?.forEach(routine => {
+        routine.routine_schedules?.forEach(schedule => {
+          flatRoutines.push({
+            routine_id: routine.id,
+            routine_name: routine.name,
+            routine_category: routine.routine_category,
+            routine_notes: routine.notes,
+            schedule_id: schedule.id,
+            schedule_name: schedule.name,
+            time: schedule.time,
+            days_of_week: schedule.days_of_week,
+            reminder_minutes: schedule.reminder_minutes,
+            schedule_notes: schedule.notes
+          });
+        });
+      });
+
+      setRoutines(flatRoutines);
+
+      // Filtrar rutinas de hoy
+      const todayRoutines = flatRoutines.filter(routine => 
+        routine.days_of_week?.includes(currentDay)
+      );
+
+      // Obtener completadas de hoy
+      const today = new Date().toISOString().split('T')[0];
+      const { data: completions } = await supabase
+        .from('routine_completions')
+        .select('routine_schedule_id')
+        .eq('dog_id', selectedDogId)
+        .gte('completed_at', `${today}T00:00:00Z`)
+        .lt('completed_at', `${today}T23:59:59Z`);
+
+      const completedIds = new Set(completions?.map(c => c.routine_schedule_id) || []);
+
+      const enrichedTodayRoutines = todayRoutines.map(routine => ({
+        ...routine,
+        isCompleted: completedIds.has(routine.schedule_id),
+        isPast: routine.time < currentTime
+      }));
+
+      setTodayRoutines(enrichedTodayRoutines);
+      
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ Error in fetchRoutines:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // FUNCIÓN PARA MARCAR RUTINA COMO COMPLETADA - CORREGIDA
-  const handleMarkAsCompleted = async (routine) => {
-    if (!selectedDog || !currentUser) {
-      console.error('❌ Missing data:', { selectedDog: !!selectedDog, currentUser: !!currentUser });
-      return;
-    }
-    
-    console.log('📤 Llamando markRoutineAsCompleted con ID REAL:', {
-      routineId: routine.id,
-      dogId: selectedDogId,
-      userId: currentUser.id,
-      routineName: routine.schedule_name
+  // ===============================================
+  // 📝 MANEJO DEL FORMULARIO
+  // ===============================================
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      category: 'alimentacion',
+      time: '',
+      days_of_week: [1, 2, 3, 4, 5, 6, 7],
+      reminder_minutes: 5,
+      notes: ''
     });
-    
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
     try {
-      setLoading(true);
-      
-      const { data } = await markRoutineAsCompleted(
-        routine.id,      // routine_schedule_id
-        selectedDogId,   // dog_id 
-        currentUser.id,  // user_id
-        `Completada desde la app`
-      );
-      
-      console.log('✅ markRoutineAsCompleted SUCCESS:', data);
-      
-      // Actualizar estado local
-      setRoutines(prev => prev.map(r => 
-        r.id === routine.id ? { ...r, isCompleted: true } : r
-      ));
-      
-      // Refrescar datos
-      await fetchRoutinesAndVaccines();
-      
-      // Mostrar notificación de éxito
-      if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
-        new Notification('✅ Rutina Completada', {
-          body: `${routine.schedule_name} marcada como completada`,
-          icon: '/icons/icon-192x192.png'
-        });
+      if (editingRoutine) {
+        // Actualizar rutina existente
+        await updateRoutine();
+      } else {
+        // Crear nueva rutina
+        await createRoutine();
       }
+      
+      setShowAddRoutine(false);
+      setEditingRoutine(null);
+      resetForm();
+      fetchRoutines();
+      
+      if (onRoutineUpdated) {
+        onRoutineUpdated();
+      }
+      
+    } catch (error) {
+      console.error('❌ Error saving routine:', error);
+      alert('Error al guardar la rutina');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createRoutine = async () => {
+    // 1. Crear el dog_routine
+    const { data: routineData, error: routineError } = await supabase
+      .from('dog_routines')
+      .insert({
+        dog_id: selectedDogId,
+        name: formData.name,
+        routine_category: formData.category,
+        notes: formData.notes
+      })
+      .select()
+      .single();
+
+    if (routineError) throw routineError;
+
+    // 2. Crear el routine_schedule
+    const { error: scheduleError } = await supabase
+      .from('routine_schedules')
+      .insert({
+        routine_id: routineData.id,
+        name: formData.name,
+        time: formData.time,
+        days_of_week: formData.days_of_week,
+        reminder_minutes: formData.reminder_minutes,
+        notes: formData.notes
+      });
+
+    if (scheduleError) throw scheduleError;
+
+    console.log('✅ Rutina creada exitosamente');
+  };
+
+  const updateRoutine = async () => {
+    // Actualizar dog_routine
+    const { error: routineError } = await supabase
+      .from('dog_routines')
+      .update({
+        name: formData.name,
+        routine_category: formData.category,
+        notes: formData.notes
+      })
+      .eq('id', editingRoutine.routine_id);
+
+    if (routineError) throw routineError;
+
+    // Actualizar routine_schedule
+    const { error: scheduleError } = await supabase
+      .from('routine_schedules')
+      .update({
+        name: formData.name,
+        time: formData.time,
+        days_of_week: formData.days_of_week,
+        reminder_minutes: formData.reminder_minutes,
+        notes: formData.notes
+      })
+      .eq('id', editingRoutine.schedule_id);
+
+    if (scheduleError) throw scheduleError;
+
+    console.log('✅ Rutina actualizada exitosamente');
+  };
+
+  // ===============================================
+  // 🗑️ ELIMINAR RUTINA
+  // ===============================================
+  const handleDelete = async (routine) => {
+    setLoading(true);
+    try {
+      // Eliminar schedule
+      const { error: scheduleError } = await supabase
+        .from('routine_schedules')
+        .delete()
+        .eq('id', routine.schedule_id);
+
+      if (scheduleError) throw scheduleError;
+
+      // Verificar si quedan más schedules para esta rutina
+      const { data: remainingSchedules } = await supabase
+        .from('routine_schedules')
+        .select('id')
+        .eq('routine_id', routine.routine_id);
+
+      // Si no quedan schedules, eliminar la rutina también
+      if (!remainingSchedules || remainingSchedules.length === 0) {
+        const { error: routineError } = await supabase
+          .from('dog_routines')
+          .delete()
+          .eq('id', routine.routine_id);
+
+        if (routineError) throw routineError;
+      }
+
+      setShowDeleteConfirm(null);
+      fetchRoutines();
+      
+      if (onRoutineUpdated) {
+        onRoutineUpdated();
+      }
+      
+      console.log('✅ Rutina eliminada exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error deleting routine:', error);
+      alert('Error al eliminar la rutina');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===============================================
+  // ✅ MARCAR COMO COMPLETADA
+  // ===============================================
+  const handleMarkAsCompleted = async (routine) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('routine_completions')
+        .insert({
+          routine_schedule_id: routine.schedule_id,
+          dog_id: selectedDogId,
+          user_id: currentUser.id,
+          status: 'completed',
+          notes: 'Completado desde la app'
+        });
+
+      if (error) throw error;
+
+      // Actualizar estado local
+      setTodayRoutines(prev => prev.map(r => 
+        r.schedule_id === routine.schedule_id ? { ...r, isCompleted: true } : r
+      ));
+
+      console.log('✅ Rutina marcada como completada');
       
     } catch (error) {
       console.error('❌ Error marking routine as completed:', error);
-      alert(`Error al marcar la rutina como completada: ${error.message}`);
+      alert('Error al marcar la rutina como completada');
     } finally {
       setLoading(false);
     }
   };
 
-
-  // 🆕 FUNCIÓN PARA POSPONER RUTINA
-  const handleSnoozeRoutine = async (routine, minutes = 15) => {
-    if (!selectedDog || !currentUser) return;
-    
-    try {
-      setLoading(true);
-      
-      await snoozeRoutine(
-        routine.id,
-        selectedDogId,
-        currentUser.id,
-        minutes
-      );
-      
-      // Refrescar datos
-      await fetchRoutinesAndVaccines();
-      
-      // Mostrar notificación
-      if ('serviceWorker' in navigator) {
-        new Notification('⏰ Rutina Pospuesta', {
-          body: `${routine.schedule_name} pospuesta ${minutes} minutos`,
-          icon: '/icons/icon-192x192.png'
-        });
-      }
-      
-    } catch (error) {
-      console.error('Error snoozing routine:', error);
-      alert('Error al posponer la rutina');
-    } finally {
-      setLoading(false);
-    }
+  // ===============================================
+  // ✏️ EDITAR RUTINA
+  // ===============================================
+  const handleEdit = (routine) => {
+    setFormData({
+      name: routine.routine_name,
+      category: routine.routine_category,
+      time: routine.time,
+      days_of_week: routine.days_of_week || [1, 2, 3, 4, 5, 6, 7],
+      reminder_minutes: routine.reminder_minutes || 5,
+      notes: routine.routine_notes || ''
+    });
+    setEditingRoutine(routine);
+    setShowAddRoutine(true);
   };
 
-  // Selector de perro
-  const DogSelector = () => (
-    <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] text-white p-4 sm:p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <h2 className="text-xl sm:text-2xl font-bold mb-1">🔔 Rutinas y Horarios</h2>
-          <div className="flex items-center space-x-4">
-            <div className="text-sm opacity-75">
-              {new Date().toLocaleDateString('es-CO', { 
-                weekday: 'short', 
-                day: 'numeric', 
-                month: 'short' 
-              })}
-            </div>
-          </div>
+  // ===============================================
+  // 🎨 COMPONENTES DE RENDERIZADO
+  // ===============================================
+  const renderDogSelector = () => (
+    <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center space-x-4">
+        <div className="text-2xl">📅</div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Rutinas</h2>
+          <p className="text-sm text-gray-600">
+            {selectedDog ? `Para ${selectedDog.name}` : 'Selecciona un perro'}
+          </p>
         </div>
       </div>
-
-      {/* Selector de perro */}
-      <div className="mt-4">
+      
+      {dogs.length > 0 && (
         <select
           value={selectedDogId}
           onChange={(e) => setSelectedDogId(e.target.value)}
-          className="w-full sm:w-auto bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white text-sm min-w-48"
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
         >
-          <option value="" className="text-gray-900">Seleccionar perro...</option>
           {dogs.map(dog => (
-            <option key={dog.id} value={dog.id} className="text-gray-900">
-              🐕 {dog.name} ({dog.breed})
-            </option>
+            <option key={dog.id} value={dog.id}>{dog.name}</option>
           ))}
         </select>
-      </div>
+      )}
     </div>
   );
 
-  // 🆕 NAVEGACIÓN ACTUALIZADA CON NUEVOS TABS
-  const TabNavigation = () => (
-    <div className="bg-white border-b border-gray-200">
-      <div className="overflow-x-auto scrollbar-hide">
-        <div className="flex min-w-max">
-          {[
-            { id: 'today', label: 'Hoy', icon: '📅' },
-            { id: 'routines', label: 'Gestionar', icon: '🔄' },
-            { id: 'feeding', label: 'Alimentación', icon: '🍽️' },
-            { id: 'exercise', label: 'Ejercicio', icon: '🚶‍♂️' },
-            { id: 'vaccines', label: 'Vacunas', icon: '💉' },
-            { id: 'notifications', label: 'Notificaciones', icon: '🔔' },
-            { id: 'settings', label: 'Config', icon: '⚙️' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors min-w-max ${
-                activeTab === tab.id
-                  ? 'border-[#56CCF2] text-[#56CCF2] bg-blue-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <span className="mr-2">{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+  const renderTabs = () => (
+    <div className="flex space-x-6 border-b border-gray-200 mb-6">
+      <button
+        onClick={() => setActiveTab('today')}
+        className={`py-2 px-4 text-sm font-medium border-b-2 transition-colors ${
+          activeTab === 'today'
+            ? 'border-[#56CCF2] text-[#56CCF2]'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        📅 Hoy
+      </button>
+      <button
+        onClick={() => setActiveTab('manage')}
+        className={`py-2 px-4 text-sm font-medium border-b-2 transition-colors ${
+          activeTab === 'manage'
+            ? 'border-[#56CCF2] text-[#56CCF2]'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        🔧 Gestionar
+      </button>
     </div>
   );
 
-  // Vista del día de hoy
-  const TodayView = () => (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Próxima rutina destacada */}
-      {nextRoutine && (
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg">⏰</span>
-              </div>
-              <div>
-                <h3 className="font-bold text-green-900">¡Próxima rutina!</h3>
-                <p className="text-green-700">{nextRoutine.schedule_name} a las {nextRoutine.schedule_time}</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => handleMarkAsCompleted(nextRoutine)}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm"
-            >
-              ✓ Marcar hecho
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Vacunas próximas */}
-      {vaccines.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="font-bold text-yellow-900 mb-3 flex items-center">
-            <span className="mr-2">💉</span>
-            Vacunas Próximas
+  const renderTodayView = () => (
+    <div className="space-y-6">
+      {/* Rutinas de hoy */}
+      {todayRoutines.length > 0 ? (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            📅 Rutinas de Hoy ({new Date().toLocaleDateString()})
           </h3>
-          <div className="space-y-2">
-            {vaccines.map((vaccine, index) => {
-              const daysUntil = Math.ceil((new Date(vaccine.next_due_date) - new Date()) / (1000 * 60 * 60 * 24));
-              return (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium">{vaccine.vaccine_name}</span>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      daysUntil <= 7 ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {daysUntil <= 0 ? '🚨' : '⏰'} En {daysUntil} días
-                    </span>
-                  </div>
-                  <span className="text-sm text-yellow-600">
-                    {new Date(vaccine.next_due_date).toLocaleDateString('es-CO')}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Rutinas del día */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="p-4 border-b border-gray-100">
-          <h3 className="font-bold text-gray-900 flex items-center">
-            <span className="mr-2">📅</span>
-            Rutinas de Hoy - {selectedDog?.name}
-          </h3>
-        </div>
-        
-        {loading ? (
-          <div className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#56CCF2] mx-auto mb-2"></div>
-            <p className="text-gray-600 text-sm">Cargando rutinas...</p>
-          </div>
-        ) : routines.length === 0 ? (
-          <div className="p-6 text-center">
-            <div className="text-4xl mb-3">🐕</div>
-            <p className="text-gray-500 mb-4">No hay rutinas configuradas para hoy</p>
-            <div className="space-y-2">
-              <button 
-                onClick={() => setShowAddRoutine(true)}
-                className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors mr-2"
-              >
-                + Crear rutina
-              </button>
-              <button 
-                onClick={() => setShowFeedingConfig(true)}
-                className="bg-[#C7EA46] text-[#2C3E50] px-4 py-2 rounded-lg hover:bg-[#FFFE8D] transition-colors mr-2"
-              >
-                🍽️ Configurar comidas
-              </button>
-              <button 
-                onClick={() => setShowExerciseConfig(true)}
-                className="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 transition-colors"
-              >
-                🚶‍♂️ Configurar ejercicio
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {routines.map((routine, index) => {
-              const routineTime = new Date(`2000-01-01 ${routine.schedule_time}`);
-              const isPast = routineTime.getTime() < new Date(`2000-01-01 ${timeString}`).getTime();
-              
-              return (
-                <div key={index} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        routine.isCompleted ? 'bg-green-500' :
-                        isPast ? 'bg-gray-100' : 'bg-[#56CCF2]'
+          
+          {todayRoutines.map(routine => {
+            const category = categories[routine.routine_category] || categories.alimentacion;
+            
+            return (
+              <div key={routine.schedule_id} className={`border rounded-lg p-4 ${
+                routine.isCompleted ? 'bg-green-50 border-green-200' :
+                routine.isPast ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">{category.icon}</span>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{routine.routine_name}</h4>
+                      <p className={`text-sm ${
+                        routine.isCompleted ? 'text-green-600' :
+                        routine.isPast ? 'text-orange-600' : 'text-gray-600'
                       }`}>
-                        <span className={`text-sm ${
-                          routine.isCompleted ? 'text-white' :
-                          isPast ? 'text-gray-500' : 'text-white'
-                        }`}>
-                          {routine.isCompleted ? '✓' :
-                           routine.category === 'food' ? '🍽️' :
-                           routine.category === 'exercise' ? '🚶‍♂️' :
-                           routine.category === 'medical' ? '💊' :
-                           routine.category === 'hygiene' ? '🛁' : '🎾'}
-                        </span>
-                      </div>
-                      <div>
-                        <h4 className={`font-medium ${
-                          routine.isCompleted ? 'text-green-700 line-through' :
-                          isPast ? 'text-gray-500' : 'text-gray-900'
-                        }`}>
-                          {routine.schedule_name}
-                        </h4>
-                        <p className={`text-sm ${
-                          routine.isCompleted ? 'text-green-600' :
-                          isPast ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
-                          {routine.schedule_time} • {routine.routine_name}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      {routine.isCompleted ? (
-                        <span className="text-green-600 text-sm">✓ Completado</span>
-                      ) : isPast ? (
-                        <span className="text-orange-600 text-sm">⚠️ Atrasado</span>
-                      ) : (
-                        <div className="flex space-x-1">
-                          <button 
-                            onClick={() => handleMarkAsCompleted(routine)}
-                            className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors"
-                          >
-                            ✓ Marcar
-                          </button>
-                          <button 
-                            onClick={() => handleSnoozeRoutine(routine)}
-                            className="bg-orange-500 text-white px-3 py-1 rounded text-sm hover:bg-orange-600 transition-colors"
-                          >
-                            ⏰ +15min
-                          </button>
-                        </div>
+                        {routine.time} • {category.label}
+                      </p>
+                      {routine.routine_notes && (
+                        <p className="text-xs text-gray-500 mt-1">{routine.routine_notes}</p>
                       )}
                     </div>
                   </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    {routine.isCompleted ? (
+                      <span className="text-green-600 text-sm font-medium">✅ Completado</span>
+                    ) : routine.isPast ? (
+                      <span className="text-orange-600 text-sm font-medium">⏰ Pendiente</span>
+                    ) : (
+                      <button
+                        onClick={() => handleMarkAsCompleted(routine)}
+                        disabled={loading}
+                        className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors text-sm font-medium disabled:opacity-50"
+                      >
+                        ✅ Completar
+                      </button>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">📅</div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No hay rutinas para hoy</h3>
+          <p className="text-gray-600 mb-6">Crea rutinas para organizar el día de {selectedDog?.name}</p>
+          <button
+            onClick={() => setShowAddRoutine(true)}
+            className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+          >
+            ➕ Crear Primera Rutina
+          </button>
+        </div>
+      )}
 
       {/* Acciones rápidas */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <button
-          onClick={() => setShowAddRoutine(true)}
-          className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-center"
-        >
-          <div className="text-2xl mb-1">➕</div>
-          <div className="text-sm font-medium">Nueva Rutina</div>
-        </button>
-        
-        <button
-          onClick={() => setShowFeedingConfig(true)}
-          className="bg-[#C7EA46] text-[#2C3E50] p-4 rounded-lg hover:bg-[#FFFE8D] transition-colors text-center"
-        >
-          <div className="text-2xl mb-1">🍽️</div>
-          <div className="text-sm font-medium">Alimentación</div>
-        </button>
-        
-        <button
-          onClick={() => setShowExerciseConfig(true)}
-          className="bg-green-100 text-green-700 p-4 rounded-lg hover:bg-green-200 transition-colors text-center"
-        >
-          <div className="text-2xl mb-1">🚶‍♂️</div>
-          <div className="text-sm font-medium">Ejercicio</div>
-        </button>
-      </div>
+      {todayRoutines.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <button
+            onClick={() => setShowAddRoutine(true)}
+            className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow text-center"
+          >
+            <div className="text-2xl mb-2">➕</div>
+            <div className="text-sm font-medium text-gray-700">Nueva Rutina</div>
+          </button>
+          
+          <button
+            onClick={() => {
+              setFormData({
+                ...formData,
+                name: 'Desayuno',
+                category: 'alimentacion',
+                time: '08:00'
+              });
+              setShowAddRoutine(true);
+            }}
+            className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:bg-blue-100 transition-colors text-center"
+          >
+            <div className="text-2xl mb-2">🍽️</div>
+            <div className="text-sm font-medium text-blue-700">Alimentación</div>
+          </button>
+          
+          <button
+            onClick={() => {
+              setFormData({
+                ...formData,
+                name: 'Paseo matutino',
+                category: 'ejercicio',
+                time: '07:00'
+              });
+              setShowAddRoutine(true);
+            }}
+            className="bg-green-50 border border-green-200 rounded-lg p-4 hover:bg-green-100 transition-colors text-center"
+          >
+            <div className="text-2xl mb-2">🏃‍♂️</div>
+            <div className="text-sm font-medium text-green-700">Ejercicio</div>
+          </button>
+          
+          <button
+            onClick={() => {
+              setFormData({
+                ...formData,
+                name: 'Medicación',
+                category: 'medicacion',
+                time: '12:00'
+              });
+              setShowAddRoutine(true);
+            }}
+            className="bg-red-50 border border-red-200 rounded-lg p-4 hover:bg-red-100 transition-colors text-center"
+          >
+            <div className="text-2xl mb-2">💊</div>
+            <div className="text-sm font-medium text-red-700">Medicina</div>
+          </button>
+        </div>
+      )}
     </div>
   );
 
-  // 🆕 NUEVA VISTA: Gestión de Rutinas
-  const RoutinesManagementView = () => (
+  const renderManageView = () => (
     <div className="space-y-6">
       {/* Header con botón crear */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-gray-900">🔄 Gestionar Rutinas</h3>
+        <h3 className="text-xl font-bold text-gray-900">🔧 Gestionar Rutinas</h3>
         <button
           onClick={() => setShowAddRoutine(true)}
           className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors flex items-center space-x-2"
@@ -500,79 +545,93 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
         </button>
       </div>
 
-      {/* Rutinas existentes agrupadas por categoría */}
+      {/* Lista de rutinas existentes */}
       {routines.length > 0 ? (
-        <div className="space-y-4">
-          {/* Agrupar rutinas por categoría */}
-          {['food', 'exercise', 'hygiene', 'medical', 'play'].map(category => {
-            const categoryRoutines = routines.filter(r => r.category === category);
-            if (categoryRoutines.length === 0) return null;
-
-            const categoryIcons = {
-              food: '🍽️',
-              exercise: '🚶‍♂️', 
-              hygiene: '🛁',
-              medical: '💊',
-              play: '🎾'
-            };
-
-            const categoryNames = {
-              food: 'Alimentación',
-              exercise: 'Ejercicio',
-              hygiene: 'Higiene', 
-              medical: 'Médico',
-              play: 'Juego'
-            };
-
-            return (
-              <div key={category} className="bg-white border border-gray-200 rounded-lg p-4">
-                <h4 className="font-bold text-gray-900 mb-3 flex items-center">
-                  <span className="mr-2 text-xl">{categoryIcons[category]}</span>
-                  {categoryNames[category]}
-                </h4>
-                <div className="space-y-2">
-                  {categoryRoutines.map((routine, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{routine.schedule_name}</div>
-                        <div className="text-sm text-gray-600">
-                          {routine.schedule_time} • {routine.routine_name}
-                          {routine.notes && ` • ${routine.notes}`}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rutina
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Hora
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Días
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Categoría
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {routines.map((routine) => {
+                  const category = categories[routine.routine_category] || categories.alimentacion;
+                  const dayNames = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+                  
+                  return (
+                    <tr key={routine.schedule_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <span className="text-xl mr-3">{category.icon}</span>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{routine.routine_name}</div>
+                            {routine.routine_notes && (
+                              <div className="text-sm text-gray-500">{routine.routine_notes}</div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => {
-                            setEditingRoutine(routine);
-                            setShowAddRoutine(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800 p-1"
-                          title="Editar rutina"
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{routine.time}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex space-x-1">
+                          {dayNames.map((day, index) => (
+                            <span key={index} className={`w-6 h-6 rounded-full text-xs flex items-center justify-center ${
+                              routine.days_of_week?.includes(index + 1)
+                                ? 'bg-[#56CCF2] text-white'
+                                : 'bg-gray-200 text-gray-400'
+                            }`}>
+                              {day}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${category.color}`}>
+                          {category.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button 
+                          onClick={() => handleEdit(routine)}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
                         >
-                          ✏️
+                          ✏️ Editar
                         </button>
-                        <button
-  onClick={() => {
-    console.log('🔍 Datos de rutina para eliminar:', routine);
-    console.log('🎯 ID de rutina a eliminar:', routine.dog_routines?.id);
-    deleteRoutine(routine.dog_routines?.id);
-  }}
-  className="text-red-600 hover:text-red-800 p-1"
-  title="Eliminar rutina"
->
-  🗑️
-</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+                        <button 
+                          onClick={() => setShowDeleteConfirm(routine)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">🔄</div>
+          <div className="text-6xl mb-4">📅</div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">No hay rutinas configuradas</h3>
           <p className="text-gray-600 mb-6">Crea tu primera rutina para {selectedDog?.name}</p>
           <button
@@ -583,200 +642,224 @@ const RoutineManager = ({ currentUser, dogs = [] }) => {
           </button>
         </div>
       )}
-
-      {/* Accesos rápidos */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <button
-          onClick={() => setShowFeedingConfig(true)}
-          className="bg-orange-50 border border-orange-200 p-4 rounded-lg hover:bg-orange-100 transition-colors text-left"
-        >
-          <div className="text-2xl mb-2">🍽️</div>
-          <div className="font-medium text-orange-900">Configurar Alimentación</div>
-          <div className="text-sm text-orange-700">Horarios de comida</div>
-        </button>
-
-        <button
-          onClick={() => setShowExerciseConfig(true)}
-          className="bg-green-50 border border-green-200 p-4 rounded-lg hover:bg-green-100 transition-colors text-left"
-        >
-          <div className="text-2xl mb-2">🚶‍♂️</div>
-          <div className="font-medium text-green-900">Configurar Ejercicio</div>
-          <div className="text-sm text-green-700">Paseos y actividad</div>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('vaccines')}
-          className="bg-red-50 border border-red-200 p-4 rounded-lg hover:bg-red-100 transition-colors text-left"
-        >
-          <div className="text-2xl mb-2">💉</div>
-          <div className="font-medium text-red-900">Gestionar Vacunas</div>
-          <div className="text-sm text-red-700">Control médico</div>
-        </button>
-      </div>
     </div>
   );
 
-  const deleteRoutine = async (routineId) => {
-  if (!confirm('¿Estás seguro de que quieres eliminar esta rutina?')) return;
-  
-  console.log('🗑️ Intentando eliminar rutina con ID:', routineId);
-  
-  try {
-    setLoading(true);
-    
-    // 🔧 USAR EL HELPER EN LUGAR DE CONSULTAS DIRECTAS
-    const result = await deleteRoutineHelper(routineId, currentUser?.id);
-    
-    console.log('✅ Rutina eliminada exitosamente:', result);
-    
-    // Refrescar datos
-    await fetchRoutinesAndVaccines();
-    
-    alert('✅ Rutina eliminada correctamente!');
-    
-  } catch (error) {
-    console.error('❌ Error eliminando la rutina:', error);
-    alert(`Error eliminando la rutina: ${error.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-  // Vista placeholder para configuración
-  const PlaceholderView = ({ title, icon, description }) => (
-    <div className="text-center py-12">
-      <div className="text-6xl mb-4">{icon}</div>
-      <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-600 mb-6">{description}</p>
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-w-md mx-auto">
-        <p className="text-sm text-yellow-800">
-          🚧 Esta sección está en desarrollo. Próximamente tendrás acceso completo.
-        </p>
-      </div>
-    </div>
-  );
-
-  if (!selectedDog) {
-    return (
-      <div className="max-w-4xl mx-auto p-4">
-        <div className="bg-white rounded-xl shadow-lg">
-          <DogSelector />
-          <div className="p-6 text-center">
-            <div className="text-4xl mb-4">🐕</div>
-            <p className="text-gray-600">Selecciona un perro para ver sus rutinas</p>
+  const renderForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-semibold mb-4">
+          {editingRoutine ? '✏️ Editar Rutina' : '➕ Nueva Rutina'}
+        </h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nombre */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nombre de la rutina
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              placeholder="Ej: Desayuno, Paseo matutino..."
+              required
+            />
           </div>
-        </div>
+
+          {/* Categoría */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Categoría
+            </label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+            >
+              {Object.entries(categories).map(([key, category]) => (
+                <option key={key} value={key}>
+                  {category.icon} {category.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Hora */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Hora
+            </label>
+            <input
+              type="time"
+              value={formData.time}
+              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              required
+            />
+          </div>
+
+          {/* Días de la semana */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Días de la semana
+            </label>
+            <div className="grid grid-cols-7 gap-2">
+              {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => {
+                const dayNumber = index + 1;
+                const isSelected = formData.days_of_week.includes(dayNumber);
+                
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setFormData({
+                          ...formData,
+                          days_of_week: formData.days_of_week.filter(d => d !== dayNumber)
+                        });
+                      } else {
+                        setFormData({
+                          ...formData,
+                          days_of_week: [...formData.days_of_week, dayNumber].sort()
+                        });
+                      }
+                    }}
+                    className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-[#56CCF2] text-white'
+                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recordatorio */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Recordatorio (minutos antes)
+            </label>
+            <select
+              value={formData.reminder_minutes}
+              onChange={(e) => setFormData({ ...formData, reminder_minutes: parseInt(e.target.value) })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+            >
+              <option value={0}>Sin recordatorio</option>
+              <option value={5}>5 minutos antes</option>
+              <option value={15}>15 minutos antes</option>
+              <option value={30}>30 minutos antes</option>
+              <option value={60}>1 hora antes</option>
+            </select>
+          </div>
+
+          {/* Notas */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notas (opcional)
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              rows={3}
+              placeholder="Instrucciones especiales, dosis, etc..."
+            />
+          </div>
+
+          {/* Botones */}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddRoutine(false);
+                setEditingRoutine(null);
+                resetForm();
+              }}
+              className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-[#56CCF2] text-white py-2 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Guardando...' : editingRoutine ? 'Actualizar' : 'Crear'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  // ===============================================
+  // 🎨 RENDERIZADO PRINCIPAL
+  // ===============================================
+  if (!currentUser) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-4xl mb-4">⚠️</div>
+        <p className="text-gray-600">Error: Usuario no autenticado</p>
+      </div>
+    );
+  }
+
+  if (dogs.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-6xl mb-4">🐕</div>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">No hay perros registrados</h3>
+        <p className="text-gray-600 mb-6">Agrega un perro para comenzar a gestionar rutinas</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        {/* Header */}
-        <DogSelector />
-        
-        {/* Navegación */}
-        <TabNavigation />
-        
-        {/* Contenido */}
-        <div className="p-4 sm:p-6">
-          {activeTab === 'today' && <TodayView />}
-          
-          {activeTab === 'routines' && (
-            <RoutinesManagementView />
-          )}
+    <div className="space-y-6">
+      {renderDogSelector()}
+      {renderTabs()}
+      
+      {activeTab === 'today' && renderTodayView()}
+      {activeTab === 'manage' && renderManageView()}
 
-          
-
-         
-
-          {/* 🆕 NUEVO TAB: VACUNAS */}
-          {activeTab === 'vaccines' && (
-            <VaccineManager
-              dogs={dogs}
-              onClose={() => setActiveTab('today')}
-            />
-          )}
-
-          {/* 🆕 NUEVO TAB: NOTIFICACIONES */}
-          {activeTab === 'notifications' && (
-            <NotificationSystem
-              userId={currentUser?.id}
-              dogs={dogs}
-            />
-          )}
-
-          {activeTab === 'settings' && (
-            <PlaceholderView 
-              title="Configuración"
-              icon="⚙️"
-              description="Personaliza tus notificaciones y preferencias de rutinas"
-            />
-          )}
+      {/* Modales */}
+      {showAddRoutine && renderForm()}
+      
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4 text-red-600">🗑️ Eliminar Rutina</h3>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro de que quieres eliminar la rutina "{showDeleteConfirm.routine_name}"?
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDelete(showDeleteConfirm)}
+                disabled={loading}
+                className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* 🆕 MODAL PARA CONFIGURAR EJERCICIO */}
-      {showExerciseConfig && selectedDog && (
-        <ExerciseManager
-          dog={selectedDog}
-          onClose={() => setShowExerciseConfig(false)}
-          onSave={() => {
-            fetchRoutinesAndVaccines();
-            setShowExerciseConfig(false);
-          }}
-        />
-      )}
-
- {/* 🆕 MODAL PARA CONFIGURAR ALIMENTACIÓN */}
-      {showFeedingConfig && selectedDog && (
-        <FeedingScheduleManager
-          dog={selectedDog}
-          onClose={() => setShowFeedingConfig(false)}
-          onSave={() => {
-            fetchRoutinesAndVaccines();
-            setShowFeedingConfig(false);
-          }}
-        />
-      )}
-
-      {/* 🆕 MODAL PARA CONFIGURAR EJERCICIO */}
-      {showExerciseConfig && selectedDog && (
-        <ExerciseManager
-          dog={selectedDog}
-          onClose={() => setShowExerciseConfig(false)}
-          onSave={() => {
-            fetchRoutinesAndVaccines();
-            setShowExerciseConfig(false);
-          }}
-        />
-      )}
-
-      {/* 🆕 MODAL PARA FORMULARIO DE RUTINAS COMPLETO */}
-      {showAddRoutine && selectedDog && (
-        <RoutineFormManager
-          dog={selectedDog}
-          editingRoutine={editingRoutine}
-          onClose={() => {
-            setShowAddRoutine(false);
-            setEditingRoutine(null);
-          }}
-          onSave={() => {
-            fetchRoutinesAndVaccines();
-            setShowAddRoutine(false);
-            setEditingRoutine(null);
-          }}
-        />
       )}
     </div>
   );
 };
 
 export default RoutineManager;
-
-
-      
-
-     {/* 🆕 MODAL PARA CONFIGURAR ALIMENTACIÓN */}
