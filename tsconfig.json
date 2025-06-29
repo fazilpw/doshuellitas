@@ -15,7 +15,6 @@
     "strictFunctionTypes": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
-    "noUncheckedIndexedAccess": true,
     
     // Configuración de resolución de módulos
     "baseUrl": ".",

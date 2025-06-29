@@ -1,13 +1,13 @@
-// src/components/tracking/RealGPSTracker.jsx
-// 🚐 SISTEMA ORIGINAL PARA PADRES - VER TRACKING DEL VEHÍCULO
-// ✅ Solo se cambió autenticación hardcodeada por props reales
+// src/components/GPSTracker.jsx
+// 🚐 SISTEMA GPS TRACKER - RUTA DE IMPORTACIÓN CORREGIDA ✅
 
 import { useState, useEffect, useRef } from 'react';
-import supabase from '../../lib/supabase.js';
+// ✅ CORRECCIÓN: Cambiar de ../../lib/supabase.js a ../lib/supabase.js
+import supabase from '../lib/supabase.js';
 
-const RealGPSTracker = ({ userDogs = [], currentUser = null, onClose }) => {
+const GPSTracker = ({ userDogs = [], currentUser = null, onClose }) => {
   // ============================================
-  // 🔧 ESTADOS PRINCIPALES (ORIGINALES)
+  // 🔧 ESTADOS PRINCIPALES 
   // ============================================
   const [activeVehicles, setActiveVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -20,13 +20,13 @@ const RealGPSTracker = ({ userDogs = [], currentUser = null, onClose }) => {
   const [estimatedArrival, setEstimatedArrival] = useState(null);
 
   // ============================================
-  // 🔧 REFS PARA ACTUALIZACIONES (ORIGINALES)
+  // 🔧 REFS PARA ACTUALIZACIONES
   // ============================================
   const locationUpdateRef = useRef(null);
   const notificationRef = useRef(null);
 
   // ============================================
-  // 🏠 UBICACIÓN DEL USUARIO (ORIGINAL LOGIC)
+  // 🏠 UBICACIÓN DEL USUARIO
   // ============================================
   const [userLocation, setUserLocation] = useState({
     latitude: 4.7200,
@@ -35,10 +35,10 @@ const RealGPSTracker = ({ userDogs = [], currentUser = null, onClose }) => {
   });
 
   // ============================================
-  // 🚀 EFECTOS (ORIGINALES)
+  // 🚀 EFECTOS PRINCIPALES
   // ============================================
   useEffect(() => {
-    console.log('🚐 RealGPSTracker iniciando para:', {
+    console.log('🚐 GPSTracker iniciando para:', {
       currentUser: currentUser?.full_name,
       userDogsCount: userDogs.length
     });
@@ -51,588 +51,452 @@ const RealGPSTracker = ({ userDogs = [], currentUser = null, onClose }) => {
   }, []);
 
   useEffect(() => {
-    // ✅ CAMBIO: Usar userDogs prop en lugar de mock
     setMyDogs(userDogs || []);
   }, [userDogs]);
 
   // ============================================
-  // 🧹 CLEANUP (ORIGINAL)
+  // 🚀 FUNCIONES PRINCIPALES
   // ============================================
-  const cleanup = () => {
-    if (locationUpdateRef.current) {
-      clearInterval(locationUpdateRef.current);
-      locationUpdateRef.current = null;
-    }
-    if (notificationRef.current) {
-      clearInterval(notificationRef.current);
-      notificationRef.current = null;
-    }
-  };
-
-  // ============================================
-  // 🚀 INICIALIZAR TRACKING (ORIGINAL LOGIC)
-  // ============================================
+  
   const initializeTracking = async () => {
-    setIsLoading(true);
-    
     try {
-      // Obtener ubicación del usuario
-      await getUserLocationReal();
+      setConnectionStatus('connecting');
       
-      // Buscar vehículos activos que transporten perros del usuario
-      await findActiveVehicles();
+      // 1. Verificar Supabase connection
+      if (!supabase) {
+        throw new Error('Supabase no está disponible');
+      }
+
+      // 2. Obtener ubicación del usuario
+      await getUserLocation();
       
-      // Iniciar actualizaciones en tiempo real
-      startLocationUpdates();
+      // 3. Cargar vehículos activos
+      await loadActiveVehicles();
+      
+      // 4. Configurar listeners en tiempo real
+      setupRealTimeListeners();
+      
+      // 5. Inicializar notificaciones
+      initializeNotifications();
       
       setConnectionStatus('connected');
+      setIsLoading(false);
+      
+      console.log('✅ GPS Tracker inicializado correctamente');
+      
     } catch (error) {
-      console.error('❌ Error inicializando tracking:', error);
+      console.error('❌ Error inicializando GPS Tracker:', error);
       setConnectionStatus('error');
+      setIsLoading(false);
+      
+      // Mostrar mensaje de error al usuario
+      addNotification('Error conectando con el sistema GPS', 'error');
     }
-    
-    setIsLoading(false);
   };
 
-  // ============================================
-  // 📍 OBTENER UBICACIÓN REAL DEL USUARIO (ORIGINAL)
-  // ============================================
-  const getUserLocationReal = async () => {
-    if (!navigator.geolocation) {
-      console.warn('⚠️ Geolocalización no disponible');
-      return;
-    }
-
+  const getUserLocation = async () => {
     try {
-      console.log('📍 Obteniendo ubicación real del usuario...');
-      
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          resolve,
-          reject,
-          {
-            enableHighAccuracy: true,
+      if ('geolocation' in navigator) {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
             timeout: 10000,
-            maximumAge: 300000 // 5 minutos
-          }
-        );
-      });
-
-      const location = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-        address: 'Tu ubicación actual'
-      };
-
-      setUserLocation(location);
-      console.log('✅ Ubicación del usuario obtenida:', {
-        lat: location.latitude.toFixed(6),
-        lng: location.longitude.toFixed(6)
-      });
-
-    } catch (error) {
-      console.warn('⚠️ Error obteniendo GPS del usuario:', error);
-      // Usar ubicación por defecto
-      setUserLocation({
-        latitude: 4.7200,
-        longitude: -74.0600,
-        accuracy: 1000,
-        address: 'Ubicación aproximada (Bogotá)'
-      });
-    }
-  };
-
-  // ============================================
-  // 🚐 BUSCAR VEHÍCULOS ACTIVOS (ORIGINAL CON CAMBIO AUTH)
-  // ============================================
-  const findActiveVehicles = async () => {
-    try {
-      console.log('🔍 Buscando vehículos activos...');
-      
-      // ✅ CAMBIO: Usar currentUser.id en lugar de hardcoding
-      if (!currentUser?.id) {
-        console.warn('⚠️ No hay usuario autenticado para buscar vehículos');
-        return;
-      }
-
-      // Buscar perros del usuario que estén en transporte
-      const dogIds = userDogs.map(dog => dog.id);
-      
-      if (dogIds.length === 0) {
-        console.log('ℹ️ No hay perros del usuario para trackear');
-        return;
-      }
-
-      // Buscar rutas activas que contengan perros del usuario
-      const { data: activeRoutes, error } = await supabase
-        .from('vehicle_routes')
-        .select(`
-          *,
-          vehicles (
-            id,
-            license_plate,
-            driver_name,
-            capacity,
-            model
-          )
-        `)
-        .eq('status', 'in_progress')
-        .overlaps('dog_ids', dogIds);
-
-      if (error) {
-        console.error('❌ Error buscando rutas activas:', error);
-        return;
-      }
-
-      if (activeRoutes && activeRoutes.length > 0) {
-        console.log('✅ Rutas activas encontradas:', activeRoutes.length);
-        
-        setActiveVehicles(activeRoutes.map(route => route.vehicles));
-        
-        // Auto-seleccionar primer vehículo
-        if (activeRoutes.length > 0) {
-          setSelectedVehicle(activeRoutes[0].vehicles);
-        }
-        
-        // Crear notificación
-        addNotification({
-          type: 'info',
-          message: `🚐 Vehículo ${activeRoutes[0].vehicles.license_plate} transportando tus perros`,
-          timestamp: new Date()
+            enableHighAccuracy: true
+          });
         });
-      } else {
-        console.log('ℹ️ No hay vehículos activos transportando perros del usuario');
-        setConnectionStatus('no_active_vehicles');
-      }
 
+        setUserLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          address: 'Tu ubicación actual'
+        });
+
+        console.log('📍 Ubicación del usuario obtenida:', {
+          lat: position.coords.latitude.toFixed(6),
+          lng: position.coords.longitude.toFixed(6)
+        });
+      }
     } catch (error) {
-      console.error('❌ Error en findActiveVehicles:', error);
+      console.warn('⚠️ No se pudo obtener ubicación del usuario:', error);
+      // Usar ubicación por defecto (Bogotá)
     }
   };
 
-  // ============================================
-  // 📡 INICIAR ACTUALIZACIONES DE UBICACIÓN (ORIGINAL)
-  // ============================================
-  const startLocationUpdates = () => {
-    console.log('🔄 Iniciando actualizaciones de ubicación cada 30s...');
-    
-    // Actualizar inmediatamente
-    fetchVehicleLocation();
-    
-    // Actualizar cada 30 segundos
-    locationUpdateRef.current = setInterval(() => {
-      fetchVehicleLocation();
-    }, 30000);
+  const loadActiveVehicles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('active', true)
+        .eq('status', 'en_ruta');
 
-    // Notificaciones cada 2 minutos
-    notificationRef.current = setInterval(() => {
-      checkNotifications();
-    }, 120000);
+      if (error) throw error;
+
+      setActiveVehicles(data || []);
+      
+      // Si hay vehículos activos, seleccionar el primero automáticamente
+      if (data && data.length > 0) {
+        setSelectedVehicle(data[0]);
+        await loadVehicleLocation(data[0].id);
+      }
+
+      console.log('🚐 Vehículos activos cargados:', data?.length || 0);
+      
+    } catch (error) {
+      console.error('❌ Error cargando vehículos:', error);
+      addNotification('Error cargando información de vehículos', 'error');
+    }
   };
 
-  // ============================================
-  // 📍 OBTENER UBICACIÓN DEL VEHÍCULO (ORIGINAL)
-  // ============================================
-  const fetchVehicleLocation = async () => {
-    if (!selectedVehicle) return;
-
+  const loadVehicleLocation = async (vehicleId) => {
     try {
       const { data, error } = await supabase
         .from('vehicle_locations')
         .select('*')
-        .eq('vehicle_id', selectedVehicle.id)
+        .eq('vehicle_id', vehicleId)
         .order('timestamp', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
+      if (error) throw error;
 
-      if (data) {
-        setVehicleLocation(data);
-        setLastUpdate(new Date(data.timestamp));
-        
-        // Calcular ETA
-        calculateETA(data);
-        
-        console.log('📍 Ubicación del vehículo actualizada:', {
-          lat: data.latitude.toFixed(6),
-          lng: data.longitude.toFixed(6),
-          speed: data.speed
+      if (data && data.length > 0) {
+        const location = data[0];
+        setVehicleLocation({
+          latitude: location.latitude,
+          longitude: location.longitude,
+          speed: location.speed || 0,
+          timestamp: location.timestamp,
+          accuracy: location.accuracy || 0
         });
-      } else {
-        // Si no hay datos reales, usar datos simulados para demo
-        console.log('ℹ️ No hay datos reales, usando simulación...');
-        simulateVehicleMovement();
+
+        setLastUpdate(new Date(location.timestamp));
+        
+        // Calcular ETA si hay ubicación del usuario
+        if (userLocation.latitude && userLocation.longitude) {
+          calculateETA(location, userLocation);
+        }
+
+        console.log('📍 Ubicación del vehículo actualizada:', {
+          lat: location.latitude.toFixed(6),
+          lng: location.longitude.toFixed(6),
+          speed: location.speed
+        });
       }
       
     } catch (error) {
-      console.error('❌ Error obteniendo ubicación:', error);
-      // Usar datos simulados como fallback
-      simulateVehicleMovement();
+      console.error('❌ Error cargando ubicación del vehículo:', error);
     }
   };
 
-  // ============================================
-  // 🎭 SIMULACIÓN PARA DEMO (ORIGINAL)
-  // ============================================
-  const simulateVehicleMovement = () => {
-    // Simular movimiento del vehículo para demo
-    const baseLocation = {
-      vehicle_id: selectedVehicle?.id || 'demo-vehicle',
-      latitude: 4.7147 + (Math.random() - 0.5) * 0.01,
-      longitude: -74.0517 + (Math.random() - 0.5) * 0.01,
-      speed: 25 + Math.random() * 20,
-      heading: Math.random() * 360,
-      accuracy: 5 + Math.random() * 10,
-      timestamp: new Date().toISOString(),
-      is_moving: true
-    };
-
-    setVehicleLocation(baseLocation);
-    setLastUpdate(new Date());
-    calculateETA(baseLocation);
-    
-    console.log('📍 Ubicación simulada del vehículo:', {
-      lat: baseLocation.latitude.toFixed(6),
-      lng: baseLocation.longitude.toFixed(6)
-    });
-  };
-
-  // ============================================
-  // ⏱️ CALCULAR ETA (ORIGINAL)
-  // ============================================
-  const calculateETA = (vehiclePos) => {
-    if (!userLocation || !vehiclePos) return;
-
+  const calculateETA = (vehiclePos, userPos) => {
     try {
-      // Calcular distancia y ETA aproximado
-      const distance = calculateDistance(vehiclePos, userLocation);
-      const avgSpeed = vehiclePos.speed || 30; // km/h promedio
-      const etaMinutes = Math.round((distance / avgSpeed) * 60);
+      // Calcular distancia usando fórmula de Haversine
+      const R = 6371; // Radio de la Tierra en km
+      const dLat = (userPos.latitude - vehiclePos.latitude) * Math.PI / 180;
+      const dLon = (userPos.longitude - vehiclePos.longitude) * Math.PI / 180;
       
-      const now = new Date();
-      const etaTime = new Date(now.getTime() + etaMinutes * 60000);
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(vehiclePos.latitude * Math.PI / 180) * 
+                Math.cos(userPos.latitude * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
       
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c; // Distancia en km
+
+      // Estimar tiempo basado en velocidad promedio urbana (30 km/h)
+      const avgSpeed = vehiclePos.speed > 0 ? vehiclePos.speed : 30;
+      const estimatedMinutes = Math.round((distance / avgSpeed) * 60);
+
       setEstimatedArrival({
         distance: distance,
-        eta_minutes: etaMinutes,
-        eta_time: etaTime,
-        confidence: vehiclePos.accuracy < 50 ? 'alta' : 'media'
+        minutes: estimatedMinutes,
+        calculatedAt: new Date()
       });
 
-      // Notificar si está cerca
-      if (etaMinutes <= 5 && etaMinutes > 0) {
-        addNotification({
-          type: 'warning',
-          message: `🚨 El vehículo llegará en ${etaMinutes} minutos`,
-          timestamp: new Date()
-        });
-      }
-
+      console.log('⏰ ETA calculado:', {
+        distance: distance.toFixed(2) + ' km',
+        eta: estimatedMinutes + ' minutos'
+      });
+      
     } catch (error) {
       console.error('❌ Error calculando ETA:', error);
     }
   };
 
-  // ============================================
-  // 📐 CALCULAR DISTANCIA (ORIGINAL)
-  // ============================================
-  const calculateDistance = (pos1, pos2) => {
-    const R = 6371; // Radio de la Tierra en km
-    const dLat = (pos2.latitude - pos1.latitude) * Math.PI / 180;
-    const dLon = (pos2.longitude - pos1.longitude) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(pos1.latitude * Math.PI / 180) * Math.cos(pos2.latitude * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
+  const setupRealTimeListeners = () => {
+    if (!selectedVehicle) return;
+
+    // Listener para actualizaciones de ubicación del vehículo
+    const locationChannel = supabase
+      .channel('vehicle-locations')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'vehicle_locations',
+          filter: `vehicle_id=eq.${selectedVehicle.id}`
+        }, 
+        (payload) => {
+          console.log('📡 Actualización de ubicación en tiempo real:', payload);
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const newLocation = payload.new;
+            setVehicleLocation({
+              latitude: newLocation.latitude,
+              longitude: newLocation.longitude,
+              speed: newLocation.speed || 0,
+              timestamp: newLocation.timestamp,
+              accuracy: newLocation.accuracy || 0
+            });
+
+            setLastUpdate(new Date(newLocation.timestamp));
+            
+            // Recalcular ETA
+            if (userLocation.latitude && userLocation.longitude) {
+              calculateETA(newLocation, userLocation);
+            }
+
+            // Generar notificación si está cerca
+            checkProximityNotification(newLocation);
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup en el ref
+    locationUpdateRef.current = locationChannel;
+  };
+
+  const checkProximityNotification = (vehiclePos) => {
+    if (!userLocation.latitude || !vehicleLocation) return;
+
+    // Calcular distancia
+    const R = 6371;
+    const dLat = (userLocation.latitude - vehiclePos.latitude) * Math.PI / 180;
+    const dLon = (userLocation.longitude - vehiclePos.longitude) * Math.PI / 180;
+    
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(vehiclePos.latitude * Math.PI / 180) * 
+              Math.cos(userLocation.latitude * Math.PI / 180) * 
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+    const distance = R * c * 1000; // Distancia en metros
+
+    // Notificar si está a menos de 500m
+    if (distance < 500) {
+      addNotification(
+        `🚐 El vehículo está cerca! Llegará en aproximadamente ${estimatedArrival?.minutes || 5} minutos`,
+        'info'
+      );
+    }
   };
 
-  // ============================================
-  // 🔔 NOTIFICACIONES (ORIGINAL)
-  // ============================================
-  const addNotification = (notification) => {
-    setNotifications(prev => {
-      const newNotifications = [notification, ...prev].slice(0, 5); // Máximo 5
-      return newNotifications;
-    });
+  const initializeNotifications = () => {
+    // Notificación inicial
+    addNotification('GPS Tracker conectado correctamente', 'success');
+    
+    // Si hay perros, mostrar información
+    if (myDogs.length > 0) {
+      const dogNames = myDogs.map(dog => dog.name).join(', ');
+      addNotification(`Siguiendo el transporte de: ${dogNames}`, 'info');
+    }
   };
 
-  const checkNotifications = () => {
-    if (estimatedArrival && estimatedArrival.eta_minutes <= 10 && estimatedArrival.eta_minutes > 8) {
-      addNotification({
-        type: 'info',
-        message: `📍 El vehículo está a ${estimatedArrival.eta_minutes} minutos`,
-        timestamp: new Date()
-      });
+  const addNotification = (message, type = 'info') => {
+    const notification = {
+      id: Date.now(),
+      message,
+      type,
+      timestamp: new Date(),
+      read: false
+    };
+
+    setNotifications(prev => [notification, ...prev.slice(0, 9)]); // Máximo 10 notificaciones
+    
+    // Auto-remove después de 5 segundos si es success o info
+    if (type === 'success' || type === 'info') {
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== notification.id));
+      }, 5000);
+    }
+  };
+
+  const cleanup = () => {
+    // Cleanup listeners
+    if (locationUpdateRef.current) {
+      locationUpdateRef.current.unsubscribe();
+    }
+    if (notificationRef.current) {
+      notificationRef.current.unsubscribe();
     }
   };
 
   // ============================================
-  // 🎨 RENDER (ORIGINAL CON BOTÓN CLOSE)
+  // 🎨 RENDER DEL COMPONENTE
   // ============================================
+
+  if (isLoading) {
+    return (
+      <div className="gps-tracker bg-white rounded-lg shadow-lg p-6">
+        <div className="flex items-center justify-center space-x-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <span className="text-gray-600">Conectando con GPS...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#FFFBF0] p-4">
-      
-      {/* Header con botón de cerrar */}
-      <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-xl p-6 mb-6 text-white">
+    <div className="gps-tracker bg-white rounded-lg shadow-lg overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">🚐 Seguimiento en Tiempo Real</h1>
-            <p className="text-blue-100">
-              Sigue la ubicación del transporte de Club Canino
-            </p>
+          <div className="flex items-center space-x-3">
+            <div className="text-2xl">🚐</div>
+            <div>
+              <h3 className="text-lg font-semibold">GPS Tracker</h3>
+              <p className="text-blue-100 text-sm">
+                Estado: <span className={`font-medium ${
+                  connectionStatus === 'connected' ? 'text-green-200' : 
+                  connectionStatus === 'connecting' ? 'text-yellow-200' : 
+                  'text-red-200'
+                }`}>
+                  {connectionStatus === 'connected' ? 'Conectado' :
+                   connectionStatus === 'connecting' ? 'Conectando...' :
+                   'Error de conexión'}
+                </span>
+              </p>
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:block text-6xl opacity-30">📍</div>
-            {/* Botón de cerrar */}
+          
+          {onClose && (
             <button
               onClick={onClose}
-              className="bg-white/20 hover:bg-white/30 rounded-lg p-2 transition-colors"
-              title="Cerrar Tracking"
+              className="text-white hover:text-gray-200 text-xl font-bold"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              ×
             </button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Estado de conexión */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-[#2C3E50]">📡 Estado del Tracking</h2>
-          <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-            connectionStatus === 'connected' ? 'bg-green-100 text-green-800' :
-            connectionStatus === 'connecting' ? 'bg-yellow-100 text-yellow-800' :
-            connectionStatus === 'no_active_vehicles' ? 'bg-blue-100 text-blue-800' :
-            'bg-red-100 text-red-800'
-          }`}>
-            {connectionStatus === 'connected' && '🟢 Conectado'}
-            {connectionStatus === 'connecting' && '🟡 Conectando'}
-            {connectionStatus === 'no_active_vehicles' && '🔵 Sin vehículos activos'}
-            {connectionStatus === 'error' && '🔴 Error'}
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="text-center py-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#56CCF2] mx-auto mb-2"></div>
-            <p className="text-gray-600">Conectando con sistema de tracking...</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            
-            {/* Información del usuario */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">👤 Tu Información</h3>
-              <div className="text-sm text-gray-600 space-y-1">
-                <div>📧 {currentUser?.email || 'No disponible'}</div>
-                <div>👤 {currentUser?.full_name || 'Usuario'}</div>
-                <div>📍 {userLocation.address}</div>
-                <div>🐕 Perros: {myDogs.length}</div>
+      {/* Content */}
+      <div className="p-6 space-y-6">
+        
+        {/* Vehicle Info */}
+        {selectedVehicle && (
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-800 mb-2">Vehículo Activo</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Placa:</span>
+                <span className="font-medium ml-2">{selectedVehicle.license_plate}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Conductor:</span>
+                <span className="font-medium ml-2">{selectedVehicle.driver_name || 'No asignado'}</span>
               </div>
             </div>
+          </div>
+        )}
 
-            {/* Perros del usuario */}
-            {myDogs.length > 0 && (
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-900 mb-2">🐕 Tus Perros</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {myDogs.map((dog) => (
-                    <div key={dog.id} className="flex items-center space-x-2 text-sm">
-                      <span className="text-blue-700">🐕</span>
-                      <span className="font-medium">{dog.name}</span>
-                      <span className="text-blue-600">({dog.breed})</span>
-                    </div>
-                  ))}
-                </div>
+        {/* Location Info */}
+        {vehicleLocation && (
+          <div className="bg-green-50 rounded-lg p-4">
+            <h4 className="font-semibold text-green-800 mb-3">Ubicación Actual</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-green-700">Latitud:</span>
+                <span className="font-mono">{vehicleLocation.latitude.toFixed(6)}</span>
               </div>
-            )}
-
-            {/* Vehículo seleccionado */}
-            {selectedVehicle && (
-              <div className="bg-green-50 rounded-lg p-4">
-                <h3 className="font-semibold text-green-900 mb-2">🚐 Vehículo en Tracking</h3>
-                <div className="text-sm text-green-800 space-y-1">
-                  <div>🚗 Placa: {selectedVehicle.license_plate}</div>
-                  <div>👨‍✈️ Conductor: {selectedVehicle.driver_name}</div>
-                  <div>🚐 Modelo: {selectedVehicle.model}</div>
-                  <div>👥 Capacidad: {selectedVehicle.capacity} perros</div>
-                </div>
+              <div className="flex justify-between">
+                <span className="text-green-700">Longitud:</span>
+                <span className="font-mono">{vehicleLocation.longitude.toFixed(6)}</span>
               </div>
-            )}
-
-            {/* Ubicación del vehículo */}
-            {vehicleLocation && (
-              <div className="bg-yellow-50 rounded-lg p-4">
-                <h3 className="font-semibold text-yellow-900 mb-3">📍 Ubicación del Vehículo</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <span className="text-yellow-700">Latitud:</span>
-                    <div className="font-mono text-yellow-900">{vehicleLocation.latitude.toFixed(6)}</div>
-                  </div>
-                  <div>
-                    <span className="text-yellow-700">Longitud:</span>
-                    <div className="font-mono text-yellow-900">{vehicleLocation.longitude.toFixed(6)}</div>
-                  </div>
-                  <div>
-                    <span className="text-yellow-700">Velocidad:</span>
-                    <div className="font-semibold text-yellow-900">{Math.round(vehicleLocation.speed || 0)} km/h</div>
-                  </div>
-                  <div>
-                    <span className="text-yellow-700">Estado:</span>
-                    <div className={`font-semibold ${vehicleLocation.is_moving ? 'text-green-600' : 'text-yellow-600'}`}>
-                      {vehicleLocation.is_moving ? '🚗 En movimiento' : '⏸️ Detenido'}
-                    </div>
-                  </div>
-                </div>
-
-                {lastUpdate && (
-                  <div className="mt-3 text-xs text-yellow-600">
-                    Última actualización: {lastUpdate.toLocaleTimeString()}
-                  </div>
-                )}
+              <div className="flex justify-between">
+                <span className="text-green-700">Velocidad:</span>
+                <span className="font-medium">{vehicleLocation.speed} km/h</span>
               </div>
-            )}
+              {lastUpdate && (
+                <div className="flex justify-between">
+                  <span className="text-green-700">Última actualización:</span>
+                  <span className="font-medium">{lastUpdate.toLocaleTimeString()}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-            {/* ETA */}
-            {estimatedArrival && (
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 className="font-semibold text-purple-900 mb-3">⏱️ Tiempo Estimado de Llegada</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-800">{estimatedArrival.eta_minutes}</div>
-                    <div className="text-sm text-purple-600">minutos</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-800">{estimatedArrival.distance.toFixed(1)}</div>
-                    <div className="text-sm text-purple-600">kilómetros</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-purple-800">
-                      {estimatedArrival.eta_time.toLocaleTimeString()}
-                    </div>
-                    <div className="text-sm text-purple-600">hora estimada</div>
-                  </div>
-                </div>
-                <div className="mt-3 text-center text-xs text-purple-600">
-                  Precisión: {estimatedArrival.confidence} • Basado en tráfico actual
-                </div>
+        {/* ETA */}
+        {estimatedArrival && (
+          <div className="bg-blue-50 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-800 mb-2">Tiempo Estimado de Llegada</h4>
+            <div className="flex items-center space-x-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">{estimatedArrival.minutes}</div>
+                <div className="text-xs text-blue-500">minutos</div>
               </div>
-            )}
+              <div className="text-center">
+                <div className="text-lg font-semibold text-blue-600">{estimatedArrival.distance.toFixed(1)}</div>
+                <div className="text-xs text-blue-500">km de distancia</div>
+              </div>
+            </div>
+          </div>
+        )}
 
-            {/* Sin vehículos activos */}
-            {connectionStatus === 'no_active_vehicles' && (
-              <div className="text-center py-8">
-                <div className="text-4xl mb-4">🚐</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No hay vehículos en ruta
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Actualmente no hay vehículos transportando tus perros
-                </p>
-                <button
-                  onClick={findActiveVehicles}
-                  className="bg-[#56CCF2] text-white px-6 py-2 rounded-lg hover:bg-[#2C3E50] transition-colors"
+        {/* My Dogs */}
+        {myDogs.length > 0 && (
+          <div className="bg-yellow-50 rounded-lg p-4">
+            <h4 className="font-semibold text-yellow-800 mb-2">Mis Perros en Transporte</h4>
+            <div className="space-y-1">
+              {myDogs.map(dog => (
+                <div key={dog.id} className="flex items-center space-x-2 text-sm">
+                  <span className="text-yellow-600">🐕</span>
+                  <span className="font-medium">{dog.name}</span>
+                  <span className="text-gray-500">({dog.breed})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notifications */}
+        {notifications.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="font-semibold text-gray-800">Notificaciones Recientes</h4>
+            <div className="max-h-40 overflow-y-auto space-y-2">
+              {notifications.map(notification => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded text-sm ${
+                    notification.type === 'error' ? 'bg-red-100 text-red-800' :
+                    notification.type === 'success' ? 'bg-green-100 text-green-800' :
+                    'bg-blue-100 text-blue-800'
+                  }`}
                 >
-                  🔄 Verificar nuevamente
-                </button>
-              </div>
-            )}
+                  <div className="flex justify-between items-start">
+                    <span>{notification.message}</span>
+                    <span className="text-xs opacity-75">
+                      {notification.timestamp.toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No Vehicle Message */}
+        {!selectedVehicle && (
+          <div className="text-center py-8 text-gray-500">
+            <div className="text-4xl mb-2">🚐</div>
+            <p>No hay vehículos activos en este momento</p>
+            <p className="text-sm">El tracking se activará cuando haya transporte disponible</p>
           </div>
         )}
       </div>
-
-      {/* Mapa en tiempo real */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-        <h2 className="text-lg font-bold text-[#2C3E50] mb-4">🗺️ Mapa en Tiempo Real</h2>
-        
-        <div className="bg-gray-100 rounded-lg h-64 flex items-center justify-center relative overflow-hidden">
-          <div className="text-center">
-            <div className="text-4xl mb-2">🗺️</div>
-            <p className="text-gray-600">Vista del mapa con ubicación en tiempo real</p>
-            <p className="text-sm text-gray-500 mt-1">
-              Google Maps se cargará aquí en producción
-            </p>
-          </div>
-          
-          {/* Simular elementos del mapa */}
-          {vehicleLocation && (
-            <div className="absolute top-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm">
-              🚐 {selectedVehicle?.license_plate || 'Vehículo'}
-            </div>
-          )}
-          
-          {userLocation && (
-            <div className="absolute bottom-4 right-4 bg-green-600 text-white px-3 py-1 rounded-full text-sm">
-              🏠 Tu ubicación
-            </div>
-          )}
-          
-          {estimatedArrival && (
-            <div className="absolute top-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-sm">
-              ⏱️ {estimatedArrival.eta_minutes} min
-            </div>
-          )}
-        </div>
-        
-        <div className="mt-4 text-xs text-gray-500 text-center">
-          <p>🔧 En desarrollo: Integración completa con Google Maps API</p>
-          <p>📍 Mostrará rutas, ETA dinámico y notificaciones push</p>
-        </div>
-      </div>
-
-      {/* Notificaciones recientes */}
-      {notifications.length > 0 && (
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h2 className="text-lg font-bold text-[#2C3E50] mb-4">🔔 Notificaciones Recientes</h2>
-          <div className="space-y-3">
-            {notifications.map((notification, index) => (
-              <div 
-                key={index}
-                className={`p-3 rounded-lg border-l-4 ${
-                  notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                  notification.type === 'error' ? 'bg-red-50 border-red-400' :
-                  'bg-blue-50 border-blue-400'
-                }`}
-              >
-                <p className="text-sm text-gray-800">{notification.message}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {notification.timestamp.toLocaleTimeString()}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sin perros registrados */}
-      {myDogs.length === 0 && (
-        <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-          <div className="text-6xl mb-4">🐕</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            No tienes perros registrados
-          </h3>
-          <p className="text-gray-600 mb-6">
-            Para usar el sistema de tracking, necesitas tener al menos un perro inscrito en Club Canino
-          </p>
-          <a 
-            href="/contacto"
-            className="inline-block bg-[#56CCF2] hover:bg-[#2C3E50] text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-          >
-            📞 Contactar Club Canino
-          </a>
-        </div>
-      )}
-      
     </div>
   );
 };
 
-export default RealGPSTracker;
+export default GPSTracker;
