@@ -1,15 +1,13 @@
 ---
-// src/pages/app.astro
-// 🚀 PÁGINA PRINCIPAL DE LA APP - CORREGIDA CON AUTHPROVIDER
-
+// src/pages/app.astro - CLIENT-ONLY FIX
 import Layout from '../layouts/Layout.astro';
 import { AuthProvider } from '../components/auth/AuthProvider.jsx';
 import AppEntry from '../components/AppEntry.jsx';
 ---
 
 <Layout title="Club Canino Dos Huellitas - App">
-  <!-- ✅ CORRECCIÓN: Usar AuthProvider al igual que las otras páginas -->
-  <AuthProvider client:load>
-    <AppEntry client:load />
+  <!-- USAR client:only="react" para evitar SSR por completo -->
+  <AuthProvider client:only="react">
+    <AppEntry client:only="react" />
   </AuthProvider>
 </Layout>
