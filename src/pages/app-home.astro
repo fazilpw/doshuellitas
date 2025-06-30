@@ -1,0 +1,442 @@
+---
+// src/pages/app-home.astro
+// 🏠 PÁGINA DE ENTRADA ESPECÍFICA PARA PWA INSTALADA
+// Esta página GARANTIZA que la PWA nunca tenga pantalla en blanco
+
+import Layout from '../layouts/Layout.astro';
+
+// Configuración específica para PWA
+const pwaConfig = {
+  title: "Club Canino - App",
+  description: "Bienvenido a Club Canino Dos Huellitas",
+  isAppMode: true
+};
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{pwaConfig.title}</title>
+  <meta name="description" content={pwaConfig.description} />
+  
+  <!-- PWA específico -->
+  <meta name="theme-color" content="#56CCF2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="/manifest.json">
+  
+  <!-- Fuentes críticas inline para evitar FOUC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DynaPuff:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS directo -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Estilos críticos inline -->
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #FFFBF0 0%, #ACF0F4 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    .pwa-ready {
+      animation: fadeIn 0.5s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .bounce {
+      animation: bounce 2s infinite;
+    }
+    
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(-10px);
+      }
+      60% {
+        transform: translateY(-5px);
+      }
+    }
+    
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+    
+    /* Loading spinner para transiciones */
+    .loading-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #56CCF2;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ============================================ -->
+  <!-- HEADER PWA CON DETECCIÓN -->
+  <!-- ============================================ -->
+  <div class="min-h-screen pwa-ready">
+    
+    <!-- Status Bar para PWA -->
+    <div class="bg-[#56CCF2] text-white px-4 py-2 text-center text-sm font-medium">
+      <span id="pwa-status">📱 App Club Canino - Listo</span>
+    </div>
+    
+    <!-- Contenido Principal -->
+    <div class="container mx-auto px-4 py-8">
+      
+      <!-- Logo y Bienvenida -->
+      <div class="text-center mb-8">
+        <div class="text-8xl mb-4 bounce">🐕</div>
+        <h1 class="text-4xl font-bold text-[#2C3E50] mb-2 font-['DynaPuff']">
+          ¡Bienvenido a Club Canino!
+        </h1>
+        <p class="text-lg text-gray-600 max-w-md mx-auto">
+          Tu app está lista. Selecciona tu perfil para comenzar.
+        </p>
+      </div>
+
+      <!-- Cards de Acceso Rápido -->
+      <div class="grid gap-6 max-w-lg mx-auto mb-8">
+        
+        <!-- Dashboard Padre -->
+        <a 
+          href="/dashboard/padre/" 
+          class="group block bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 dashboard-link"
+          data-loading="true"
+        >
+          <div class="flex items-center">
+            <div class="text-5xl mr-4 group-hover:animate-pulse">🏠</div>
+            <div class="flex-1">
+              <h3 class="text-xl font-bold text-[#2C3E50] mb-1">Dashboard Padre</h3>
+              <p class="text-gray-600 text-sm">Evalúa a tu perro en casa</p>
+            </div>
+            <div class="text-[#56CCF2] text-2xl group-hover:translate-x-1 transition-transform">→</div>
+          </div>
+        </a>
+        
+        <!-- Dashboard Profesor -->
+        <a 
+          href="/dashboard/profesor/" 
+          class="group block bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 dashboard-link"
+          data-loading="true"
+        >
+          <div class="flex items-center">
+            <div class="text-5xl mr-4 group-hover:animate-pulse">🎓</div>
+            <div class="flex-1">
+              <h3 class="text-xl font-bold text-[#2C3E50] mb-1">Dashboard Profesor</h3>
+              <p class="text-gray-600 text-sm">Evalúa perros en el colegio</p>
+            </div>
+            <div class="text-[#56CCF2] text-2xl group-hover:translate-x-1 transition-transform">→</div>
+          </div>
+        </a>
+        
+        <!-- Dashboard Admin -->
+        <a 
+          href="/dashboard/admin/" 
+          class="group block bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 dashboard-link"
+          data-loading="true"
+        >
+          <div class="flex items-center">
+            <div class="text-5xl mr-4 group-hover:animate-pulse">⚙️</div>
+            <div class="flex-1">
+              <h3 class="text-xl font-bold text-[#2C3E50] mb-1">Dashboard Admin</h3>
+              <p class="text-gray-600 text-sm">Gestión completa</p>
+            </div>
+            <div class="text-[#56CCF2] text-2xl group-hover:translate-x-1 transition-transform">→</div>
+          </div>
+        </a>
+          <div class="flex items-center">
+            <div class="text-5xl mr-4 group-hover:animate-pulse">⚙️</div>
+            <div class="flex-1">
+              <h3 class="text-xl font-bold text-[#2C3E50] mb-1">Dashboard Admin</h3>
+              <p class="text-gray-600 text-sm">Gestión completa</p>
+            </div>
+            <div class="text-[#56CCF2] text-2xl group-hover:translate-x-1 transition-transform">→</div>
+          </div>
+        </a>
+        
+      </div>
+
+      <!-- Acceso Web -->
+      <div class="text-center mb-8">
+        <a 
+          href="/" 
+          class="inline-block bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-medium transition-colors"
+        >
+          🌐 Ver versión web completa
+        </a>
+      </div>
+
+      <!-- Estado de la App -->
+      <div class="bg-white rounded-xl p-6 shadow-lg max-w-md mx-auto">
+        <h4 class="font-bold text-[#2C3E50] mb-4 flex items-center">
+          <span class="text-2xl mr-2">📊</span>
+          Estado de la App
+        </h4>
+        
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between items-center">
+            <span>Modo PWA:</span>
+            <span id="display-mode" class="text-green-600 font-semibold">✅ Detectando...</span>
+          </div>
+          
+          <div class="flex justify-between items-center">
+            <span>Conexión:</span>
+            <span id="connection-status" class="text-green-600 font-semibold">✅ Online</span>
+          </div>
+          
+          <div class="flex justify-between items-center">
+            <span>Service Worker:</span>
+            <span id="sw-status" class="text-blue-600 font-semibold">🔧 Verificando...</span>
+          </div>
+          
+          <div class="flex justify-between items-center">
+            <span>Última actualización:</span>
+            <span id="last-update" class="text-gray-600 font-semibold">Ahora</span>
+          </div>
+        </div>
+        
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50" style="display: none;">
+          <div class="bg-white rounded-xl p-8 text-center">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-[#2C3E50] font-semibold">Cargando dashboard...</p>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- JAVASCRIPT PARA DETECCIÓN Y NAVEGACIÓN -->
+  <!-- ============================================ -->
+  <script>
+    console.log('🐕 Club Canino PWA - Página de entrada inicializando...');
+    
+    // ==========================================
+    // DETECTAR MODO PWA
+    // ==========================================
+    
+    function detectPWAMode(): string {
+      const displayMode = document.getElementById('display-mode');
+      const pwaStatus = document.getElementById('pwa-status');
+      
+      // Detectar si está en modo PWA instalada
+      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+        if (displayMode) {
+          displayMode.textContent = '✅ Instalada';
+          displayMode.className = 'text-green-600 font-semibold';
+        }
+        if (pwaStatus) {
+          pwaStatus.textContent = '📱 App Club Canino - Modo Instalado';
+        }
+        return 'standalone';
+      } else if (window.navigator && (window.navigator as any).standalone) {
+        // iOS Safari PWA
+        if (displayMode) {
+          displayMode.textContent = '✅ iOS App';
+          displayMode.className = 'text-green-600 font-semibold';
+        }
+        return 'ios-standalone';
+      } else {
+        if (displayMode) {
+          displayMode.textContent = '🌐 Navegador';
+          displayMode.className = 'text-blue-600 font-semibold';
+        }
+        return 'browser';
+      }
+    }
+    
+    // ==========================================
+    // VERIFICAR SERVICE WORKER
+    // ==========================================
+    
+    function checkServiceWorker(): void {
+      const swStatus = document.getElementById('sw-status');
+      
+      if (!swStatus) return;
+      
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          if (registrations.length > 0) {
+            swStatus.textContent = '✅ Activo';
+            swStatus.className = 'text-green-600 font-semibold';
+          } else {
+            swStatus.textContent = '⚪ Deshabilitado';
+            swStatus.className = 'text-gray-600 font-semibold';
+          }
+        });
+      } else {
+        swStatus.textContent = '❌ No soportado';
+        swStatus.className = 'text-red-600 font-semibold';
+      }
+    }
+    
+    // ==========================================
+    // VERIFICAR CONEXIÓN
+    // ==========================================
+    
+    function updateConnectionStatus(): void {
+      const connectionStatus = document.getElementById('connection-status');
+      
+      if (!connectionStatus) return;
+      
+      if (navigator.onLine) {
+        connectionStatus.textContent = '✅ Online';
+        connectionStatus.className = 'text-green-600 font-semibold';
+      } else {
+        connectionStatus.textContent = '🔴 Offline';
+        connectionStatus.className = 'text-red-600 font-semibold';
+      }
+    }
+    
+    // ==========================================
+    // NAVEGACIÓN CON LOADING
+    // ==========================================
+    
+    function showLoadingAndNavigate(element: HTMLElement): void {
+      const loadingOverlay = document.getElementById('loading-overlay') as HTMLElement;
+      const href = element.getAttribute('href');
+      
+      if (!loadingOverlay || !href) return;
+      
+      // Mostrar loading
+      loadingOverlay.style.display = 'flex';
+      
+      // Navegar después de un momento para mostrar el loading
+      setTimeout(() => {
+        window.location.href = href;
+      }, 800);
+      
+      // Fallback: ocultar loading si algo sale mal
+      setTimeout(() => {
+        if (loadingOverlay) {
+          loadingOverlay.style.display = 'none';
+        }
+      }, 5000);
+    }
+    
+    // ==========================================
+    // ACTUALIZAR TIMESTAMP
+    // ==========================================
+    
+    function updateTimestamp(): void {
+      const lastUpdate = document.getElementById('last-update');
+      
+      if (!lastUpdate) return;
+      
+      const now = new Date();
+      lastUpdate.textContent = now.toLocaleTimeString('es-CO', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    
+    // ==========================================
+    // INICIALIZACIÓN
+    // ==========================================
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('📱 PWA Entry Point - DOM cargado');
+      
+      // Ejecutar detecciones
+      const mode = detectPWAMode();
+      checkServiceWorker();
+      updateConnectionStatus();
+      updateTimestamp();
+      
+      console.log('🎯 Modo detectado:', mode);
+      
+      // Configurar event listeners para links de dashboard
+      const dashboardLinks = document.querySelectorAll('.dashboard-link[data-loading="true"]');
+      dashboardLinks.forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          showLoadingAndNavigate(link as HTMLElement);
+        });
+      });
+      
+      // Listeners para cambios de conexión
+      window.addEventListener('online', updateConnectionStatus);
+      window.addEventListener('offline', updateConnectionStatus);
+      
+      // Actualizar timestamp cada minuto
+      setInterval(updateTimestamp, 60000);
+      
+      console.log('✅ PWA Entry Point completamente inicializado');
+    });
+    
+    // ==========================================
+    // MANEJO DE ERRORES
+    // ==========================================
+    
+    window.addEventListener('error', (event) => {
+      console.error('❌ Error en PWA Entry:', event.error);
+      
+      // Si hay un error crítico, ofrecer reload
+      setTimeout(() => {
+        if (confirm('Ha ocurrido un error. ¿Quieres recargar la app?')) {
+          window.location.reload();
+        }
+      }, 1000);
+    });
+    
+    // ==========================================
+    // PREVENIR PROBLEMAS DE SERVICE WORKER
+    // ==========================================
+    
+    // Limpiar Service Workers problemáticos si es necesario
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        // Solo para debug: mostrar cuántos SW hay
+        if (registrations.length > 1) {
+          console.warn('⚠️ Múltiples Service Workers detectados:', registrations.length);
+        }
+      });
+    }
+    
+    console.log('🚀 PWA Entry Point - Script completado');
+  </script>
+</body>
+</html>

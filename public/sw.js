@@ -1,328 +1,406 @@
-// public/sw.js - Service Worker FINAL para Club Canino (SIN conflictos MIME)
-const CACHE_NAME = 'club-canino-final-v1.3.0';
-const STATIC_CACHE = 'club-canino-static-v1.3.0';
+// public/sw.js - Service Worker CORREGIDO para PWA móvil
+// 🎯 Objetivo: NO causar pantalla en blanco en app instalada
 
-// 🚨 CRÍTICO: URLs que NUNCA deben ser cacheadas
-const NEVER_CACHE_PATTERNS = [
-  // 🔥 SUPABASE - NUNCA cachear
-  /supabase\.co/,
-  /\.supabase\.co/,
+const CACHE_VERSION = 'club-canino-pwa-v2.0.0';
+const STATIC_CACHE = 'club-canino-static-v2';
+const RUNTIME_CACHE = 'club-canino-runtime-v2';
+
+// ============================================
+// 🚫 RECURSOS QUE NUNCA SE DEBEN CACHEAR
+// ============================================
+
+const NEVER_CACHE = [
+  // APIs y backends
+  /supabase/,
+  /\.supabase\./,
+  /\/api\//,
+  /\/auth\//,
+  /\/rest\//,
   
-  // 🔥 JAVASCRIPT - NUNCA cachear (evita MIME type error)
+  // JavaScript dinámico (evita MIME type errors)
   /\.js$/,
   /\.jsx$/,
   /\.ts$/,
   /\.tsx$/,
   /\.mjs$/,
-  /\.cjs$/,
-  
-  // 🔥 ASSETS DINÁMICOS - NUNCA cachear
   /_astro\/.*\.js/,
   /chunks\/.*\.js/,
-  /\.css$/,
-  /\.map$/,
   
-  // 🔥 APIs y RUTAS DINÁMICAS - NUNCA cachear
-  /\/api\//,
-  /\/auth\//,
-  /\/rest\//,
-  /\/storage\//,
+  // CSS dinámico 
+  /\.css$/,
+  /_astro\/.*\.css/,
+  
+  // Rutas dinámicas
   /\/dashboard\//,
-  /\/admin\//,
   /\/login/,
   /\/register/,
   /\/evaluacion/,
+  /\/admin/,
   
-  // 🔥 DEVELOPMENT - NUNCA cachear
-  /\/@vite/,
-  /\/@id/,
-  /\/__vite/,
-  /\/src\//,
+  // Development
   /localhost/,
-  /127\.0\.0\.1/
+  /127\.0\.0\.1/,
+  /@vite/,
+  /@id/,
+  /__vite/
 ];
 
-// ✅ SOLO estos recursos estáticos PUEDEN ser cacheados
-const ALLOWED_CACHE_PATTERNS = [
-  /\.(png|jpg|jpeg|gif|svg|ico|webp)$/,
+// ============================================
+// ✅ RECURSOS SEGUROS PARA CACHEAR
+// ============================================
+
+const SAFE_TO_CACHE = [
+  // Solo imágenes y fuentes
+  /\.(png|jpg|jpeg|gif|svg|ico|webp|avif)$/,
   /\.(woff|woff2|ttf|eot)$/,
   /\/icons\//,
-  /\/images\//
+  /\/images\//,
+  /\/screenshots\//
 ];
 
-// ✅ PÁGINAS estáticas que SÍ pueden cachearse
+// ============================================
+// 📄 PÁGINAS ESTÁTICAS PARA PRE-CACHE
+// ============================================
+
 const STATIC_PAGES = [
+  '/app-home/',  // ← Página principal para PWA instalada
   '/',
-  '/servicios',
-  '/instalaciones',
-  '/contacto',
-  '/preguntas-frecuentes'
+  '/servicios/',
+  '/instalaciones/',
+  '/contacto/'
 ];
 
 // ============================================
-// 🔍 FUNCIÓN CRÍTICA: Verificar si NO cachear
+// 🔍 FUNCIONES DE VERIFICACIÓN
 // ============================================
+
 function shouldNeverCache(request) {
-  const url = new URL(request.url);
-  
-  // Verificar cada patrón de NEVER_CACHE
-  const shouldSkip = NEVER_CACHE_PATTERNS.some(pattern => {
+  const url = request.url;
+  return NEVER_CACHE.some(pattern => {
     if (pattern instanceof RegExp) {
-      return pattern.test(url.href) || pattern.test(url.pathname);
+      return pattern.test(url);
     }
-    return url.href.includes(pattern) || url.pathname.includes(pattern);
+    return url.includes(pattern);
   });
-  
-  if (shouldSkip) {
-    console.log('🚫 SW: NO cacheando (patrón bloqueado):', url.pathname);
-    return true;
-  }
-  
-  return false;
+}
+
+function isSafeToCache(request) {
+  const url = request.url;
+  return SAFE_TO_CACHE.some(pattern => pattern.test(url));
+}
+
+function isNavigationRequest(request) {
+  return request.mode === 'navigate';
+}
+
+function isStaticPage(url) {
+  const pathname = new URL(url).pathname;
+  return STATIC_PAGES.some(page => pathname.startsWith(page));
 }
 
 // ============================================
-// 🔍 FUNCIÓN: Verificar si SÍ puede cachearse
+// 📦 INSTALACIÓN - PRECACHE MÍNIMO
 // ============================================
-function canBeCached(request) {
-  const url = new URL(request.url);
-  
-  // Solo assets estáticos permitidos
-  return ALLOWED_CACHE_PATTERNS.some(pattern => 
-    pattern.test(url.pathname)
-  );
-}
 
-// ============================================
-// 🚀 INSTALACIÓN ULTRA CONSERVADORA
-// ============================================
 self.addEventListener('install', (event) => {
-  console.log('📦 Club Canino SW v1.3.0: Instalando (modo ultra-seguro)...');
+  console.log('📦 PWA SW v2.0.0: Instalando con estrategia conservadora...');
   
   event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then(cache => {
-        console.log('💾 Pre-cacheando SOLO páginas estáticas seguras...');
-        
-        return Promise.allSettled(
-          STATIC_PAGES.map(async (url) => {
-            try {
-              const response = await fetch(url, { 
-                cache: 'no-cache',
-                headers: { 'Cache-Control': 'no-cache' }
-              });
-              
-              if (response.ok && response.status === 200) {
-                console.log(`✅ Pre-cacheado: ${url}`);
-                return cache.put(url, response.clone());
-              } else {
-                console.warn(`⚠️ No pre-cacheado: ${url} (status: ${response.status})`);
+    caches.open(STATIC_CACHE).then(async (cache) => {
+      console.log('💾 Pre-cacheando páginas críticas...');
+      
+      // Solo pre-cachear páginas que sabemos que funcionan
+      const pagesToCache = ['/app-home/'];
+      
+      const results = await Promise.allSettled(
+        pagesToCache.map(async (url) => {
+          try {
+            const response = await fetch(url, {
+              cache: 'no-cache',
+              headers: {
+                'Cache-Control': 'no-cache'
               }
-            } catch (err) {
-              console.warn(`❌ Error pre-cacheando ${url}:`, err.message);
+            });
+            
+            if (response.ok && response.status === 200) {
+              await cache.put(url, response.clone());
+              console.log(`✅ Pre-cacheado exitoso: ${url}`);
+              return true;
+            } else {
+              console.warn(`⚠️ No se pudo pre-cachear: ${url} (status: ${response.status})`);
+              return false;
             }
-          })
-        );
-      })
-      .then(() => {
-        console.log('✅ SW instalado - solo páginas estáticas cacheadas');
-        return self.skipWaiting();
-      })
-      .catch(error => {
-        console.error('❌ Error instalando SW:', error);
-      })
-  );
-});
-
-// ============================================
-// 🔄 ACTIVACIÓN Y LIMPIEZA AGRESIVA
-// ============================================
-self.addEventListener('activate', (event) => {
-  console.log('🔄 SW: Activando y limpiando caches problemáticos...');
-  
-  event.waitUntil(
-    Promise.all([
-      // Limpiar TODOS los caches antiguos agresivamente
-      caches.keys().then(cacheNames => {
-        return Promise.all(
-          cacheNames
-            .filter(cacheName => 
-              cacheName !== CACHE_NAME && 
-              cacheName !== STATIC_CACHE
-            )
-            .map(cacheName => {
-              console.log('🗑️ Eliminando cache antiguo/problemático:', cacheName);
-              return caches.delete(cacheName);
-            })
-        );
-      }),
+          } catch (error) {
+            console.error(`❌ Error pre-cacheando ${url}:`, error.message);
+            return false;
+          }
+        })
+      );
       
-      // Tomar control inmediato
-      self.clients.claim()
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
+      console.log(`📊 Pre-cache completado: ${successful}/${pagesToCache.length} páginas`);
       
-    ]).then(() => {
-      console.log('✅ SW activado - caches limpios');
-      
-      // Notificar a la app que estamos activos
-      self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'SW_ACTIVATED',
-            version: CACHE_NAME
-          });
-        });
-      });
+      return self.skipWaiting();
+    }).catch(error => {
+      console.error('❌ Error durante instalación:', error);
+      // Continuar incluso si hay errores en pre-cache
+      return self.skipWaiting();
     })
   );
 });
 
 // ============================================
-// 🌐 FETCH: ESTRATEGIA ULTRA CONSERVADORA
+// 🔄 ACTIVACIÓN - LIMPIEZA CUIDADOSA
 // ============================================
+
+self.addEventListener('activate', (event) => {
+  console.log('🔄 PWA SW: Activando y limpiando caches antiguos...');
+  
+  event.waitUntil(
+    Promise.all([
+      // Limpiar caches de versiones anteriores
+      caches.keys().then(cacheNames => {
+        const oldCaches = cacheNames.filter(cacheName => 
+          cacheName.includes('club-canino') && 
+          cacheName !== STATIC_CACHE && 
+          cacheName !== RUNTIME_CACHE
+        );
+        
+        return Promise.all(
+          oldCaches.map(cacheName => {
+            console.log('🗑️ Eliminando cache antiguo:', cacheName);
+            return caches.delete(cacheName);
+          })
+        );
+      }),
+      
+      // Tomar control de todas las pestañas
+      self.clients.claim()
+      
+    ]).then(() => {
+      console.log('✅ PWA SW activado - Listo para uso');
+      
+      // Notificar a la app
+      return self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'SW_ACTIVATED',
+            version: CACHE_VERSION,
+            timestamp: new Date().toISOString()
+          });
+        });
+      });
+    }).catch(error => {
+      console.error('❌ Error durante activación:', error);
+    })
+  );
+});
+
+// ============================================
+// 🌐 FETCH - ESTRATEGIA ULTRA CONSERVADORA
+// ============================================
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
   
-  // 🚨 PASO 1: NUNCA interceptar recursos críticos
+  // 🚨 REGLA #1: NUNCA interceptar recursos prohibidos
   if (shouldNeverCache(request)) {
-    // Dejar que pase directo al servidor SIN interceptar
-    console.log('🚫 SW: Pasando directo (no interceptado):', url.pathname);
-    return; // ← CLAVE: No usar event.respondWith()
+    // Dejar pasar completamente SIN interceptar
+    console.log('🚫 SW: Pasando sin interceptar:', url.pathname);
+    return; // ← No usar event.respondWith()
   }
   
-  // 🔍 PASO 2: Solo interceptar navegación de páginas estáticas
-  if (request.mode === 'navigate') {
-    // Solo para páginas estáticas conocidas
-    if (STATIC_PAGES.includes(url.pathname)) {
-      event.respondWith(handleStaticNavigation(request));
+  // 🚨 REGLA #2: Manejar navegación de forma muy cuidadosa
+  if (isNavigationRequest(request)) {
+    console.log('🧭 SW: Solicitud de navegación:', url.pathname);
+    
+    // Solo interceptar páginas que sabemos que están cached
+    if (isStaticPage(request.url)) {
+      event.respondWith(handleNavigation(request));
+    } else {
+      // Para cualquier otra navegación, dejar pasar al servidor
+      console.log('🚫 SW: Navegación no cached, pasando al servidor:', url.pathname);
+      return;
     }
-    // Para todo lo demás, dejar pasar directo
     return;
   }
   
-  // 🖼️ PASO 3: Solo interceptar assets estáticos seguros
-  if (canBeCached(request)) {
-    event.respondWith(handleStaticAsset(request));
+  // 🚨 REGLA #3: Solo cachear assets seguros
+  if (isSafeToCache(request)) {
+    console.log('🖼️ SW: Manejando asset seguro:', url.pathname);
+    event.respondWith(handleAsset(request));
   }
   
-  // Para todo lo demás (JS, CSS, APIs), NUNCA interceptar
+  // Para todo lo demás, dejar pasar sin interceptar
 });
 
 // ============================================
-// 📄 MANEJAR NAVEGACIÓN ESTÁTICA
+// 🧭 MANEJAR NAVEGACIÓN
 // ============================================
-async function handleStaticNavigation(request) {
+
+async function handleNavigation(request) {
+  const url = new URL(request.url);
+  
   try {
-    console.log('🔍 SW: Manejando navegación estática:', request.url);
+    console.log('🔍 SW: Procesando navegación:', url.pathname);
     
-    // Network First para páginas (siempre datos frescos)
+    // Network First para navegación (datos frescos)
     const networkResponse = await fetch(request, {
       cache: 'no-cache'
     });
     
     if (networkResponse.ok) {
-      // Cachear respuesta fresca
-      const cache = await caches.open(CACHE_NAME);
+      // Cachear para uso offline
+      const cache = await caches.open(RUNTIME_CACHE);
       cache.put(request, networkResponse.clone());
+      console.log('✅ SW: Navegación servida desde red y cacheada');
       return networkResponse;
     }
     
-    throw new Error('Network response not ok');
+    throw new Error(`Network response not ok: ${networkResponse.status}`);
     
-  } catch (error) {
-    console.log('🌐 SW: Red falló, buscando en cache...');
+  } catch (networkError) {
+    console.log('🌐 SW: Red falló para navegación, buscando cache...');
     
-    // Fallback a cache
-    const cached = await caches.match(request);
-    if (cached) {
-      console.log('✅ SW: Sirviendo desde cache:', request.url);
-      return cached;
+    // Intentar servir desde cache
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      console.log('✅ SW: Navegación servida desde cache');
+      return cachedResponse;
     }
     
-    // Último fallback: página de error offline
-    return createOfflineResponse();
+    // Último recurso: página offline para PWA
+    console.log('📱 SW: Sirviendo página offline de emergencia');
+    return createOfflinePage();
   }
 }
 
 // ============================================
-// 🖼️ MANEJAR ASSETS ESTÁTICOS
+// 🖼️ MANEJAR ASSETS
 // ============================================
-async function handleStaticAsset(request) {
+
+async function handleAsset(request) {
   try {
-    // Cache First para assets estáticos
-    const cached = await caches.match(request);
-    if (cached) {
-      return cached;
+    // Cache First para assets (rendimiento)
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      console.log('💾 SW: Asset servido desde cache:', request.url);
+      return cachedResponse;
     }
     
-    // Si no está en cache, obtener de red
-    const response = await fetch(request);
+    // Si no está en cache, buscar en red
+    const networkResponse = await fetch(request);
     
-    if (response.ok) {
-      const cache = await caches.open(STATIC_CACHE);
-      cache.put(request, response.clone());
+    if (networkResponse.ok) {
+      // Cachear para uso futuro
+      const cache = await caches.open(RUNTIME_CACHE);
+      cache.put(request, networkResponse.clone());
+      console.log('✅ SW: Asset servido desde red y cacheado');
+      return networkResponse;
     }
     
-    return response;
+    throw new Error(`Asset fetch failed: ${networkResponse.status}`);
     
   } catch (error) {
-    console.warn('⚠️ SW: Error obteniendo asset:', request.url);
-    throw error;
+    console.warn('⚠️ SW: Error cargando asset:', request.url, error.message);
+    
+    // Para assets, simplemente fallar - el navegador manejará el error
+    return new Response('', { status: 404 });
   }
 }
 
 // ============================================
-// 📄 RESPUESTA OFFLINE
+// 📱 PÁGINA OFFLINE DE EMERGENCIA
 // ============================================
-function createOfflineResponse() {
+
+function createOfflinePage() {
   const offlineHTML = `
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Sin Conexión | Club Canino</title>
-      <style>
-        body { 
-          font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-          background: linear-gradient(135deg, #FFFBF0, #ACF0F4);
-          display: flex; align-items: center; justify-content: center;
-          min-height: 100vh; margin: 0; padding: 20px;
-        }
-        .container { 
-          background: white; border-radius: 16px; padding: 40px;
-          text-align: center; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        h1 { color: #2C3E50; margin-bottom: 16px; }
-        p { color: #666; margin-bottom: 24px; }
-        button { 
-          background: #56CCF2; color: white; border: none;
-          padding: 12px 24px; border-radius: 8px; cursor: pointer;
-          font-size: 16px; width: 100%;
-        }
-        button:hover { background: #2C3E50; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div style="font-size: 48px; margin-bottom: 16px;">📡</div>
-        <h1>Sin Conexión</h1>
-        <p>Verifica tu conexión a internet y vuelve a intentarlo.</p>
-        <button onclick="window.location.reload()">🔄 Reintentar</button>
-      </div>
-    </body>
-    </html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Club Canino - Sin conexión</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #FFFBF0 0%, #ACF0F4 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 400px;
+      width: 100%;
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .icon { font-size: 80px; margin-bottom: 20px; }
+    h1 { color: #2C3E50; margin-bottom: 16px; font-size: 1.8rem; }
+    p { color: #666; margin-bottom: 30px; line-height: 1.5; }
+    .btn {
+      background: #56CCF2;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 5px;
+    }
+    .btn:hover { background: #2C3E50; }
+    .btn-secondary { background: #gray; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>Sin Conexión</h1>
+    <p>
+      No se pudo conectar con el servidor. 
+      Verifica tu conexión a internet e intenta nuevamente.
+    </p>
+    <button class="btn" onclick="window.location.reload()">
+      🔄 Reintentar
+    </button>
+    <button class="btn btn-secondary" onclick="window.location.href='/app-home/'">
+      🏠 Ir al inicio
+    </button>
+    
+    <script>
+      // Auto-retry cuando vuelva la conexión
+      window.addEventListener('online', () => {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      });
+    </script>
+  </div>
+</body>
+</html>
   `;
   
   return new Response(offlineHTML, {
     status: 200,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache'
+    }
   });
 }
 
 // ============================================
 // 📬 MENSAJES DE LA APP
 // ============================================
+
 self.addEventListener('message', (event) => {
   const { type, data } = event.data || {};
   
@@ -334,19 +412,26 @@ self.addEventListener('message', (event) => {
       
     case 'GET_VERSION':
       event.ports[0]?.postMessage({ 
-        version: CACHE_NAME,
-        timestamp: new Date().toISOString()
+        version: CACHE_VERSION,
+        timestamp: new Date().toISOString(),
+        caches: {
+          static: STATIC_CACHE,
+          runtime: RUNTIME_CACHE
+        }
       });
       break;
       
-    case 'CLEAR_ALL_CACHES':
-      console.log('🧹 SW: Limpiando todos los caches...');
+    case 'CLEAR_CACHE':
+      console.log('🧹 SW: Limpiando caches por solicitud...');
       caches.keys().then(cacheNames => {
+        const clubCaninoCaches = cacheNames.filter(name => 
+          name.includes('club-canino')
+        );
         return Promise.all(
-          cacheNames.map(cacheName => caches.delete(cacheName))
+          clubCaninoCaches.map(cacheName => caches.delete(cacheName))
         );
       }).then(() => {
-        console.log('✅ SW: Todos los caches eliminados');
+        console.log('✅ SW: Caches limpiados');
         event.ports[0]?.postMessage({ success: true });
       });
       break;
@@ -359,6 +444,7 @@ self.addEventListener('message', (event) => {
 // ============================================
 // 🔧 MANEJO DE ERRORES
 // ============================================
+
 self.addEventListener('error', (event) => {
   console.error('❌ SW Error:', event.error);
 });
@@ -368,4 +454,10 @@ self.addEventListener('unhandledrejection', (event) => {
   event.preventDefault();
 });
 
-console.log('🐕 Club Canino Service Worker v1.3.0 ULTRA-SEGURO activado');
+// ============================================
+// 📊 INICIALIZACIÓN COMPLETA
+// ============================================
+
+console.log('🐕 Club Canino Service Worker v2.0.0 - Optimizado para PWA móvil');
+console.log('🎯 Estrategia: Ultra conservadora para evitar pantalla en blanco');
+console.log('✅ Listo para cachear solo recursos seguros');
