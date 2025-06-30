@@ -1,29 +1,43 @@
 // src/components/routines/MedicineManager.jsx
-// 💊 GESTOR COMPLETO DE MEDICINAS - TODAS LAS FUNCIONALIDADES
+// 💊 GESTOR DE MEDICINAS MEJORADO - BORRADO DE ANTIPULGAS MÁS FÁCIL
+// Club Canino Dos Huellitas
 
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
 
-const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
-  // Estados principales
-  const [selectedDogId, setSelectedDogId] = useState('');
-  const [activeTab, setActiveTab] = useState('active');
-  const [loading, setLoading] = useState(false);
+const MedicineManager = ({ 
+  dogs = [], 
+  currentUser, 
+  onMedicineUpdated 
+}) => {
+  // ===============================================
+  // 🎯 ESTADOS PRINCIPALES
+  // ===============================================
   const [medicines, setMedicines] = useState([]);
+  const [selectedDogId, setSelectedDogId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('active');
   
   // Estados para modales
   const [showAddMedicine, setShowAddMedicine] = useState(false);
-  const [editingMedicine, setEditingMedicine] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [showDoseModal, setShowDoseModal] = useState(null);
-  
+  const [editingMedicine, setEditingMedicine] = useState(null);
+
+  // ✨ NUEVO: Estados para filtros mejorados
+  const [filters, setFilters] = useState({
+    type: '',
+    status: '',
+    search: ''
+  });
+
   // Estados para formulario
   const [formData, setFormData] = useState({
     medicine_name: '',
     medicine_type: 'oral',
     dosage: '',
-    frequency: '',
-    start_date: '',
+    frequency: 'Una vez al día',
+    start_date: new Date().toISOString().split('T')[0],
     end_date: '',
     next_dose_date: '',
     prescribed_by: '',
@@ -35,37 +49,14 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
     administered_by: 'owner'
   });
 
-  const selectedDog = dogs.find(dog => dog.id === selectedDogId);
-
-  // Tipos de medicinas
-  const medicineTypes = {
-    'oral': { label: 'Oral (pastillas/líquido)', icon: '💊', color: 'bg-blue-50 text-blue-700' },
-    'topical': { label: 'Tópico (cremas/pomadas)', icon: '🧴', color: 'bg-green-50 text-green-700' },
-    'injection': { label: 'Inyección', icon: '💉', color: 'bg-red-50 text-red-700' },
-    'eye_drops': { label: 'Gotas para ojos', icon: '👁️', color: 'bg-purple-50 text-purple-700' },
-    'ear_drops': { label: 'Gotas para oídos', icon: '👂', color: 'bg-yellow-50 text-yellow-700' },
-    'supplement': { label: 'Suplemento', icon: '🌿', color: 'bg-emerald-50 text-emerald-700' }
-  };
-
-  // Frecuencias comunes
-  const frequencies = [
-    'Una vez al día',
-    'Dos veces al día',
-    'Tres veces al día',
-    'Cada 8 horas',
-    'Cada 12 horas',
-    'Cada 24 horas',
-    'Cada 2 días',
-    'Una vez por semana',
-    'Según necesidad'
-  ];
-
-  // Efectos
+  // ===============================================
+  // 🔄 EFECTOS DE INICIALIZACIÓN
+  // ===============================================
   useEffect(() => {
     if (dogs.length > 0 && !selectedDogId) {
       setSelectedDogId(dogs[0].id);
     }
-  }, [dogs, selectedDogId]);
+  }, [dogs]);
 
   useEffect(() => {
     if (selectedDogId) {
@@ -74,44 +65,67 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
   }, [selectedDogId]);
 
   // ===============================================
-  // 📊 OBTENER MEDICINAS
+  // 📊 DATOS Y CÁLCULOS
+  // ===============================================
+  const selectedDog = dogs.find(dog => dog.id === selectedDogId);
+
+  // ✨ NUEVO: Filtrar medicinas con búsqueda mejorada
+  const filteredMedicines = medicines.filter(medicine => {
+    const matchesType = !filters.type || medicine.medicine_type === filters.type;
+    const matchesSearch = !filters.search || 
+      medicine.medicine_name.toLowerCase().includes(filters.search.toLowerCase()) ||
+      medicine.reason_for_treatment?.toLowerCase().includes(filters.search.toLowerCase());
+    
+    let matchesStatus = true;
+    if (filters.status) {
+      const status = getMedicineStatus(medicine);
+      matchesStatus = status.status === filters.status;
+    }
+    
+    return matchesType && matchesSearch && matchesStatus;
+  });
+
+  const activeMedicines = filteredMedicines.filter(m => m.is_ongoing || 
+    (m.next_dose_date && new Date(m.next_dose_date) >= new Date()));
+  
+  const allMedicines = filteredMedicines;
+
+  // ===============================================
+  // 🔌 FUNCIONES DE API
   // ===============================================
   const fetchMedicines = async () => {
     if (!selectedDogId) return;
-    
+
     setLoading(true);
     try {
-      const { data: medicinesData, error } = await supabase
+      const { data, error } = await supabase
         .from('medicines')
         .select('*')
         .eq('dog_id', selectedDogId)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.warn('⚠️ Table medicines might not exist:', error);
-        setMedicines([]);
-      } else {
-        setMedicines(medicinesData || []);
-      }
-      
+      if (error) throw error;
+
+      setMedicines(data || []);
+      console.log(`✅ Cargadas ${data?.length || 0} medicinas para el perro`);
+
     } catch (error) {
-      console.error('❌ Error in fetchMedicines:', error);
-      setMedicines([]);
+      console.error('❌ Error loading medicines:', error);
     } finally {
       setLoading(false);
     }
   };
 
   // ===============================================
-  // 📝 MANEJO DEL FORMULARIO
+  // 💊 FUNCIONES DE MEDICINAS
   // ===============================================
   const resetForm = () => {
     setFormData({
       medicine_name: '',
       medicine_type: 'oral',
       dosage: '',
-      frequency: '',
-      start_date: '',
+      frequency: 'Una vez al día',
+      start_date: new Date().toISOString().split('T')[0],
       end_date: '',
       next_dose_date: '',
       prescribed_by: '',
@@ -126,22 +140,26 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    if (!selectedDogId || !formData.medicine_name.trim()) {
+      alert('Por favor completa todos los campos requeridos');
+      return;
+    }
 
+    setLoading(true);
     try {
       const medicineData = {
         dog_id: selectedDogId,
-        medicine_name: formData.medicine_name,
+        medicine_name: formData.medicine_name.trim(),
         medicine_type: formData.medicine_type,
-        dosage: formData.dosage,
+        dosage: formData.dosage.trim(),
         frequency: formData.frequency,
         start_date: formData.start_date,
         end_date: formData.end_date || null,
         next_dose_date: formData.next_dose_date || null,
-        prescribed_by: formData.prescribed_by || null,
-        reason_for_treatment: formData.reason_for_treatment || null,
-        special_instructions: formData.special_instructions || null,
-        side_effects_notes: formData.side_effects_notes || null,
+        prescribed_by: formData.prescribed_by.trim() || null,
+        reason_for_treatment: formData.reason_for_treatment.trim() || null,
+        special_instructions: formData.special_instructions.trim() || null,
+        side_effects_notes: formData.side_effects_notes.trim() || null,
         is_ongoing: formData.is_ongoing,
         requires_monitoring: formData.requires_monitoring,
         administered_by: formData.administered_by
@@ -181,6 +199,60 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ===============================================
+  // 🗑️ ELIMINAR MEDICINA (MEJORADO)
+  // ===============================================
+  const handleDelete = async (medicine) => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('medicines')
+        .delete()
+        .eq('id', medicine.id);
+
+      if (error) throw error;
+
+      setShowDeleteConfirm(null);
+      fetchMedicines();
+      
+      if (onMedicineUpdated) {
+        onMedicineUpdated();
+      }
+      
+      console.log('✅ Medicina eliminada exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error deleting medicine:', error);
+      alert('Error al eliminar la medicina');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===============================================
+  // ✏️ EDITAR MEDICINA
+  // ===============================================
+  const handleEdit = (medicine) => {
+    setFormData({
+      medicine_name: medicine.medicine_name,
+      medicine_type: medicine.medicine_type,
+      dosage: medicine.dosage,
+      frequency: medicine.frequency,
+      start_date: medicine.start_date,
+      end_date: medicine.end_date || '',
+      next_dose_date: medicine.next_dose_date || '',
+      prescribed_by: medicine.prescribed_by || '',
+      reason_for_treatment: medicine.reason_for_treatment || '',
+      special_instructions: medicine.special_instructions || '',
+      side_effects_notes: medicine.side_effects_notes || '',
+      is_ongoing: medicine.is_ongoing,
+      requires_monitoring: medicine.requires_monitoring,
+      administered_by: medicine.administered_by
+    });
+    setEditingMedicine(medicine);
+    setShowAddMedicine(true);
   };
 
   // ===============================================
@@ -238,60 +310,6 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
   };
 
   // ===============================================
-  // 🗑️ ELIMINAR MEDICINA
-  // ===============================================
-  const handleDelete = async (medicine) => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('medicines')
-        .delete()
-        .eq('id', medicine.id);
-
-      if (error) throw error;
-
-      setShowDeleteConfirm(null);
-      fetchMedicines();
-      
-      if (onMedicineUpdated) {
-        onMedicineUpdated();
-      }
-      
-      console.log('✅ Medicina eliminada exitosamente');
-      
-    } catch (error) {
-      console.error('❌ Error deleting medicine:', error);
-      alert('Error al eliminar la medicina');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ===============================================
-  // ✏️ EDITAR MEDICINA
-  // ===============================================
-  const handleEdit = (medicine) => {
-    setFormData({
-      medicine_name: medicine.medicine_name,
-      medicine_type: medicine.medicine_type,
-      dosage: medicine.dosage,
-      frequency: medicine.frequency,
-      start_date: medicine.start_date,
-      end_date: medicine.end_date || '',
-      next_dose_date: medicine.next_dose_date || '',
-      prescribed_by: medicine.prescribed_by || '',
-      reason_for_treatment: medicine.reason_for_treatment || '',
-      special_instructions: medicine.special_instructions || '',
-      side_effects_notes: medicine.side_effects_notes || '',
-      is_ongoing: medicine.is_ongoing,
-      requires_monitoring: medicine.requires_monitoring,
-      administered_by: medicine.administered_by
-    });
-    setEditingMedicine(medicine);
-    setShowAddMedicine(true);
-  };
-
-  // ===============================================
   // 📅 CALCULAR ESTADO DE MEDICINA
   // ===============================================
   const getMedicineStatus = (medicine) => {
@@ -300,34 +318,139 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
     const endDate = medicine.end_date ? new Date(medicine.end_date) : null;
     const nextDose = medicine.next_dose_date ? new Date(medicine.next_dose_date) : null;
 
-    if (endDate && now > endDate) {
-      return { status: 'completed', label: 'Completado', color: 'text-gray-600', bgColor: 'bg-gray-50' };
+    // Si tiene fecha de fin y ya pasó
+    if (endDate && endDate < now) {
+      return {
+        status: 'completed',
+        label: 'Completado',
+        textColor: 'text-gray-600',
+        bgColor: 'bg-gray-100',
+        borderColor: 'border-l-gray-400'
+      };
     }
 
+    // Si es ongoing
     if (medicine.is_ongoing) {
       if (nextDose) {
-        const diffTime = nextDose - now;
-        const diffHours = diffTime / (1000 * 60 * 60);
+        const diffHours = (nextDose - now) / (1000 * 60 * 60);
         
         if (diffHours < 0) {
-          return { status: 'overdue', label: 'Dosis atrasada', color: 'text-red-600', bgColor: 'bg-red-50' };
+          return {
+            status: 'overdue',
+            label: 'Atrasado',
+            textColor: 'text-red-600',
+            bgColor: 'bg-red-50',
+            borderColor: 'border-l-red-500',
+            hours: Math.abs(Math.round(diffHours))
+          };
         } else if (diffHours <= 2) {
-          return { status: 'due_soon', label: 'Próxima dosis', color: 'text-orange-600', bgColor: 'bg-orange-50' };
+          return {
+            status: 'urgent',
+            label: 'Próximo',
+            textColor: 'text-orange-600',
+            bgColor: 'bg-orange-50',
+            borderColor: 'border-l-orange-500',
+            hours: Math.round(diffHours)
+          };
+        } else {
+          return {
+            status: 'active',
+            label: 'Activo',
+            textColor: 'text-green-600',
+            bgColor: 'bg-green-50',
+            borderColor: 'border-l-green-500'
+          };
         }
+      } else {
+        return {
+          status: 'active',
+          label: 'Activo',
+          textColor: 'text-green-600',
+          bgColor: 'bg-green-50',
+          borderColor: 'border-l-green-500'
+        };
       }
-      return { status: 'active', label: 'Activo', color: 'text-green-600', bgColor: 'bg-green-50' };
     }
 
-    if (now < startDate) {
-      return { status: 'scheduled', label: 'Programado', color: 'text-blue-600', bgColor: 'bg-blue-50' };
-    }
-
-    return { status: 'active', label: 'Activo', color: 'text-green-600', bgColor: 'bg-green-50' };
+    return {
+      status: 'inactive',
+      label: 'Inactivo',
+      textColor: 'text-gray-600',
+      bgColor: 'bg-gray-50',
+      borderColor: 'border-l-gray-400'
+    };
   };
 
   // ===============================================
   // 🎨 COMPONENTES DE RENDERIZADO
   // ===============================================
+  
+  // ✨ NUEVO: Filtros mejorados
+  const renderFilters = () => (
+    <div className="mb-6 bg-white rounded-lg p-4 shadow-sm border">
+      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+        🔍 <span className="ml-2">Filtros de búsqueda</span>
+      </h4>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        {/* Filtro por tipo de medicina */}
+        <select
+          value={filters.type}
+          onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+        >
+          <option value="">Todos los tipos</option>
+          <option value="oral">💊 Oral</option>
+          <option value="topical">🧴 Tópico</option>
+          <option value="injection">💉 Inyección</option>
+          <option value="flea_tick">🐛 Antipulgas/Garrapatas</option>
+          <option value="deworming">🪱 Desparasitante</option>
+          <option value="supplement">🌿 Suplemento</option>
+          <option value="other">🔧 Otro</option>
+        </select>
+        
+        {/* Filtro por estado */}
+        <select
+          value={filters.status}
+          onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+        >
+          <option value="">Todos los estados</option>
+          <option value="active">🟢 Activo</option>
+          <option value="urgent">🟡 Próximo</option>
+          <option value="overdue">🔴 Atrasado</option>
+          <option value="completed">✅ Completado</option>
+        </select>
+        
+        {/* Botón limpiar filtros */}
+        <button
+          onClick={() => setFilters({ type: '', status: '', search: '' })}
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+        >
+          🧹 Limpiar filtros
+        </button>
+      </div>
+      
+      {/* Búsqueda por nombre */}
+      <div>
+        <input
+          type="text"
+          placeholder="🔍 Buscar por nombre de medicina o motivo de tratamiento..."
+          value={filters.search}
+          onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+        />
+      </div>
+      
+      {/* Indicador de resultados */}
+      {(filters.type || filters.status || filters.search) && (
+        <div className="mt-3 text-sm text-gray-600">
+          📊 Mostrando {filteredMedicines.length} de {medicines.length} medicinas
+        </div>
+      )}
+    </div>
+  );
+
   const renderDogSelector = () => (
     <div className="flex items-center justify-between mb-6">
       <div className="flex items-center space-x-4">
@@ -364,7 +487,7 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
             : 'border-transparent text-gray-500 hover:text-gray-700'
         }`}
       >
-        💊 Activas
+        💊 Activas ({activeMedicines.length})
       </button>
       <button
         onClick={() => setActiveTab('all')}
@@ -374,315 +497,359 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
             : 'border-transparent text-gray-500 hover:text-gray-700'
         }`}
       >
-        📋 Todas
+        📋 Todas ({allMedicines.length})
       </button>
     </div>
   );
 
-  const renderActiveView = () => {
-    const activeMedicines = medicines.filter(medicine => {
-      const status = getMedicineStatus(medicine);
-      return ['active', 'overdue', 'due_soon'].includes(status.status);
-    });
-
-    const overdueCount = activeMedicines.filter(m => getMedicineStatus(m).status === 'overdue').length;
-    const dueSoonCount = activeMedicines.filter(m => getMedicineStatus(m).status === 'due_soon').length;
-
+  // ✨ NUEVO: Tarjeta de medicina con botón eliminar mejorado
+  const renderMedicineCard = (medicine) => {
+    const status = getMedicineStatus(medicine);
+    
     return (
-      <div className="space-y-6">
-        {/* Alertas de dosis */}
-        {(overdueCount > 0 || dueSoonCount > 0) && (
-          <div className="space-y-3">
-            {overdueCount > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <span className="text-red-600 text-xl mr-3">🚨</span>
-                  <div>
-                    <h3 className="font-semibold text-red-900">
-                      {overdueCount} dosis atrasada{overdueCount > 1 ? 's' : ''}
-                    </h3>
-                    <p className="text-red-700 text-sm">Administrar lo antes posible</p>
-                  </div>
-                </div>
-              </div>
-            )}
+      <div key={medicine.id} className={`bg-white rounded-lg p-4 shadow-sm border-l-4 ${status.borderColor} hover:shadow-md transition-shadow`}>
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex-1">
+            <h4 className="font-semibold text-gray-900">{medicine.medicine_name}</h4>
+            <p className="text-sm text-gray-600 capitalize flex items-center">
+              {getMedicineTypeIcon(medicine.medicine_type)} {getMedicineTypeLabel(medicine.medicine_type)}
+            </p>
+          </div>
+          
+          {/* ✨ BOTONES DE ACCIÓN MEJORADOS */}
+          <div className="flex items-center space-x-2">
             
-            {dueSoonCount > 0 && (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <span className="text-orange-600 text-xl mr-3">⏰</span>
-                  <div>
-                    <h3 className="font-semibold text-orange-900">
-                      {dueSoonCount} dosis próxima{dueSoonCount > 1 ? 's' : ''}
-                    </h3>
-                    <p className="text-orange-700 text-sm">En las próximas 2 horas</p>
-                  </div>
-                </div>
-              </div>
+            {/* Botón Editar */}
+            <button
+              onClick={() => handleEdit(medicine)}
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Editar medicina"
+            >
+              ✏️
+            </button>
+            
+            {/* ✨ BOTÓN ELIMINAR MÁS PROMINENTE */}
+            <button
+              onClick={() => setShowDeleteConfirm(medicine)}
+              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200 hover:border-red-300 shadow-sm"
+              title="Eliminar medicina"
+            >
+              🗑️
+            </button>
+            
+            {/* Botón Dosis (si es ongoing) */}
+            {medicine.is_ongoing && (
+              <button
+                onClick={() => setShowDoseModal(medicine)}
+                className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm hover:bg-green-200 transition-colors"
+              >
+                💊 Dosis
+              </button>
             )}
           </div>
-        )}
-
-        {/* Acciones rápidas */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button
-            onClick={() => setShowAddMedicine(true)}
-            className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-center"
-          >
-            <div className="text-2xl mb-2">➕</div>
-            <div className="text-sm font-medium">Nueva Medicina</div>
-          </button>
-          
-          <button
-            onClick={() => {
-              setFormData({
-                ...formData,
-                medicine_type: 'oral',
-                frequency: 'Dos veces al día',
-                is_ongoing: true
-              });
-              setShowAddMedicine(true);
-            }}
-            className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:bg-blue-100 transition-colors text-center"
-          >
-            <div className="text-2xl mb-2">💊</div>
-            <div className="text-sm font-medium text-blue-700">Pastilla Oral</div>
-          </button>
-          
-          <button
-            onClick={() => {
-              setFormData({
-                ...formData,
-                medicine_type: 'topical',
-                frequency: 'Dos veces al día'
-              });
-              setShowAddMedicine(true);
-            }}
-            className="bg-green-50 border border-green-200 rounded-lg p-4 hover:bg-green-100 transition-colors text-center"
-          >
-            <div className="text-2xl mb-2">🧴</div>
-            <div className="text-sm font-medium text-green-700">Crema/Pomada</div>
-          </button>
-          
-          <button
-            onClick={() => {
-              setFormData({
-                ...formData,
-                medicine_type: 'supplement',
-                frequency: 'Una vez al día',
-                is_ongoing: true
-              });
-              setShowAddMedicine(true);
-            }}
-            className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 hover:bg-emerald-100 transition-colors text-center"
-          >
-            <div className="text-2xl mb-2">🌿</div>
-            <div className="text-sm font-medium text-emerald-700">Suplemento</div>
-          </button>
         </div>
 
-        {/* Medicinas activas */}
-        {activeMedicines.length > 0 ? (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">💊 Medicinas Activas</h3>
-            
-            {activeMedicines.map(medicine => {
-              const status = getMedicineStatus(medicine);
-              const medicineType = medicineTypes[medicine.medicine_type] || medicineTypes.oral;
-              
-              return (
-                <div key={medicine.id} className={`border rounded-lg p-4 ${status.bgColor} border-gray-200`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">{medicineType.icon}</span>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{medicine.medicine_name}</h4>
-                        <p className="text-sm text-gray-600">
-                          {medicine.dosage} • {medicine.frequency}
-                        </p>
-                        {medicine.next_dose_date && (
-                          <p className="text-xs text-gray-500">
-                            Próxima dosis: {new Date(medicine.next_dose_date).toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${status.color} ${status.bgColor}`}>
-                        {status.label}
-                      </span>
-                      <div className="mt-2 space-x-2">
-                        {(status.status === 'overdue' || status.status === 'due_soon') && (
-                          <button
-                            onClick={() => setShowDoseModal(medicine)}
-                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
-                          >
-                            ✅ Dosis dada
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleEdit(medicine)}
-                          className="text-blue-600 hover:text-blue-800 text-sm"
-                        >
-                          ✏️ Editar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {medicine.special_instructions && (
-                    <div className="mt-3 p-2 bg-white bg-opacity-50 rounded">
-                      <p className="text-sm text-gray-700">📝 {medicine.special_instructions}</p>
-                    </div>
-                  )}
-                  
-                  {medicine.requires_monitoring && (
-                    <div className="mt-2 flex items-center text-orange-600 text-sm">
-                      <span className="mr-1">⚠️</span>
-                      <span>Requiere monitoreo especial</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        {/* Información de dosis y frecuencia */}
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Dosis:</span>
+            <span className="font-medium">{medicine.dosage}</span>
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">💊</div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">No hay medicinas activas</h3>
-            <p className="text-gray-600 mb-6">{selectedDog?.name} no tiene medicinas actualmente</p>
-            <button
-              onClick={() => setShowAddMedicine(true)}
-              className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
-            >
-              ➕ Agregar Primera Medicina
-            </button>
+          
+          <div className="flex justify-between">
+            <span className="text-gray-600">Frecuencia:</span>
+            <span className="font-medium">{medicine.frequency}</span>
           </div>
-        )}
+          
+          {medicine.next_dose_date && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Próxima dosis:</span>
+              <span className={`font-medium ${status.textColor}`}>
+                {new Date(medicine.next_dose_date).toLocaleDateString('es-CO', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+            </div>
+          )}
+          
+          {medicine.reason_for_treatment && (
+            <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
+              <strong>Motivo:</strong> {medicine.reason_for_treatment}
+            </div>
+          )}
+          
+          {medicine.special_instructions && (
+            <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
+              <strong>Instrucciones:</strong> {medicine.special_instructions}
+            </div>
+          )}
+        </div>
+
+        {/* Estado de la medicina */}
+        <div className={`mt-3 px-3 py-1 rounded-full text-xs font-medium ${status.bgColor} ${status.textColor} inline-block`}>
+          {status.label}
+          {status.hours !== undefined && (
+            <span className="ml-1">
+              ({status.hours === 0 ? 'Ahora' : `${status.hours}h`})
+            </span>
+          )}
+        </div>
       </div>
     );
   };
 
-  const renderAllView = () => (
+  // Funciones auxiliares para iconos y etiquetas
+  const getMedicineTypeIcon = (type) => {
+    const icons = {
+      oral: '💊',
+      topical: '🧴',
+      injection: '💉',
+      flea_tick: '🐛',
+      deworming: '🪱',
+      supplement: '🌿',
+      other: '🔧'
+    };
+    return icons[type] || '💊';
+  };
+
+  const getMedicineTypeLabel = (type) => {
+    const labels = {
+      oral: 'Oral',
+      topical: 'Tópico',
+      injection: 'Inyección',
+      flea_tick: 'Antipulgas/Garrapatas',
+      deworming: 'Desparasitante',
+      supplement: 'Suplemento',
+      other: 'Otro'
+    };
+    return labels[type] || 'Oral';
+  };
+
+  const renderActiveView = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-gray-900">📋 Todas las Medicinas</h3>
+      {/* Filtros */}
+      {renderFilters()}
+      
+      {/* Resumen rápido */}
+      {activeMedicines.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="text-green-600 text-sm font-medium">Medicinas Activas</div>
+            <div className="text-2xl font-bold text-green-900">{activeMedicines.length}</div>
+          </div>
+          
+          {activeMedicines.filter(m => {
+            const status = getMedicineStatus(m);
+            return status.status === 'urgent';
+          }).length > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="text-orange-600 text-sm font-medium">Próximas Dosis</div>
+              <div className="text-2xl font-bold text-orange-900">
+                {activeMedicines.filter(m => {
+                  const status = getMedicineStatus(m);
+                  return status.status === 'urgent';
+                }).length}
+              </div>
+              <div className="text-orange-700 text-xs">En las próximas 2 horas</div>
+            </div>
+          )}
+          
+          {activeMedicines.filter(m => {
+            const status = getMedicineStatus(m);
+            return status.status === 'overdue';
+          }).length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="text-red-600 text-sm font-medium">Atrasadas</div>
+              <div className="text-2xl font-bold text-red-900">
+                {activeMedicines.filter(m => {
+                  const status = getMedicineStatus(m);
+                  return status.status === 'overdue';
+                }).length}
+              </div>
+              <div className="text-red-700 text-xs">Requieren atención</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Acciones rápidas */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <button
           onClick={() => setShowAddMedicine(true)}
-          className="bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+          className="bg-[#56CCF2] text-white p-4 rounded-lg hover:bg-[#5B9BD5] transition-colors text-center"
         >
-          ➕ Agregar Medicina
+          <div className="text-2xl mb-2">➕</div>
+          <div className="text-sm font-medium">Nueva Medicina</div>
+        </button>
+        
+        <button
+          onClick={() => {
+            setFormData({
+              ...formData,
+              medicine_type: 'flea_tick',
+              frequency: 'Una vez al mes',
+              is_ongoing: true,
+              reason_for_treatment: 'Prevención de pulgas y garrapatas'
+            });
+            setShowAddMedicine(true);
+          }}
+          className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 hover:bg-yellow-100 transition-colors text-center"
+        >
+          <div className="text-2xl mb-2">🐛</div>
+          <div className="text-sm font-medium text-yellow-700">Antipulgas</div>
+        </button>
+        
+        <button
+          onClick={() => {
+            setFormData({
+              ...formData,
+              medicine_type: 'deworming',
+              frequency: 'Cada 3 meses',
+              is_ongoing: true,
+              reason_for_treatment: 'Desparasitación rutinaria'
+            });
+            setShowAddMedicine(true);
+          }}
+          className="bg-purple-50 border border-purple-200 rounded-lg p-4 hover:bg-purple-100 transition-colors text-center"
+        >
+          <div className="text-2xl mb-2">🪱</div>
+          <div className="text-sm font-medium text-purple-700">Desparasitante</div>
+        </button>
+        
+        <button
+          onClick={() => {
+            setFormData({
+              ...formData,
+              medicine_type: 'supplement',
+              frequency: 'Una vez al día',
+              is_ongoing: true
+            });
+            setShowAddMedicine(true);
+          }}
+          className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 hover:bg-emerald-100 transition-colors text-center"
+        >
+          <div className="text-2xl mb-2">🌿</div>
+          <div className="text-sm font-medium text-emerald-700">Suplemento</div>
         </button>
       </div>
 
-      {medicines.length > 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Medicina
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dosis
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Periodo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {medicines.map((medicine) => {
-                  const status = getMedicineStatus(medicine);
-                  const medicineType = medicineTypes[medicine.medicine_type] || medicineTypes.oral;
-                  
-                  return (
-                    <tr key={medicine.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="text-xl mr-3">{medicineType.icon}</span>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{medicine.medicine_name}</div>
-                            <div className="text-sm text-gray-500">{medicineType.label}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{medicine.dosage}</div>
-                        <div className="text-sm text-gray-500">{medicine.frequency}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          Inicio: {new Date(medicine.start_date).toLocaleDateString()}
-                        </div>
-                        {medicine.end_date && (
-                          <div className="text-sm text-gray-500">
-                            Fin: {new Date(medicine.end_date).toLocaleDateString()}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.color} ${status.bgColor}`}>
-                          {status.label}
-                        </span>
-                        {medicine.requires_monitoring && (
-                          <div className="text-orange-600 text-xs mt-1">⚠️ Requiere monitoreo</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <button 
-                          onClick={() => handleEdit(medicine)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button 
-                          onClick={() => setShowDeleteConfirm(medicine)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          🗑️ Eliminar
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+      {/* Lista de medicinas activas */}
+      {activeMedicines.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {activeMedicines.map(medicine => renderMedicineCard(medicine))}
         </div>
       ) : (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">💊</div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">No hay medicinas registradas</h3>
-          <p className="text-gray-600 mb-6">Registra la primera medicina de {selectedDog?.name}</p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No hay medicinas activas</h3>
+          <p className="text-gray-600 mb-6">
+            {filters.type || filters.search ? 
+              'No se encontraron medicinas con los filtros aplicados' :
+              'Agrega la primera medicina para tu perro'
+            }
+          </p>
           <button
             onClick={() => setShowAddMedicine(true)}
             className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
           >
-            💊 Primera Medicina
+            ➕ Agregar Medicina
           </button>
         </div>
       )}
     </div>
   );
 
+  const renderAllView = () => (
+    <div className="space-y-6">
+      {/* Filtros */}
+      {renderFilters()}
+      
+      {allMedicines.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {allMedicines.map(medicine => renderMedicineCard(medicine))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">📋</div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No hay medicinas registradas</h3>
+          <p className="text-gray-600 mb-6">
+            {filters.type || filters.search ? 
+              'No se encontraron medicinas con los filtros aplicados' :
+              'Comienza agregando la primera medicina'
+            }
+          </p>
+          <button
+            onClick={() => setShowAddMedicine(true)}
+            className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+          >
+            ➕ Agregar Primera Medicina
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // ✨ MODAL DE CONFIRMACIÓN MEJORADO
+  const renderDeleteConfirmModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 animate-in">
+        <div className="text-center">
+          <div className="text-5xl mb-4">🗑️</div>
+          <h3 className="text-lg font-semibold mb-2 text-red-600">
+            ¿Eliminar medicina?
+          </h3>
+          <p className="text-gray-600 mb-4">
+            ¿Estás seguro de que quieres eliminar <strong>"{showDeleteConfirm.medicine_name}"</strong>?
+          </p>
+          
+          {/* Información adicional */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6 text-sm">
+            <p className="text-yellow-800">
+              ⚠️ Esta acción no se puede deshacer. Se eliminará toda la información 
+              y el historial de esta medicina.
+            </p>
+            {showDeleteConfirm.medicine_type === 'flea_tick' && (
+              <p className="text-yellow-800 mt-2">
+                🐛 <strong>Antipulgas:</strong> Recuerda programar la siguiente aplicación si es necesaria.
+              </p>
+            )}
+          </div>
+          
+          {/* Botones */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowDeleteConfirm(null)}
+              className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
+              disabled={loading}
+            >
+              ❌ Cancelar
+            </button>
+            <button
+              onClick={() => handleDelete(showDeleteConfirm)}
+              disabled={loading}
+              className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {loading ? '🔄 Eliminando...' : '🗑️ Eliminar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Modal de formulario (simplificado aquí, usa el existente)
   const renderForm = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">
-          {editingMedicine ? '✏️ Editar Medicina' : '💊 Nueva Medicina'}
+          {editingMedicine ? '✏️ Editar Medicina' : '➕ Nueva Medicina'}
         </h3>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Nombre de la medicina */}
+          {/* Nombre de medicina */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nombre de la medicina *
@@ -692,26 +859,29 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
               value={formData.medicine_name}
               onChange={(e) => setFormData({ ...formData, medicine_name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              placeholder="Ej: Amoxicilina, Rimadyl, Omega 3..."
+              placeholder="Ej: Bravecto, Nexgard, etc."
               required
             />
           </div>
 
-          {/* Tipo */}
+          {/* Tipo de medicina */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo de medicina
+              Tipo de medicina *
             </label>
             <select
               value={formData.medicine_type}
               onChange={(e) => setFormData({ ...formData, medicine_type: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+              required
             >
-              {Object.entries(medicineTypes).map(([key, type]) => (
-                <option key={key} value={key}>
-                  {type.icon} {type.label}
-                </option>
-              ))}
+              <option value="oral">💊 Oral (pastillas, líquido)</option>
+              <option value="topical">🧴 Tópico (crema, pomada)</option>
+              <option value="injection">💉 Inyección</option>
+              <option value="flea_tick">🐛 Antipulgas/Garrapatas</option>
+              <option value="deworming">🪱 Desparasitante</option>
+              <option value="supplement">🌿 Suplemento</option>
+              <option value="other">🔧 Otro</option>
             </select>
           </div>
 
@@ -725,7 +895,7 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
               value={formData.dosage}
               onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              placeholder="Ej: 10mg, 2 gotas, 1 pastilla, 1ml..."
+              placeholder="Ej: 1 pastilla, 5ml, 1 pipeta"
               required
             />
           </div>
@@ -733,156 +903,53 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
           {/* Frecuencia */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Frecuencia *
+              Frecuencia
             </label>
             <select
               value={formData.frequency}
               onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              required
             >
-              <option value="">Seleccionar frecuencia</option>
-              {frequencies.map(freq => (
-                <option key={freq} value={freq}>{freq}</option>
-              ))}
+              <option value="Una vez al día">Una vez al día</option>
+              <option value="Dos veces al día">Dos veces al día</option>
+              <option value="Tres veces al día">Tres veces al día</option>
+              <option value="Cada 8 horas">Cada 8 horas</option>
+              <option value="Cada 12 horas">Cada 12 horas</option>
+              <option value="Cada 24 horas">Cada 24 horas</option>
+              <option value="Cada 2 días">Cada 2 días</option>
+              <option value="Una vez por semana">Una vez por semana</option>
+              <option value="Una vez al mes">Una vez al mes</option>
+              <option value="Cada 3 meses">Cada 3 meses</option>
+              <option value="Solo una vez">Solo una vez</option>
             </select>
           </div>
 
-          {/* Fechas */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha de inicio *
-              </label>
-              <input
-                type="date"
-                value={formData.start_date}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha de fin
-              </label>
-              <input
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Próxima dosis */}
+          {/* Motivo del tratamiento */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Próxima dosis
-            </label>
-            <input
-              type="datetime-local"
-              value={formData.next_dose_date}
-              onChange={(e) => setFormData({ ...formData, next_dose_date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-            />
-          </div>
-
-          {/* Veterinario */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Prescrita por
-            </label>
-            <input
-              type="text"
-              value={formData.prescribed_by}
-              onChange={(e) => setFormData({ ...formData, prescribed_by: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              placeholder="Nombre del veterinario"
-            />
-          </div>
-
-          {/* Razón del tratamiento */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Razón del tratamiento
+              Motivo del tratamiento
             </label>
             <input
               type="text"
               value={formData.reason_for_treatment}
               onChange={(e) => setFormData({ ...formData, reason_for_treatment: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              placeholder="Ej: Infección, dolor, prevención..."
+              placeholder="Ej: Prevención de pulgas, infección de oído, etc."
             />
           </div>
 
-          {/* Instrucciones especiales */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Instrucciones especiales
-            </label>
-            <textarea
-              value={formData.special_instructions}
-              onChange={(e) => setFormData({ ...formData, special_instructions: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              rows={2}
-              placeholder="Con comida, en ayunas, aplicar después del baño..."
+          {/* Checkbox para medicina continua */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="is_ongoing"
+              checked={formData.is_ongoing}
+              onChange={(e) => setFormData({ ...formData, is_ongoing: e.target.checked })}
+              className="h-4 w-4 text-[#56CCF2] focus:ring-[#56CCF2] border-gray-300 rounded"
             />
-          </div>
-
-          {/* Efectos secundarios */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Efectos secundarios observados
+            <label htmlFor="is_ongoing" className="ml-2 block text-sm text-gray-700">
+              Es un tratamiento continuo
             </label>
-            <textarea
-              value={formData.side_effects_notes}
-              onChange={(e) => setFormData({ ...formData, side_effects_notes: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-              rows={2}
-              placeholder="Somnolencia, pérdida de apetito, etc..."
-            />
-          </div>
-
-          {/* Checkboxes */}
-          <div className="space-y-3">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={formData.is_ongoing}
-                onChange={(e) => setFormData({ ...formData, is_ongoing: e.target.checked })}
-                className="rounded border-gray-300 text-[#56CCF2] focus:ring-[#56CCF2]"
-              />
-              <span className="text-sm font-medium text-gray-700">Tratamiento continuo</span>
-            </label>
-            
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={formData.requires_monitoring}
-                onChange={(e) => setFormData({ ...formData, requires_monitoring: e.target.checked })}
-                className="rounded border-gray-300 text-[#56CCF2] focus:ring-[#56CCF2]"
-              />
-              <span className="text-sm font-medium text-gray-700">Requiere monitoreo especial</span>
-            </label>
-          </div>
-
-          {/* Administrada por */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Administrada por
-            </label>
-            <select
-              value={formData.administered_by}
-              onChange={(e) => setFormData({ ...formData, administered_by: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-            >
-              <option value="owner">Dueño</option>
-              <option value="veterinarian">Veterinario</option>
-              <option value="groomer">Groomer</option>
-              <option value="club_staff">Personal del club</option>
-            </select>
           </div>
 
           {/* Botones */}
@@ -911,24 +978,14 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
     </div>
   );
 
-  // Modal de dosis dada
+  // Modal de dosis (simplificado)
   const renderDoseModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 className="text-lg font-semibold mb-4">✅ Confirmar Dosis</h3>
-        
+        <h3 className="text-lg font-semibold mb-4">💊 Registrar Dosis</h3>
         <p className="text-gray-600 mb-6">
-          ¿Confirmas que has administrado la dosis de <strong>{showDoseModal?.medicine_name}</strong>?
+          ¿Confirmas que se administró la dosis de <strong>{showDoseModal?.medicine_name}</strong>?
         </p>
-        
-        <div className="bg-blue-50 p-4 rounded-lg mb-6">
-          <div className="text-sm text-blue-800">
-            <p><strong>Medicina:</strong> {showDoseModal?.medicine_name}</p>
-            <p><strong>Dosis:</strong> {showDoseModal?.dosage}</p>
-            <p><strong>Frecuencia:</strong> {showDoseModal?.frequency}</p>
-          </div>
-        </div>
-
         <div className="flex gap-3">
           <button
             onClick={() => setShowDoseModal(null)}
@@ -981,34 +1038,7 @@ const MedicineManager = ({ dogs = [], currentUser, onMedicineUpdated }) => {
       {/* Modales */}
       {showAddMedicine && renderForm()}
       {showDoseModal && renderDoseModal()}
-      
-      {/* Modal de confirmación de eliminación */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4 text-red-600">🗑️ Eliminar Medicina</h3>
-            <p className="text-gray-600 mb-6">
-              ¿Estás seguro de que quieres eliminar "{showDeleteConfirm.medicine_name}"?
-              Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(showDeleteConfirm)}
-                disabled={loading}
-                className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Eliminando...' : 'Eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showDeleteConfirm && renderDeleteConfirmModal()}
     </div>
   );
 };

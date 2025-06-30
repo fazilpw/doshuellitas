@@ -2,9 +2,9 @@
   "name": "Club Canino Dos Huellitas",
   "short_name": "Club Canino",
   "description": "La app más completa para el cuidado y entrenamiento de tu perro en Colombia",
-  "version": "1.0.0",
+  "version": "2.0.0",
   
-  "start_url": "/app-home/?utm_source=pwa&utm_medium=installed",
+  "start_url": "/login/?utm_source=pwa&utm_medium=installed",
   "scope": "/",
   "id": "club-canino-dos-huellitas",
   
@@ -66,6 +66,19 @@
   
   "shortcuts": [
     {
+      "name": "Iniciar Sesión",
+      "short_name": "Login",
+      "description": "Acceder al sistema",
+      "url": "/login/?utm_source=pwa_shortcut",
+      "icons": [
+        {
+          "src": "/icons/shortcut-login.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "Dashboard Padre",
       "short_name": "Padre",
       "description": "Evalúa a tu perro en casa",
@@ -118,14 +131,14 @@
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Dashboard principal en móvil"
+      "label": "Pantalla de login en móvil"
     },
     {
       "src": "/screenshots/screenshot-mobile-2.png", 
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Evaluación de comportamiento"
+      "label": "Dashboard principal en móvil"
     }
   ],
   
