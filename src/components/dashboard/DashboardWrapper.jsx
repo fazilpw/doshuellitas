@@ -1,14 +1,13 @@
 // src/components/dashboard/DashboardWrapper.jsx
-// 🛡️ WRAPPER SEGURO PARA DASHBOARDS - COMPATIBLE CON SSG/NETLIFY
-// Club Canino Dos Huellitas
+// 🛡️ WRAPPER CON REDIRECCIÓN AUTOMÁTICA INTELIGENTE - ARREGLADO
+// Evita que usuarios como Carlos vuelvan a tener problemas de redirección
 
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from '../auth/AuthProvider.jsx';
 
 // ===============================================
-// 🔧 COMPONENTE DE LOADING SEGURO
+// 🔧 COMPONENTE DE LOADING
 // ===============================================
-
 const DashboardLoading = () => (
   <div className="min-h-screen bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4] flex items-center justify-center">
     <div className="text-center">
@@ -19,8 +18,6 @@ const DashboardLoading = () => (
       <div className="text-sm text-gray-600">
         Inicializando dashboard
       </div>
-      
-      {/* Indicador de progreso */}
       <div className="mt-4 w-48 mx-auto bg-gray-200 rounded-full h-2">
         <div className="bg-[#56CCF2] h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
       </div>
@@ -29,20 +26,126 @@ const DashboardLoading = () => (
 );
 
 // ===============================================
+// 🔄 COMPONENTE DE REDIRECCIÓN
+// ===============================================
+const RedirectingMessage = ({ userRole, correctURL }) => (
+  <div className="min-h-screen bg-gradient-to-br from-[#FFFBF0] to-[#ACF0F4] flex items-center justify-center">
+    <div className="text-center max-w-md mx-4">
+      <div className="text-6xl mb-4 animate-bounce">🔄</div>
+      <div className="text-xl font-semibold text-[#56CCF2] mb-4">
+        Redirigiendo...
+      </div>
+      <div className="text-gray-700 mb-6">
+        Te estamos llevando a tu dashboard correcto
+      </div>
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <div className="text-sm text-gray-600 mb-2">
+          <strong>Tu rol:</strong> {userRole}
+        </div>
+        <div className="text-sm text-gray-600">
+          <strong>Destino:</strong> {correctURL}
+        </div>
+      </div>
+      <div className="mt-4 text-xs text-gray-500">
+        Si no se redirecciona automáticamente, 
+        <button 
+          onClick={() => window.location.href = correctURL}
+          className="text-[#56CCF2] underline ml-1"
+        >
+          haz click aquí
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ===============================================
 // 🛡️ COMPONENTE INTERNO CON USEAUTH
 // ===============================================
-
 const DashboardContent = ({ children, requiredRole }) => {
   const { user, profile, loading, isAuthenticated } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [redirectInfo, setRedirectInfo] = useState(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // ===============================================
+  // 🎯 LÓGICA DE REDIRECCIÓN INTELIGENTE
+  // ===============================================
+  useEffect(() => {
+    if (!mounted || loading || !isAuthenticated) return;
+
+    const userRole = profile?.role;
+    if (!userRole) return;
+
+    // Mapeo de roles a dashboards
+    const dashboardMap = {
+      'padre': '/dashboard/padre/',
+      'profesor': '/dashboard/profesor/', 
+      'admin': '/dashboard/admin/',
+      'conductor': '/dashboard/conductor/'
+    };
+
+    // Detectar dashboard actual
+    const currentPath = window.location.pathname;
+    let currentDashboard = null;
+    
+    for (const [role, path] of Object.entries(dashboardMap)) {
+      if (currentPath.includes(path.replace(/\/$/, ''))) {
+        currentDashboard = role;
+        break;
+      }
+    }
+
+    const correctURL = dashboardMap[userRole];
+
+    console.log('🔍 Verificando redirección:', {
+      userRole,
+      currentDashboard,
+      requiredRole,
+      currentPath,
+      correctURL
+    });
+
+    // 🎯 CASO 1: Usuario en dashboard incorrecto
+    if (currentDashboard && userRole !== currentDashboard) {
+      console.log(`🔄 REDIRECCIÓN: Usuario ${userRole} en dashboard ${currentDashboard}`);
+      setRedirectInfo({ userRole, correctURL });
+      setRedirecting(true);
+      
+      setTimeout(() => {
+        window.location.href = correctURL;
+      }, 2000);
+      return;
+    }
+
+    // 🎯 CASO 2: Rol específico requerido diferente al usuario
+    if (requiredRole && userRole !== requiredRole) {
+      console.log(`⚠️ Rol incorrecto: requiere ${requiredRole}, usuario es ${userRole}`);
+      setRedirectInfo({ userRole, correctURL });
+      setRedirecting(true);
+      
+      setTimeout(() => {
+        window.location.href = correctURL;
+      }, 2000);
+      return;
+    }
+
+    // ✅ Todo correcto
+    console.log('✅ Usuario en dashboard correcto');
+  }, [mounted, loading, isAuthenticated, profile, requiredRole]);
+
   // Mostrar loading hasta que todo esté listo
   if (!mounted || loading) {
     return <DashboardLoading />;
+  }
+
+  // Mostrar pantalla de redirección
+  if (redirecting && redirectInfo) {
+    return <RedirectingMessage {...redirectInfo} />;
   }
 
   // Verificar autenticación
@@ -68,13 +171,17 @@ const DashboardContent = ({ children, requiredRole }) => {
     );
   }
 
-  // Verificar rol si es requerido
-  if (requiredRole && profile?.role !== requiredRole) {
+  // ===============================================
+  // ✅ RENDERIZAR DASHBOARD AUTORIZADO
+  // ===============================================
+
+  // Verificar rol final (solo mostrar error si NO se está redirigiendo)
+  if (requiredRole && profile?.role !== requiredRole && !redirecting) {
     const dashboardMap = {
-      'padre': '/dashboard/padre',
-      'profesor': '/dashboard/profesor', 
-      'admin': '/dashboard/admin',
-      'conductor': '/dashboard/conductor'
+      'padre': '/dashboard/padre/',
+      'profesor': '/dashboard/profesor/', 
+      'admin': '/dashboard/admin/',
+      'conductor': '/dashboard/conductor/'
     };
 
     return (
@@ -84,10 +191,16 @@ const DashboardContent = ({ children, requiredRole }) => {
           <div className="text-xl font-semibold text-orange-600 mb-4">
             Acceso Denegado
           </div>
-          <div className="text-gray-700 mb-6">
+          <div className="text-gray-700 mb-4">
             No tienes permisos para acceder a esta sección.
-            <br />
-            <span className="text-sm">Tu rol: {profile?.role || 'Sin rol'}</span>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+            <div className="text-sm text-gray-600 mb-2">
+              <strong>Tu rol:</strong> {profile?.role || 'Sin rol'}
+            </div>
+            <div className="text-sm text-gray-600">
+              <strong>Se requiere:</strong> {requiredRole}
+            </div>
           </div>
           <button 
             onClick={() => {
@@ -110,7 +223,6 @@ const DashboardContent = ({ children, requiredRole }) => {
 // ===============================================
 // 🚀 WRAPPER PRINCIPAL EXPORTADO
 // ===============================================
-
 const DashboardWrapper = ({ children, requiredRole }) => {
   const [isClient, setIsClient] = useState(false);
 
@@ -137,7 +249,6 @@ export default DashboardWrapper;
 // ===============================================
 // 🎯 COMPONENTES ESPECÍFICOS POR ROL
 // ===============================================
-
 export const AdminDashboardWrapper = ({ children }) => (
   <DashboardWrapper requiredRole="admin">
     {children}
@@ -161,38 +272,3 @@ export const ConductorDashboardWrapper = ({ children }) => (
     {children}
   </DashboardWrapper>
 );
-
-// ===============================================
-// 🔧 UTILIDADES PARA DEBUGGING
-// ===============================================
-
-export const DashboardDebugInfo = () => {
-  const [debugInfo, setDebugInfo] = useState(null);
-
-  useEffect(() => {
-    if (import.meta.env.MODE === 'development') {
-      const info = {
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-        userAgent: navigator.userAgent,
-        isClient: typeof window !== 'undefined',
-        hasLocalStorage: typeof localStorage !== 'undefined',
-        environment: import.meta.env.MODE
-      };
-      setDebugInfo(info);
-    }
-  }, []);
-
-  if (import.meta.env.MODE !== 'development' || !debugInfo) {
-    return null;
-  }
-
-  return (
-    <div className="fixed bottom-4 right-4 bg-black bg-opacity-75 text-white p-2 rounded text-xs max-w-xs">
-      <div className="font-bold mb-1">🔧 Debug Info:</div>
-      <div>Env: {debugInfo.environment}</div>
-      <div>Client: {debugInfo.isClient ? '✅' : '❌'}</div>
-      <div>Storage: {debugInfo.hasLocalStorage ? '✅' : '❌'}</div>
-    </div>
-  );
-};

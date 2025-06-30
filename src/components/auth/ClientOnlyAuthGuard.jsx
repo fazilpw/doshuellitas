@@ -88,16 +88,19 @@ export const SimpleLoginForm = () => {
         
         // Redirección manual basada en el rol
         const profile = result.profile;
-        let redirectPath = '/dashboard/padre/';
-        
-        if (profile?.role === 'profesor') {
-          redirectPath = '/dashboard/profesor/';
-        } else if (profile?.role === 'admin') {
-          redirectPath = '/dashboard/admin/';
-        }
-        
-        // Redirección forzada
-        window.location.href = redirectPath;
+const roleRedirectMap = {
+  'padre': '/dashboard/padre/',
+  'profesor': '/dashboard/profesor/',
+  'admin': '/dashboard/admin/',
+  'conductor': '/dashboard/conductor/'
+};
+
+const redirectPath = roleRedirectMap[profile?.role] || '/dashboard/padre/';
+
+console.log(`🔄 Login exitoso - Redirigiendo ${profile?.role} a: ${redirectPath}`);
+
+// Redirección forzada
+window.location.href = redirectPath;
       } else {
         setError(result.error || 'Credenciales incorrectas');
       }
