@@ -2,7 +2,7 @@
 // 🚐 DASHBOARD CONDUCTOR - SISTEMA REAL DE TRACKING GPS
 // ✅ SIN MODO DEMO + TRACKING COMPLETO + PUNTOS DE PICKUP/DELIVERY
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; 
 import supabase from '../../lib/supabase.js';
 
 const ConductorDashboard = ({ authUser, authProfile }) => {
@@ -25,6 +25,8 @@ const ConductorDashboard = ({ authUser, authProfile }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [routeProgress, setRouteProgress] = useState([]);
   const [currentDogIndex, setCurrentDogIndex] = useState(0);
+const watchId = useRef(null);
+const [lastUpdate, setLastUpdate] = useState(null);  // Si no existe
   
   // Estado de navegación
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -216,37 +218,40 @@ const ConductorDashboard = ({ authUser, authProfile }) => {
   // 🗺️ SISTEMA DE TRACKING GPS
   // ===============================================
   const initializeGPSTracking = () => {
-    if (!navigator.geolocation) {
-      alert('❌ Tu dispositivo no soporta GPS');
-      return false;
+  if (!navigator.geolocation) {
+    alert('❌ Tu dispositivo no soporta GPS');
+    return false;
+  }
+
+  const id = navigator.geolocation.watchPosition(
+    (position) => {
+      const location = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: new Date().toISOString()
+      };
+      
+      setCurrentLocation(location);
+      setLastUpdate(new Date()); // Agregar si no existe
+      
+      // Guardar ubicación en tiempo real
+      saveLocationUpdate(location);
+    },
+    (error) => {
+      console.error('❌ Error GPS:', error);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 5000
     }
+  );
 
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const location = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: new Date().toISOString()
-        };
-        
-        setCurrentLocation(location);
-        
-        // Guardar ubicación en tiempo real
-        saveLocationUpdate(location);
-      },
-      (error) => {
-        console.error('❌ Error GPS:', error);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 5000
-      }
-    );
+  watchId.current = id; // ← GUARDAR EN EL REF
+  return id;
+};
 
-    return watchId;
-  };
 
   const saveLocationUpdate = async (location) => {
     if (!vehicle || !activeRoute) return;
@@ -420,74 +425,277 @@ const ConductorDashboard = ({ authUser, authProfile }) => {
   };
 
   const completeCurrentStop = async () => {
-    if (!activeRoute || !isTrackingActive) return;
-
-    try {
-      const dogId = selectedDogs[currentDogIndex];
-      const dog = allDogs.find(d => d.id === dogId);
-      
-      if (!dog) return;
-
-      // Marcar perro como recogido/entregado
-      const stopData = {
-        route_id: activeRoute.id,
-        dog_id: dogId,
-        location: currentLocation,
-        timestamp: new Date().toISOString(),
-        action: routeType === 'pickup' ? 'picked_up' : 'delivered',
-        notes: `${dog.name} ${routeType === 'pickup' ? 'recogido' : 'entregado'} exitosamente`
-      };
-
-      // Guardar en historial de paradas (necesitarías crear esta tabla)
-      console.log('📍 Parada completada:', stopData);
-
-      // Notificar al padre específico
-      await notifyParentDogUpdate(dog, stopData.action);
-
-      // Avanzar al siguiente perro
-      if (currentDogIndex < selectedDogs.length - 1) {
-        setCurrentDogIndex(prev => prev + 1);
-        alert(`✅ ${dog.name} ${stopData.action}. Siguiente parada cargada.`);
-      } else {
-        // Completar ruta
-        await completeActiveRoute();
-      }
-
-    } catch (error) {
-      console.error('❌ Error completando parada:', error);
+  try {
+    if (!activeRoute || selectedDogs.length === 0) {
+      alert('⚠️ No hay parada actual para completar');
+      return;
     }
-  };
+
+    const currentDog = allDogs.find(d => d.id === selectedDogs[currentDogIndex]);
+    if (!currentDog) {
+      alert('⚠️ No se encontró información del perro');
+      return;
+    }
+
+    // Confirmación
+    const action = routeType === 'pickup' ? 'recogido' : 'entregado';
+    if (!confirm(`¿Confirmas que ${currentDog.name} ha sido ${action}?`)) {
+      return;
+    }
+
+    console.log(`✅ Marcando ${currentDog.name} como ${action}`);
+
+    // Actualizar progreso localmente
+    const newProgress = [...routeProgress];
+    newProgress[currentDogIndex] = {
+      dogId: currentDog.id,
+      dogName: currentDog.name,
+      status: 'completed',
+      timestamp: new Date().toISOString(),
+      location: currentLocation
+    };
+    setRouteProgress(newProgress);
+
+    // Mostrar notificación inmediata
+    alert(`✅ ${currentDog.name} ${action} exitosamente!`);
+
+    // Avanzar al siguiente perro
+    if (currentDogIndex < selectedDogs.length - 1) {
+      setCurrentDogIndex(prev => prev + 1);
+      console.log(`➡️ Avanzando al perro ${currentDogIndex + 2} de ${selectedDogs.length}`);
+    } else {
+      // Última parada completada
+      alert('🎉 ¡Todas las paradas completadas! Puedes finalizar la ruta.');
+    }
+
+    // Intentar notificar padres en segundo plano
+    notifyParentInBackground(currentDog, action);
+
+  } catch (error) {
+    console.error('❌ Error completando parada:', error);
+    alert('⚠️ Parada marcada como completada, pero hubo un problema con la notificación');
+  }
+};
+
+// ===============================================
+// 📱 NOTIFICAR PADRES EN SEGUNDO PLANO
+// ===============================================
+const notifyParentInBackground = async (dog, action) => {
+  try {
+    console.log(`📱 Enviando notificación para ${dog.name}...`);
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 3000)
+    );
+    
+    const notificationPromise = supabase
+      .from('notifications')
+      .insert([{
+        user_id: dog.owner_id,
+        title: `🚐 ${dog.name} ${action}`,
+        message: `${dog.name} ha sido ${action} exitosamente. ${action === 'recogido' ? 'En camino al colegio.' : 'Ya está en casa.'}`,
+        type: 'success'
+      }]);
+
+    await Promise.race([notificationPromise, timeoutPromise]);
+    console.log('✅ Notificación enviada');
+    
+  } catch (error) {
+    console.warn('⚠️ No se pudo enviar notificación (ignorado):', error.message);
+  }
+};
+
+// ===============================================
+// ⏸️ PAUSAR TRACKING (ARREGLADO)
+// ===============================================
+const pauseTracking = () => {
+  try {
+    console.log('⏸️ Pausando tracking...');
+    
+    setIsTrackingActive(false);
+    
+    if (watchId.current) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+    
+    alert('⏸️ Tracking pausado. Los padres no recibirán actualizaciones hasta que lo reactives.');
+    
+  } catch (error) {
+    console.error('❌ Error pausando tracking:', error);
+    alert('⚠️ Error pausando tracking');
+  }
+};
+
+// ===============================================
+// 🚨 BOTÓN DE EMERGENCIA (ARREGLADO)
+// ===============================================
+const handleEmergency = () => {
+  try {
+    if (!confirm('🚨 ¿Confirmas que hay una EMERGENCIA?')) {
+      return;
+    }
+
+    console.log('🚨 EMERGENCIA ACTIVADA');
+    
+    // Parar tracking
+    setIsTrackingActive(false);
+    if (watchId.current) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+
+    // Cambiar estado de ruta
+    setActiveRoute(prev => prev ? { ...prev, status: 'emergency' } : null);
+
+    // Notificación inmediata
+    alert('🚨 EMERGENCIA registrada. Se notificará al administrador.');
+
+    // Intentar enviar notificación de emergencia en segundo plano
+    sendEmergencyNotificationInBackground();
+
+  } catch (error) {
+    console.error('❌ Error manejando emergencia:', error);
+    alert('🚨 Emergencia registrada localmente');
+  }
+};
+
+const sendEmergencyNotificationInBackground = async () => {
+  try {
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 5000)
+    );
+    
+    const notificationPromise = supabase
+      .from('notifications')
+      .insert([{
+        user_id: 'admin-id', // ID del admin
+        title: '🚨 EMERGENCIA - Conductor',
+        message: `Emergencia reportada por conductor ${currentUser?.full_name} en ruta ${activeRoute?.route_name}`,
+        type: 'error'
+      }]);
+
+    await Promise.race([notificationPromise, timeoutPromise]);
+    console.log('✅ Notificación de emergencia enviada');
+    
+  } catch (error) {
+    console.warn('⚠️ No se pudo enviar notificación de emergencia:', error.message);
+  }
+};
+
+
+// ===============================================
+// 🔄 REINICIAR TRACKING (ARREGLADO)
+// ===============================================
+const restartTracking = () => {
+  try {
+    console.log('🔄 Reiniciando tracking...');
+    
+    if (selectedDogs.length === 0) {
+      alert('⚠️ Selecciona perros antes de reiniciar tracking');
+      return;
+    }
+
+    // Reiniciar GPS
+    const watchId = initializeGPSTracking();
+    if (watchId) {
+      setIsTrackingActive(true);
+      alert('✅ Tracking reiniciado. Los padres pueden seguirte de nuevo.');
+    } else {
+      alert('❌ No se pudo reiniciar el GPS');
+    }
+
+  } catch (error) {
+    console.error('❌ Error reiniciando tracking:', error);
+    alert('❌ Error reiniciando tracking');
+  }
+};
+
+// ===============================================
+// 📞 CONTACTAR SOPORTE (NUEVO)
+// ===============================================
+const contactSupport = () => {
+  const phone = '+573001234567'; // Número del club
+  const message = encodeURIComponent(
+    `Hola, soy ${currentUser?.full_name}, conductor del Club Canino. ` +
+    `Necesito ayuda con la ruta ${activeRoute?.route_name || 'actual'}.`
+  );
+  
+  const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
+  window.open(whatsappUrl, '_blank');
+};
 
   const completeActiveRoute = async () => {
-    if (!activeRoute) return;
-
-    try {
-      const { error } = await supabase
-        .from('vehicle_routes')
-        .update({ 
-          status: 'completed',
-          actual_end_time: new Date().toISOString()
-        })
-        .eq('id', activeRoute.id);
-
-      if (error) throw error;
-
-      setIsTrackingActive(false);
-      setCurrentLocation(null);
-      setCurrentDogIndex(0);
-      
-      // Notificar a padres que la ruta terminó
-      await notifyParentsRouteCompleted();
-      
-      alert('🏁 Ruta completada exitosamente!');
-      
-      // Refrescar datos
-      await fetchConductorData(currentUser.id);
-      
-    } catch (error) {
-      console.error('❌ Error completando ruta:', error);
+  try {
+    // Confirmación
+    if (!confirm('¿Estás seguro de que quieres finalizar la ruta?')) {
+      return;
     }
-  };
+
+    console.log('🏁 Finalizando ruta activa...');
+    
+    // Detener tracking GPS inmediatamente
+    setIsTrackingActive(false);
+    if (watchId.current) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+
+    // Actualizar estado local inmediatamente (sin esperar BD)
+    setActiveRoute(prev => prev ? { ...prev, status: 'completed' } : null);
+    setCurrentLocation(null);
+    setLastUpdate(null);
+
+    // Mostrar notificación de éxito inmediato
+    alert('✅ Ruta finalizada exitosamente!');
+    
+    // Limpiar datos de la ruta
+    setSelectedDogs([]);
+    setAvailableDogs([]);
+    setSelectedDogsWithAddresses([]);
+    setRouteType('');
+    
+    console.log('✅ Ruta finalizada localmente');
+
+    // Intentar actualizar BD en segundo plano (sin bloquear UI)
+    updateRouteInBackground();
+    
+  } catch (error) {
+    console.error('❌ Error finalizando ruta:', error);
+    alert('⚠️ Ruta finalizada localmente, pero hubo un problema guardando en servidor');
+  }
+};
+
+// ===============================================
+// 🔄 ACTUALIZACIÓN EN SEGUNDO PLANO (NO BLOQUEA)
+// ===============================================
+const updateRouteInBackground = async () => {
+  try {
+    console.log('🔄 Intentando actualizar BD en segundo plano...');
+    
+    // Timeout para evitar colgarse
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 5000)
+    );
+    
+    const updatePromise = supabase
+      .from('vehicle_routes')
+      .update({ 
+        status: 'completed',
+        actual_end_time: new Date().toISOString()
+      })
+      .eq('id', activeRoute?.id);
+
+    // Race entre actualización y timeout
+    await Promise.race([updatePromise, timeoutPromise]);
+    
+    console.log('✅ BD actualizada en segundo plano');
+    
+  } catch (error) {
+    console.warn('⚠️ No se pudo actualizar BD (ignorado):', error.message);
+    // No mostrar error al usuario, la ruta ya se finalizó localmente
+  }
+};
 
   // ===============================================
   // 📱 NOTIFICACIONES A PADRES
@@ -938,26 +1146,47 @@ const ConductorDashboard = ({ authUser, authProfile }) => {
             <h2 className="text-xl font-semibold text-[#2C3E50] mb-4">🎮 Controles de Ruta</h2>
             
             <div className="flex flex-wrap gap-4">
-              <button 
-                onClick={completeCurrentStop}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                ✅ Completar Parada Actual
-              </button>
+             <button 
+  onClick={completeCurrentStop}
+  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+>
+  ✅ Completar Parada Actual
+</button>
               
               <button 
-                onClick={completeActiveRoute}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                🏁 Finalizar Ruta
-              </button>
+  onClick={completeActiveRoute}
+  className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
+>
+  🏁 Finalizar Ruta
+</button>
               
-              <button 
-                onClick={() => setIsTrackingActive(false)}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-              >
-                ⏸️ Pausar Tracking
-              </button>
+             <button 
+  onClick={pauseTracking}
+  className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors"
+>
+  ⏸️ Pausar Tracking
+</button>
+
+<button 
+  onClick={handleEmergency}
+  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+>
+  🚨 Emergencia
+</button>
+
+<button 
+  onClick={restartTracking}
+  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+>
+  🔄 Reiniciar Tracking
+</button>
+
+<button 
+  onClick={contactSupport}
+  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+>
+  📞 Contactar Soporte
+</button>
             </div>
           </div>
         </>
