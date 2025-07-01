@@ -5,6 +5,12 @@
   command = "npm run build"
   publish = "dist"
 
+  # API routes
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
 # ============================================
 # 🎯 TRAILING SLASH FIX UNIVERSAL
 # ============================================
