@@ -10,6 +10,8 @@ import VaccineManager from '../routines/VaccineManager.jsx';
 import MedicineManager from '../routines/MedicineManager.jsx';
 import GroomingManager from '../routines/GroomingManager.jsx';
 import ParentManagementPanel from './ParentManagementPanel.jsx';
+import { LogoutButton } from '../../utils/logoutHandler.jsx';
+
 
 const ParentDashboard = ({ authUser, authProfile }) => {
   // ===============================================
@@ -243,22 +245,7 @@ const ParentDashboard = ({ authUser, authProfile }) => {
     setLoading(false);
   };
 
-  const handleLogout = async () => {
-    try {
-      console.log('🚪 Cerrando sesión...');
-      const { authService } = await import('../../lib/authService.js');
-      const result = await authService.signOut();
-      
-      if (result.success) {
-        console.log('✅ Sesión cerrada correctamente');
-        window.location.href = '/login/';
-      } else {
-        console.error('❌ Error cerrando sesión:', result.error);
-      }
-    } catch (error) {
-      console.error('❌ Error durante logout:', error);
-    }
-  };
+  
 
   // ===============================================
   // 🎨 COMPONENTES DE RENDERIZADO
@@ -356,15 +343,8 @@ const ParentDashboard = ({ authUser, authProfile }) => {
 
       {/* Footer del sidebar */}
       <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-200">
-        <button 
-          onClick={handleLogout}
-          className="w-full flex items-center space-x-3 px-3 py-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors group"
-        >
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-100 group-hover:bg-red-200">
-            <span className="text-lg">🚪</span>
-          </div>
-          <span className="font-medium">Cerrar Sesión</span>
-        </button>
+        <LogoutButton variant="sidebar" />
+
       </div>
     </div>
   );

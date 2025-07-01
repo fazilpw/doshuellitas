@@ -9,6 +9,8 @@ import VaccineManager from '../routines/VaccineManager.jsx';
 import MedicineManager from '../routines/MedicineManager.jsx';
 import GroomingManager from '../routines/GroomingManager.jsx';
 import RoutineManager from '../routines/RoutineManager.jsx';
+import TeacherMedicalView from '../teacher/TeacherMedicalView.jsx';
+
 
 const TeacherDashboard = ({ authUser, authProfile }) => {
   // ===============================================
@@ -337,9 +339,10 @@ const TeacherDashboard = ({ authUser, authProfile }) => {
         <div className="mt-4 space-y-2">
           {[
             { key: 'dashboard', label: 'Dashboard', icon: '👨‍🏫' },
-            { key: 'evaluaciones', label: 'Evaluaciones', icon: '📋' },
-            { key: 'rutinas', label: 'Rutinas', icon: '📅' },
-            { key: 'salud', label: 'Salud', icon: '🏥' }
+  { key: 'evaluaciones', label: 'Evaluaciones', icon: '📋' },
+  { key: 'rutinas', label: 'Rutinas', icon: '📅' },
+  { key: 'medico', label: 'Centro Médico', icon: '🏥' },  // ← AGREGAR ESTA LÍNEA
+  { key: 'salud', label: 'Salud', icon: '🏥' }
           ].map(item => (
             <button
               key={item.key}
@@ -382,9 +385,10 @@ const TeacherDashboard = ({ authUser, authProfile }) => {
       <div className="p-3 space-y-2">
         {[
           { key: 'dashboard', label: 'Dashboard', icon: '👨‍🏫' },
-          { key: 'evaluaciones', label: 'Evaluaciones', icon: '📋' },
-          { key: 'rutinas', label: 'Rutinas', icon: '📅' },
-          { key: 'salud', label: 'Salud', icon: '🏥' }
+  { key: 'evaluaciones', label: 'Evaluaciones', icon: '📋' },
+  { key: 'rutinas', label: 'Rutinas', icon: '📅' },
+  { key: 'medico', label: 'Centro Médico', icon: '🏥' },  // ← AGREGAR ESTA LÍNEA
+  { key: 'salud', label: 'Salud', icon: '🏥' }
         ].map(item => (
           <button
             key={item.key}
@@ -667,6 +671,15 @@ const TeacherDashboard = ({ authUser, authProfile }) => {
             </div>
           </div>
         );
+
+        case 'medico':
+  return (
+    <div className={contentClasses}>
+      <div className={innerClasses}>
+        <TeacherMedicalView />
+      </div>
+    </div>
+  );
       
       case 'rutinas':
         return (
@@ -688,6 +701,7 @@ const TeacherDashboard = ({ authUser, authProfile }) => {
             </div>
           </div>
         );
+
       
       default: // dashboard
         return (
