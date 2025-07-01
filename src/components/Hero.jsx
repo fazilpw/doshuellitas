@@ -128,9 +128,9 @@ const Hero = () => {
             <div className="absolute -bottom-6 -left-6 bg-white p-4 rounded-lg shadow-lg z-10 hidden md:block">
               <div className="flex items-center">
                 <div className="flex -space-x-2">
-                  <img className="inline-block h-10 w-10 rounded-full ring-2 ring-white" src="/images/comentario/20252.webp" alt="" />
-                  <img className="inline-block h-10 w-10 rounded-full ring-2 ring-white" src="/images/comentario/20252.webp" alt="" />
-                  <img className="inline-block h-10 w-10 rounded-full ring-2 ring-white" src="/images/comentario/20252.webp" alt="" />
+                  <img className="inline-block h-10 w-10 rounded-full ring-2 ring-white" src="/images/club-huellitas-perrot-001.webp" alt="" />
+                  <img className="inline-block h-10 w-10 rounded-full ring-2 ring-white" src="/images/club-huellitas-perrot-002.webp" alt="" />
+                  <img className="inline-block h-10 w-10 rounded-full ring-2 ring-white" src="/images/club-huellitas-perrot-003.webp" alt="" />
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-700">Haciendo peluditos felices</p>

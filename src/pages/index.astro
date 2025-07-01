@@ -1,11 +1,12 @@
 ---
-// src/pages/index.astro - ACTUALIZADO
+// src/pages/index.astro - SOLUCIÓN FINAL SIN ERRORES DE TYPESCRIPT
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.jsx';
 import Hero from '../components/Hero.jsx';
 import Services from '../components/Services.jsx';
-import Facilities from '../components/Facilities';
-import AppPromotion from '../components/AppPromotion.jsx'; // NUEVO COMPONENTE
+import Facilities from '../components/Facilities.jsx';
+import SimpleCarousel from '../components/SimpleCarousel.jsx';
+import AppPromotion from '../components/AppPromotion.jsx';
 import Testimonials from '../components/Testimonials.jsx';
 import FAQ from '../components/FAQ.jsx';
 import Contact from '../components/Contact.jsx';
@@ -33,8 +34,16 @@ const pageDescription = "Guardería, colegio y hotel canino con servicio de ruta
   <section id="instalaciones">
     <Facilities client:load />
   </section>
+
+  <!-- NUEVA SECCIÓN: GALERÍA DE FOTOS - SIN PROBLEMAS DE TIPOS -->
+  <section id="galeria">
+    <SimpleCarousel 
+    
+      client:load 
+    />
+  </section>
   
-  <!-- NUEVA SECCIÓN: PROMOCIÓN DE LA APLICACIÓN -->
+  <!-- SECCIÓN: PROMOCIÓN DE LA APLICACIÓN -->
   <section id="aplicacion">
     <AppPromotion client:load />
   </section>
