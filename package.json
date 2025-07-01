@@ -1,32 +1,57 @@
 {
   "name": "club-canino-dos-huellitas",
   "type": "module",
-  "version": "0.0.1",
+  "version": "2.0.0",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "generate-vapid": "node scripts/generate-vapid-keys.cjs",
+    "setup-notifications": "npm run generate-vapid && echo 'VAPID keys generadas. Configúralas en Netlify y haz deploy.'"
   },
   "dependencies": {
-    "@astrojs/netlify": "^5.5.1",
+    "@astrojs/netlify": "^5.5.3",
     "@astrojs/react": "^3.6.2",
     "@astrojs/tailwind": "^5.1.1",
-    "@supabase/ssr": "^0.4.0",
-    "@supabase/supabase-js": "^2.50.2",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "astro": "^4.15.8",
+    "@supabase/supabase-js": "^2.45.4",
+    "astro": "^4.15.12",
+    "lucide-react": "^0.263.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwindcss": "^3.4.10"
+    "recharts": "^2.12.7",
+    "tailwindcss": "^3.4.13",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@types/node": "^22.5.4",
-    "typescript": "^5.6.2"
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1"
   },
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "description": "Progressive Web App para el seguimiento comportamental de perros en Club Canino Dos Huellitas",
+  "keywords": [
+    "pwa",
+    "club-canino",
+    "comportamiento-canino",
+    "astro",
+    "react",
+    "supabase",
+    "push-notifications"
+  ],
+  "author": {
+    "name": "Club Canino Dos Huellitas",
+    "email": "admin@clubcaninodoshuellitas.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/club-canino/dos-huellitas-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/club-canino/dos-huellitas-app/issues"
+  },
+  "homepage": "https://clubcaninodoshuellitas.com"
 }

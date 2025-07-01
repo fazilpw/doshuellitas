@@ -1,14 +1,13 @@
-// public/sw.js - Service Worker CORREGIDO para PWA móvil
-// 🎯 Objetivo: NO causar pantalla en blanco en app instalada
+// public/sw.js - Service Worker para PWA + Push Notifications
+// 🎯 Objetivo: Caching inteligente + Push notifications funcionales
 
-const CACHE_VERSION = 'club-canino-pwa-v2.0.0';
-const STATIC_CACHE = 'club-canino-static-v2';
-const RUNTIME_CACHE = 'club-canino-runtime-v2';
+const CACHE_VERSION = 'club-canino-push-v1.0.0';
+const STATIC_CACHE = 'club-canino-static-v1';
+const RUNTIME_CACHE = 'club-canino-runtime-v1';
 
 // ============================================
 // 🚫 RECURSOS QUE NUNCA SE DEBEN CACHEAR
 // ============================================
-
 const NEVER_CACHE = [
   // APIs y backends
   /supabase/,
@@ -48,416 +47,289 @@ const NEVER_CACHE = [
 // ============================================
 // ✅ RECURSOS SEGUROS PARA CACHEAR
 // ============================================
-
 const SAFE_TO_CACHE = [
   // Solo imágenes y fuentes
   /\.(png|jpg|jpeg|gif|svg|ico|webp|avif)$/,
   /\.(woff|woff2|ttf|eot)$/,
-  /\/icons\//,
-  /\/images\//,
-  /\/screenshots\//
+  // Página principal
+  /^https:\/\/[^\/]+\/$/, 
 ];
 
 // ============================================
-// 📄 PÁGINAS ESTÁTICAS PARA PRE-CACHE
+// 📦 INSTALACIÓN DEL SW
 // ============================================
-
-const STATIC_PAGES = [
-  '/app-home/',  // ← Página principal para PWA instalada
-  '/',
-  '/servicios/',
-  '/instalaciones/',
-  '/contacto/'
-];
-
-// ============================================
-// 🔍 FUNCIONES DE VERIFICACIÓN
-// ============================================
-
-function shouldNeverCache(request) {
-  const url = request.url;
-  return NEVER_CACHE.some(pattern => {
-    if (pattern instanceof RegExp) {
-      return pattern.test(url);
-    }
-    return url.includes(pattern);
-  });
-}
-
-function isSafeToCache(request) {
-  const url = request.url;
-  return SAFE_TO_CACHE.some(pattern => pattern.test(url));
-}
-
-function isNavigationRequest(request) {
-  return request.mode === 'navigate';
-}
-
-function isStaticPage(url) {
-  const pathname = new URL(url).pathname;
-  return STATIC_PAGES.some(page => pathname.startsWith(page));
-}
-
-// ============================================
-// 📦 INSTALACIÓN - PRECACHE MÍNIMO
-// ============================================
-
 self.addEventListener('install', (event) => {
-  console.log('📦 PWA SW v2.0.0: Instalando con estrategia conservadora...');
+  console.log('🔧 SW Club Canino: Instalando...');
   
   event.waitUntil(
-    caches.open(STATIC_CACHE).then(async (cache) => {
-      console.log('💾 Pre-cacheando páginas críticas...');
-      
-      // Solo pre-cachear páginas que sabemos que funcionan
-      const pagesToCache = ['/app-home/'];
-      
-      const results = await Promise.allSettled(
-        pagesToCache.map(async (url) => {
-          try {
-            const response = await fetch(url, {
-              cache: 'no-cache',
-              headers: {
-                'Cache-Control': 'no-cache'
-              }
-            });
-            
-            if (response.ok && response.status === 200) {
-              await cache.put(url, response.clone());
-              console.log(`✅ Pre-cacheado exitoso: ${url}`);
-              return true;
-            } else {
-              console.warn(`⚠️ No se pudo pre-cachear: ${url} (status: ${response.status})`);
-              return false;
-            }
-          } catch (error) {
-            console.error(`❌ Error pre-cacheando ${url}:`, error.message);
-            return false;
-          }
-        })
-      );
-      
-      const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
-      console.log(`📊 Pre-cache completado: ${successful}/${pagesToCache.length} páginas`);
-      
-      return self.skipWaiting();
-    }).catch(error => {
-      console.error('❌ Error durante instalación:', error);
-      // Continuar incluso si hay errores en pre-cache
-      return self.skipWaiting();
+    caches.open(STATIC_CACHE).then((cache) => {
+      console.log('📦 Cache estático abierto');
+      // Pre-cachear recursos críticos mínimos
+      return cache.addAll([
+        '/',
+        '/manifest.json',
+        '/icons/icon-192x192.png',
+        '/icons/icon-512x512.png'
+      ]).catch((error) => {
+        console.warn('⚠️ Error pre-cacheando recursos:', error);
+        // No fallar la instalación por esto
+      });
     })
   );
+  
+  // Activar inmediatamente
+  self.skipWaiting();
 });
 
 // ============================================
-// 🔄 ACTIVACIÓN - LIMPIEZA CUIDADOSA
+// 🚀 ACTIVACIÓN DEL SW
 // ============================================
-
 self.addEventListener('activate', (event) => {
-  console.log('🔄 PWA SW: Activando y limpiando caches antiguos...');
+  console.log('🚀 SW Club Canino: Activando...');
   
   event.waitUntil(
     Promise.all([
-      // Limpiar caches de versiones anteriores
-      caches.keys().then(cacheNames => {
-        const oldCaches = cacheNames.filter(cacheName => 
-          cacheName.includes('club-canino') && 
-          cacheName !== STATIC_CACHE && 
-          cacheName !== RUNTIME_CACHE
-        );
-        
+      // Limpiar caches antiguos
+      caches.keys().then((cacheNames) => {
         return Promise.all(
-          oldCaches.map(cacheName => {
-            console.log('🗑️ Eliminando cache antiguo:', cacheName);
-            return caches.delete(cacheName);
+          cacheNames.map((cacheName) => {
+            if (cacheName !== STATIC_CACHE && cacheName !== RUNTIME_CACHE) {
+              console.log('🗑️ Eliminando cache antiguo:', cacheName);
+              return caches.delete(cacheName);
+            }
           })
         );
       }),
-      
-      // Tomar control de todas las pestañas
+      // Tomar control inmediato
       self.clients.claim()
-      
-    ]).then(() => {
-      console.log('✅ PWA SW activado - Listo para uso');
-      
-      // Notificar a la app
-      return self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'SW_ACTIVATED',
-            version: CACHE_VERSION,
-            timestamp: new Date().toISOString()
+    ])
+  );
+  
+  console.log('✅ SW Club Canino: Activo y listo para push notifications');
+  
+  // Notificar al cliente que el SW está listo
+  self.clients.matchAll().then((clients) => {
+    clients.forEach((client) => {
+      client.postMessage({
+        type: 'SW_ACTIVATED',
+        data: { version: CACHE_VERSION }
+      });
+    });
+  });
+});
+
+// ============================================
+// 🌐 INTERCEPCIÓN DE REQUESTS (Caching)
+// ============================================
+self.addEventListener('fetch', (event) => {
+  // Solo manejar requests GET
+  if (event.request.method !== 'GET') return;
+  
+  const url = event.request.url;
+  
+  // Nunca cachear estos recursos
+  if (NEVER_CACHE.some(pattern => pattern.test(url))) {
+    return; // Ir directo a la red
+  }
+  
+  // Solo cachear recursos seguros
+  if (SAFE_TO_CACHE.some(pattern => pattern.test(url))) {
+    event.respondWith(
+      caches.open(RUNTIME_CACHE).then((cache) => {
+        return cache.match(event.request).then((response) => {
+          if (response) {
+            console.log('📦 Cache hit:', url);
+            return response;
+          }
+          
+          // Fetch y cachear
+          return fetch(event.request).then((response) => {
+            // Solo cachear respuestas exitosas
+            if (response.status === 200) {
+              cache.put(event.request, response.clone());
+            }
+            return response;
           });
         });
-      });
-    }).catch(error => {
-      console.error('❌ Error durante activación:', error);
+      })
+    );
+  }
+});
+
+// ============================================
+// 🔔 PUSH NOTIFICATIONS - EVENTO PRINCIPAL
+// ============================================
+self.addEventListener('push', (event) => {
+  console.log('🔔 Push notification recibida:', event);
+  
+  let notificationData = {};
+  
+  try {
+    // Intentar parsear datos del push
+    if (event.data) {
+      notificationData = event.data.json();
+    }
+  } catch (error) {
+    console.warn('⚠️ Error parseando datos push:', error);
+    // Usar datos por defecto
+    notificationData = {
+      title: '🐕 Club Canino Dos Huellitas',
+      body: 'Nueva notificación disponible',
+      icon: '/icons/icon-192x192.png'
+    };
+  }
+  
+  // Configuración por defecto de notificación
+  const notificationOptions = {
+    body: notificationData.body || 'Tienes una nueva actualización',
+    icon: notificationData.icon || '/icons/icon-192x192.png',
+    badge: notificationData.badge || '/icons/badge-72x72.png',
+    tag: notificationData.tag || 'club-canino-notification',
+    data: notificationData.data || {},
+    
+    // Configuraciones avanzadas
+    requireInteraction: true, // La notificación permanece hasta que el usuario interactúe
+    vibrate: [100, 50, 100], // Patrón de vibración
+    
+    // Acciones disponibles en la notificación
+    actions: [
+      {
+        action: 'view',
+        title: '👀 Ver detalles',
+        icon: '/icons/view-icon.png'
+      },
+      {
+        action: 'dismiss',
+        title: '❌ Descartar',
+        icon: '/icons/dismiss-icon.png'
+      }
+    ]
+  };
+  
+  // Personalización según tipo de notificación
+  if (notificationData.data && notificationData.data.type) {
+    switch (notificationData.data.type) {
+      case 'transport':
+        notificationOptions.requireInteraction = true;
+        notificationOptions.tag = 'transport-update';
+        break;
+      case 'evaluation':
+        notificationOptions.tag = 'evaluation-new';
+        break;
+      case 'vaccine':
+        notificationOptions.requireInteraction = true;
+        notificationOptions.tag = 'vaccine-reminder';
+        break;
+    }
+  }
+  
+  event.waitUntil(
+    self.registration.showNotification(
+      notificationData.title || '🐕 Club Canino',
+      notificationOptions
+    ).then(() => {
+      console.log('✅ Notificación mostrada:', notificationData.title);
+    }).catch((error) => {
+      console.error('❌ Error mostrando notificación:', error);
     })
   );
 });
 
 // ============================================
-// 🌐 FETCH - ESTRATEGIA ULTRA CONSERVADORA
+// 👆 CLICK EN NOTIFICACIÓN
 // ============================================
-
-self.addEventListener('fetch', (event) => {
-  const request = event.request;
-  const url = new URL(request.url);
+self.addEventListener('notificationclick', (event) => {
+  console.log('👆 Notificación clickeada:', event.notification.tag, event.action);
   
-  // 🚨 REGLA #1: NUNCA interceptar recursos prohibidos
-  if (shouldNeverCache(request)) {
-    // Dejar pasar completamente SIN interceptar
-    console.log('🚫 SW: Pasando sin interceptar:', url.pathname);
-    return; // ← No usar event.respondWith()
+  event.notification.close();
+  
+  let url = '/dashboard/';
+  
+  // Determinar URL según el tipo de notificación
+  if (event.notification.data) {
+    switch (event.notification.data.type) {
+      case 'transport':
+        url = '/dashboard/tracking/';
+        break;
+      case 'evaluation':
+        url = '/dashboard/evaluaciones/';
+        break;
+      case 'vaccine':
+        url = '/dashboard/recordatorios/';
+        break;
+    }
   }
   
-  // 🚨 REGLA #2: Manejar navegación de forma muy cuidadosa
-  if (isNavigationRequest(request)) {
-    console.log('🧭 SW: Solicitud de navegación:', url.pathname);
-    
-    // Solo interceptar páginas que sabemos que están cached
-    if (isStaticPage(request.url)) {
-      event.respondWith(handleNavigation(request));
-    } else {
-      // Para cualquier otra navegación, dejar pasar al servidor
-      console.log('🚫 SW: Navegación no cached, pasando al servidor:', url.pathname);
-      return;
-    }
+  // Manejar acciones específicas
+  if (event.action === 'dismiss') {
+    console.log('🗑️ Notificación descartada');
     return;
   }
   
-  // 🚨 REGLA #3: Solo cachear assets seguros
-  if (isSafeToCache(request)) {
-    console.log('🖼️ SW: Manejando asset seguro:', url.pathname);
-    event.respondWith(handleAsset(request));
-  }
-  
-  // Para todo lo demás, dejar pasar sin interceptar
+  // Abrir la app
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clientList) => {
+      // Buscar si ya hay una ventana abierta
+      for (const client of clientList) {
+        if (client.url.includes('/dashboard') && 'focus' in client) {
+          console.log('🔄 Enfocando ventana existente');
+          return client.focus();
+        }
+      }
+      
+      // Si no hay ventana abierta, abrir nueva
+      if (clients.openWindow) {
+        console.log('🆕 Abriendo nueva ventana:', url);
+        return clients.openWindow(url);
+      }
+    })
+  );
 });
 
 // ============================================
-// 🧭 MANEJAR NAVEGACIÓN
+// 🔕 CERRAR NOTIFICACIÓN
 // ============================================
-
-async function handleNavigation(request) {
-  const url = new URL(request.url);
+self.addEventListener('notificationclose', (event) => {
+  console.log('🔕 Notificación cerrada:', event.notification.tag);
   
-  try {
-    console.log('🔍 SW: Procesando navegación:', url.pathname);
-    
-    // Network First para navegación (datos frescos)
-    const networkResponse = await fetch(request, {
-      cache: 'no-cache'
-    });
-    
-    if (networkResponse.ok) {
-      // Cachear para uso offline
-      const cache = await caches.open(RUNTIME_CACHE);
-      cache.put(request, networkResponse.clone());
-      console.log('✅ SW: Navegación servida desde red y cacheada');
-      return networkResponse;
-    }
-    
-    throw new Error(`Network response not ok: ${networkResponse.status}`);
-    
-  } catch (networkError) {
-    console.log('🌐 SW: Red falló para navegación, buscando cache...');
-    
-    // Intentar servir desde cache
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      console.log('✅ SW: Navegación servida desde cache');
-      return cachedResponse;
-    }
-    
-    // Último recurso: página offline para PWA
-    console.log('📱 SW: Sirviendo página offline de emergencia');
-    return createOfflinePage();
-  }
-}
+  // Opcional: Analytics de notificaciones cerradas
+  // trackNotificationClose(event.notification.data);
+});
 
 // ============================================
-// 🖼️ MANEJAR ASSETS
+// 📨 MENSAJES DEL CLIENTE
 // ============================================
-
-async function handleAsset(request) {
-  try {
-    // Cache First para assets (rendimiento)
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      console.log('💾 SW: Asset servido desde cache:', request.url);
-      return cachedResponse;
-    }
-    
-    // Si no está en cache, buscar en red
-    const networkResponse = await fetch(request);
-    
-    if (networkResponse.ok) {
-      // Cachear para uso futuro
-      const cache = await caches.open(RUNTIME_CACHE);
-      cache.put(request, networkResponse.clone());
-      console.log('✅ SW: Asset servido desde red y cacheado');
-      return networkResponse;
-    }
-    
-    throw new Error(`Asset fetch failed: ${networkResponse.status}`);
-    
-  } catch (error) {
-    console.warn('⚠️ SW: Error cargando asset:', request.url, error.message);
-    
-    // Para assets, simplemente fallar - el navegador manejará el error
-    return new Response('', { status: 404 });
-  }
-}
-
-// ============================================
-// 📱 PÁGINA OFFLINE DE EMERGENCIA
-// ============================================
-
-function createOfflinePage() {
-  const offlineHTML = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Club Canino - Sin conexión</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #FFFBF0 0%, #ACF0F4 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .container {
-      max-width: 400px;
-      width: 100%;
-      background: white;
-      border-radius: 20px;
-      padding: 40px;
-      text-align: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    }
-    .icon { font-size: 80px; margin-bottom: 20px; }
-    h1 { color: #2C3E50; margin-bottom: 16px; font-size: 1.8rem; }
-    p { color: #666; margin-bottom: 30px; line-height: 1.5; }
-    .btn {
-      background: #56CCF2;
-      color: white;
-      border: none;
-      padding: 15px 30px;
-      border-radius: 10px;
-      font-weight: bold;
-      cursor: pointer;
-      font-size: 16px;
-      margin: 5px;
-    }
-    .btn:hover { background: #2C3E50; }
-    .btn-secondary { background: #gray; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="icon">📡</div>
-    <h1>Sin Conexión</h1>
-    <p>
-      No se pudo conectar con el servidor. 
-      Verifica tu conexión a internet e intenta nuevamente.
-    </p>
-    <button class="btn" onclick="window.location.reload()">
-      🔄 Reintentar
-    </button>
-    <button class="btn btn-secondary" onclick="window.location.href='/app-home/'">
-      🏠 Ir al inicio
-    </button>
-    
-    <script>
-      // Auto-retry cuando vuelva la conexión
-      window.addEventListener('online', () => {
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      });
-    </script>
-  </div>
-</body>
-</html>
-  `;
-  
-  return new Response(offlineHTML, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-cache'
-    }
-  });
-}
-
-// ============================================
-// 📬 MENSAJES DE LA APP
-// ============================================
-
 self.addEventListener('message', (event) => {
-  const { type, data } = event.data || {};
+  console.log('📨 Mensaje recibido en SW:', event.data);
   
-  switch (type) {
+  switch (event.data.type) {
     case 'SKIP_WAITING':
-      console.log('⏭️ SW: Skip waiting solicitado');
       self.skipWaiting();
       break;
-      
     case 'GET_VERSION':
-      event.ports[0]?.postMessage({ 
-        version: CACHE_VERSION,
-        timestamp: new Date().toISOString(),
-        caches: {
-          static: STATIC_CACHE,
-          runtime: RUNTIME_CACHE
-        }
-      });
+      event.ports[0].postMessage({ version: CACHE_VERSION });
       break;
-      
     case 'CLEAR_CACHE':
-      console.log('🧹 SW: Limpiando caches por solicitud...');
-      caches.keys().then(cacheNames => {
-        const clubCaninoCaches = cacheNames.filter(name => 
-          name.includes('club-canino')
-        );
+      caches.keys().then((cacheNames) => {
         return Promise.all(
-          clubCaninoCaches.map(cacheName => caches.delete(cacheName))
+          cacheNames.map((cacheName) => caches.delete(cacheName))
         );
       }).then(() => {
-        console.log('✅ SW: Caches limpiados');
-        event.ports[0]?.postMessage({ success: true });
+        event.ports[0].postMessage({ success: true });
       });
       break;
-      
-    default:
-      console.log('📨 SW: Mensaje no reconocido:', type);
   }
 });
 
 // ============================================
-// 🔧 MANEJO DE ERRORES
+// 🚫 ERROR HANDLING
 // ============================================
-
 self.addEventListener('error', (event) => {
-  console.error('❌ SW Error:', event.error);
+  console.error('❌ Error en SW:', event.error);
 });
 
 self.addEventListener('unhandledrejection', (event) => {
-  console.error('❌ SW Promise Rejection:', event.reason);
-  event.preventDefault();
+  console.error('❌ Promise rechazada en SW:', event.reason);
 });
 
-// ============================================
-// 📊 INICIALIZACIÓN COMPLETA
-// ============================================
-
-console.log('🐕 Club Canino Service Worker v2.0.0 - Optimizado para PWA móvil');
-console.log('🎯 Estrategia: Ultra conservadora para evitar pantalla en blanco');
-console.log('✅ Listo para cachear solo recursos seguros');
+console.log('🔧 Club Canino SW: Script cargado y listo para push notifications');
