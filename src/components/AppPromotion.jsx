@@ -84,6 +84,99 @@ const AppPromotion = () => {
         {/* Grid de características por tipo de usuario */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
           
+          {/* Mockup de la App */}
+          <div className="relative">
+            <div className="relative mx-auto w-64 h-[500px]">
+              {/* Frame del teléfono */}
+              <div className="absolute inset-0 bg-gray-900 rounded-[2.5rem] p-2">
+                <div className="w-full h-full bg-white rounded-[2rem] overflow-hidden relative">
+                  
+                  {/* Notch */}
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-gray-900 rounded-b-lg z-10"></div>
+                  
+                  {/* Contenido de la App */}
+                  <div className="pt-8 px-4 h-full bg-[#FFFBF0]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-[#2C3E50]">Mi Dashboard</h3>
+                      <div className="w-8 h-8 bg-[#56CCF2] rounded-full"></div>
+                    </div>
+                    
+                    {/* Card de perro */}
+                    <div className="bg-white rounded-xl p-4 mb-4 shadow-sm">
+                      <div className="flex items-center mb-3">
+                        <div className="w-12 h-12 bg-[#ACF0F4] rounded-full flex items-center justify-center mr-3">
+                          <span className="text-xl">🐕</span>
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-[#2C3E50]">Max</h4>
+                          <p className="text-xs text-gray-600">Golden Retriever</p>
+                        </div>
+                      </div>
+                      
+                      {/* Métricas */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-600">Progreso</span>
+                          <div className="flex items-center">
+                            <div className="w-12 h-1 bg-gray-200 rounded-full mr-1">
+                              <div className="w-8 h-1 bg-[#56CCF2] rounded-full"></div>
+                            </div>
+                            <span className="text-xs">8/10</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-gray-600">Social</span>
+                          <div className="flex items-center">
+                            <div className="w-12 h-1 bg-gray-200 rounded-full mr-1">
+                              <div className="w-10 h-1 bg-[#C7EA46] rounded-full"></div>
+                            </div>
+                            <span className="text-xs">9/10</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Notificaciones */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-center">
+                        <span className="text-green-600 mr-2">💉</span>
+                        <div>
+                          <p className="text-xs font-medium text-green-800">Vacuna próxima</p>
+                          <p className="text-xs text-green-600">En 15 días</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-center">
+                        <span className="text-blue-600 mr-2">🚌</span>
+                        <div>
+                          <p className="text-xs font-medium text-blue-800">En camino</p>
+                          <p className="text-xs text-blue-600">Llegamos en 5 min</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Botones */}
+                    <div className="space-y-2">
+                      <button className="w-full bg-[#56CCF2] text-white py-2 px-4 rounded-lg text-xs font-medium">
+                        💊 Ver Medicinas
+                      </button>
+                      <button className="w-full bg-white border border-[#56CCF2] text-[#56CCF2] py-2 px-4 rounded-lg text-xs font-medium">
+                        📊 Evaluar en Casa
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Efectos decorativos */}
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-[#56CCF2] bg-opacity-30 rounded-full blur-xl"></div>
+              <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-[#ACF0F4] bg-opacity-50 rounded-full blur-xl"></div>
+            </div>
+          </div>
+
           {/* Para Padres - 5 SECCIONES */}
           <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
             <div className="text-center mb-8">
@@ -106,9 +199,11 @@ const AppPromotion = () => {
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Para Profesores */}
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200">
+        {/* Para Profesores - Sección separada */}
+        <div className="mb-16">
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 max-w-3xl mx-auto">
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-[#5B9BD5] bg-opacity-20 rounded-full mb-4">
                 <span className="text-2xl">👨‍🏫</span>
