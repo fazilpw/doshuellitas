@@ -201,30 +201,7 @@ const AppPromotion = () => {
           </div>
         </div>
 
-        {/* Para Profesores - Sección separada */}
-        <div className="mb-16">
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 max-w-3xl mx-auto">
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-[#5B9BD5] bg-opacity-20 rounded-full mb-4">
-                <span className="text-2xl">👨‍🏫</span>
-              </div>
-              <h3 className="text-2xl font-bold text-[#2C3E50] mb-2">Para Profesores</h3>
-              <p className="text-[#5B9BD5] font-medium">Herramientas profesionales de seguimiento</p>
-            </div>
-            
-            <div className="space-y-6">
-              {appFeatures.filter(feature => feature.userType === 'profesores').map((feature, index) => (
-                <div key={index} className="flex items-start">
-                  <div className="text-2xl mr-4 mt-1">{feature.icon}</div>
-                  <div>
-                    <h4 className="text-lg font-semibold text-[#2C3E50] mb-2">{feature.title}</h4>
-                    <p className="text-gray-600 text-sm">{feature.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+       
 
         {/* Beneficios principales */}
         <div className="bg-white rounded-2xl p-8 mb-12 shadow-lg border border-gray-200">
