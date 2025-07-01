@@ -11,6 +11,8 @@ import MedicineManager from '../routines/MedicineManager.jsx';
 import GroomingManager from '../routines/GroomingManager.jsx';
 import ParentManagementPanel from './ParentManagementPanel.jsx';
 import { LogoutButton } from '../../utils/logoutHandler.jsx';
+import NotificationSystem from '../notifications/NotificationSystem.jsx';
+
 
 
 const ParentDashboard = ({ authUser, authProfile }) => {
@@ -267,53 +269,8 @@ const ParentDashboard = ({ authUser, authProfile }) => {
       {mobileMenuOpen && (
         <div className="mt-4 space-y-2">
           {[
-            { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
-            { key: 'rutinas', label: 'Rutinas', icon: '📅' },
-            { key: 'salud', label: 'Salud', icon: '🏥' },
-            { key: 'tracking', label: 'Tracking', icon: '📍' },
-            { key: 'config', label: 'Configuración', icon: '⚙️' }
-          ].map(item => (
-            <button
-              key={item.key}
-              onClick={() => {
-                setCurrentPage(item.key);
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
-                currentPage === item.key
-                  ? 'bg-[#56CCF2] text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <span className="text-lg">{item.icon}</span>
-              <span className="font-medium">{item.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  // Desktop Sidebar
-  const renderDesktopSidebar = () => (
-    <div className="hidden lg:block fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30">
-      {/* Header del sidebar */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center">
-            <span className="text-white text-lg">🐕</span>
-          </div>
-          <div>
-            <h2 className="font-bold text-[#2C3E50]">Club Canino</h2>
-            <p className="text-sm text-gray-600">Dashboard Padre</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Navegación */}
-      <div className="p-3 space-y-2">
-        {[
           { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
+          { key: 'notificaciones', label: 'Notificaciones', icon: '🔔' }, // ← NUEVA LÍNEA
           { key: 'rutinas', label: 'Rutinas', icon: '📅' },
           { key: 'salud', label: 'Salud', icon: '🏥' },
           { key: 'tracking', label: 'Tracking', icon: '📍' },
@@ -321,33 +278,86 @@ const ParentDashboard = ({ authUser, authProfile }) => {
         ].map(item => (
           <button
             key={item.key}
-            onClick={() => setCurrentPage(item.key)}
-            className={`w-full flex items-center space-x-3 px-3 py-3 rounded-xl transition-all group ${
+            onClick={() => {
+              setCurrentPage(item.key);
+              setMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
               currentPage === item.key
-                ? 'bg-[#56CCF2] text-white shadow-lg transform scale-105' 
-                : 'text-gray-700 hover:bg-gray-100 hover:scale-102'
+                ? 'bg-[#56CCF2] text-white'
+                : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${
-              currentPage === item.key ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-gray-200'
-            }`}>
-              <span className="text-lg">{item.icon}</span>
-            </div>
+            <span className="text-lg">{item.icon}</span>
             <span className="font-medium">{item.label}</span>
-            {currentPage === item.key && (
-              <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
-            )}
           </button>
         ))}
       </div>
+    )}
+  </div>
+);
 
-      {/* Footer del sidebar */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-200">
-        <LogoutButton variant="sidebar" />
-
+  // Desktop Sidebar
+  const renderDesktopSidebar = () => (
+  <div className="hidden lg:block fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30">
+    {/* Header del sidebar */}
+    <div className="p-6 border-b border-gray-200">
+      <div className="flex items-center space-x-3">
+        <div className="w-10 h-10 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center">
+          <span className="text-white text-lg">🐕</span>
+        </div>
+        <div>
+          <h2 className="font-bold text-[#2C3E50]">Club Canino</h2>
+          <p className="text-sm text-gray-600">Dashboard Padre</p>
+        </div>
       </div>
     </div>
-  );
+
+    {/* Navegación - CON NOTIFICACIONES AGREGADAS */}
+    <div className="p-3 space-y-2">
+      {[
+        { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
+        { key: 'notificaciones', label: 'Notificaciones', icon: '🔔' }, // ← NUEVA SECCIÓN
+        { key: 'rutinas', label: 'Rutinas', icon: '📅' },
+        { key: 'salud', label: 'Salud', icon: '🏥' },
+        { key: 'tracking', label: 'Tracking', icon: '📍' },
+        { key: 'config', label: 'Configuración', icon: '⚙️' }
+      ].map(item => (
+        <button
+          key={item.key}
+          onClick={() => setCurrentPage(item.key)}
+          className={`w-full flex items-center space-x-3 px-3 py-3 rounded-xl transition-all group ${
+            currentPage === item.key
+              ? 'bg-[#56CCF2] text-white shadow-lg transform scale-105' 
+              : 'text-gray-700 hover:bg-gray-100 hover:scale-102'
+          }`}
+        >
+          <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${
+            currentPage === item.key ?
+              'bg-white/20' : 'bg-gray-100 group-hover:bg-gray-200'
+          }`}>
+            <span className="text-lg">{item.icon}</span>
+          </div>
+          <span className="font-medium">{item.label}</span>
+        </button>
+      ))}
+    </div>
+
+    {/* Info del usuario (existente) */}
+    <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+      <div className="flex items-center space-x-3 mb-3">
+        <div className="w-8 h-8 bg-[#56CCF2] rounded-full flex items-center justify-center">
+          <span className="text-white text-sm">👤</span>
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-900">{currentUser?.full_name}</p>
+          <p className="text-xs text-gray-500">{currentUser?.email}</p>
+        </div>
+      </div>
+      <LogoutButton />
+    </div>
+  </div>
+);
 
   // ===============================================
   // 🎨 CONTENIDO PRINCIPAL CORREGIDO
@@ -643,6 +653,24 @@ const ParentDashboard = ({ authUser, authProfile }) => {
           </div>
         </div>
       );
+
+      case 'notificaciones':
+  return (
+    <div className={contentClasses}>
+      <div className={innerClasses}>
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-[#2C3E50] mb-2">🔔 Notificaciones</h1>
+          <p className="text-gray-600">Mantente informado sobre el estado de tu mascota</p>
+        </div>
+        
+        {/* Importar y usar NotificationSystem */}
+        <NotificationSystem 
+          userId={currentUser?.id}
+          dogs={dogs}
+        />
+      </div>
+    </div>
+  );
     
     default: // dashboard
       return (
