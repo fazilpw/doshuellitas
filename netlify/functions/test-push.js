@@ -34,7 +34,7 @@ exports.handler = async (event, context) => {
 
     // Configurar VAPID
     webpush.setVapidDetails(
-      process.env.VAPID_SUBJECT || 'mailto:admin@clubcaninodoshuellitas.com',
+      process.env.VAPID_SUBJECT || 'mailto:mbedoyarudas@gmail.com',
       process.env.VAPID_PUBLIC_KEY,
       process.env.VAPID_PRIVATE_KEY
     );
@@ -116,23 +116,6 @@ exports.handler = async (event, context) => {
     const randomMessage = testMessages[Math.floor(Math.random() * testMessages.length)];
 
     console.log(`🧪 Preparando notificación de prueba para usuario ${userId}:`, randomMessage.title);
-
-    // En una implementación real, aquí buscarías las suscripciones del usuario
-    // Por ahora, solo loggeamos que la notificación está lista
-    
-    // TODO: Implementar búsqueda real de suscripciones cuando esté integrado con Supabase
-    // const { data: subscriptions, error } = await supabase
-    //   .from('push_subscriptions')
-    //   .select('subscription')
-    //   .eq('user_id', userId);
-    
-    // if (error) throw error;
-    
-    // if (subscriptions && subscriptions.length > 0) {
-    //   for (const sub of subscriptions) {
-    //     await webpush.sendNotification(sub.subscription, JSON.stringify(randomMessage));
-    //   }
-    // }
 
     return {
       statusCode: 200,

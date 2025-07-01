@@ -38,17 +38,6 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Aquí podrías guardar la suscripción en Supabase
-    // const { data, error } = await supabase
-    //   .from('push_subscriptions')
-    //   .insert({
-    //     user_id: userId,
-    //     subscription: subscription,
-    //     user_role: userRole,
-    //     device_info: deviceInfo,
-    //     created_at: new Date().toISOString()
-    //   });
-
     console.log('✅ Suscripción guardada:', {
       userId,
       userRole,
@@ -98,6 +87,7 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
 
 // ============================================
 // netlify/functions/test-push.js
