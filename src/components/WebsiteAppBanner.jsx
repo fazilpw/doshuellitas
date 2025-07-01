@@ -26,7 +26,7 @@ const WebsiteAppBanner = ({ type = 'website' }) => {
       description: 'Aplicación exclusiva para familias registradas',
       ctaText: '🌐 Ver Página Web',
       ctaLink: '/',
-      ctaStyle: 'bg-white text-[#56CCF2] hover:bg-gray-50'
+      ctaStyle: 'bg-white font-dynapuff text-[#56CCF2] hover:bg-gray-50'
     }
   };
 

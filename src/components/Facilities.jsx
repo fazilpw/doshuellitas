@@ -37,13 +37,13 @@ const Facilities = () => {
       },
       {
         id: 2,
-        image: '/images/transporte/pic-dos-huellitas-puerta.webp',
+        image: '/images/transporte/pic-dos-huellitas-ruta.webp',
         title: 'Rutas optimizadas',
         description: 'Recorridos planificados para minimizar el tiempo de transporte y maximizar el confort.'
       },
       {
         id: 3,
-        image: '/images/transporte/pic-dos-huellitas-ruta.webp',
+        image: '/images/transporte/pic-dos-huellitas-puerta.webp',
         title: 'Recogida puerta a puerta',
         description: 'Servicio personalizado de recogida y entrega de tu mascota directamente en tu domicilio.'
       }
@@ -184,7 +184,7 @@ const Facilities = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-[#56CCF2] bg-opacity-20 rounded-full mb-4">
               <span className="text-3xl">🏨</span>
             </div>
-            <h3 className="text-2xl font-dynapuff font-bold text-[#2C3E50] mb-4">Hotel Canino - Servicios de Alojamiento</h3>
+            <h3 className="text-2xl md:text-4xl  font-dynapuff font-bold text-[#2C3E50] mb-4">Hotel Canino - Servicios de Alojamiento</h3>
             <p className="text-gray-600 max-w-3xl mx-auto">
               Cuando necesites viajar, tu peludito tendrá un hogar temporal lleno de amor y cuidados profesionales.
             </p>

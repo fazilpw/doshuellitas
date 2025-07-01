@@ -89,7 +89,7 @@ const SimpleCarousel = ({ title, subtitle }) => {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           
           {/* CARRUSEL - COLUMNA IZQUIERDA */}
-          <div className="relative">
+<div className="order-2 lg:order-1 relative">
             
             {/* Foto principal */}
             <div className="flex justify-center">
@@ -130,7 +130,7 @@ const SimpleCarousel = ({ title, subtitle }) => {
           </div>
 
           {/* CONTENIDO - COLUMNA DERECHA */}
-          <div className="lg:pl-8">
+<div className="order-1 lg:order-2 lg:pl-8">
             
             {/* Título principal */}
             <h2 className="text-4xl lg:text-5xl font-dynapuff font-bold text-[#2C3E50] mb-6 leading-tight">

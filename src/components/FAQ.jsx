@@ -91,7 +91,7 @@ const FAQ = () => {
     <div className="bg-[#FFFBF0] py-16">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-[#2C3E50]">Preguntas Frecuentes</h2>
+          <h2 className="text-3xl md:text-5xl font-bold font-dynapuff text-[#2C3E50]">Preguntas Frecuentes</h2>
           <p className="mt-4 text-lg text-gray-600">
             Resolvemos tus dudas sobre nuestro Club Canino Dos Huellitas
           </p>

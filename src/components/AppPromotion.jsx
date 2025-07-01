@@ -72,7 +72,7 @@ const AppPromotion = () => {
           <div className="inline-flex items-center bg-[#56CCF2] bg-opacity-20 rounded-full px-4 py-2 mb-4">
             <span className="text-[#2C3E50] text-sm font-medium">🆕 EXCLUSIVO PARA NUESTRAS FAMILIAS</span>
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-[#2C3E50] mb-4">
+          <h2 className="text-4xl md:text-5xl font-dynapuff font-bold text-[#2C3E50] mb-4">
             Club Canino <span className="text-[#56CCF2]">App</span>
           </h2>
           <p className="text-xl text-gray-700 max-w-3xl mx-auto">
@@ -235,7 +235,7 @@ const AppPromotion = () => {
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-8">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-[#2C3E50]">Club Canino App</h3>
+                <h3 className="text-2xl font-bold font-dynapuff text-[#2C3E50]">Club Canino App</h3>
                 <button
                   onClick={() => setShowModal(false)}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
