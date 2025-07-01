@@ -1,5 +1,5 @@
 // public/kill-sw.js - ELIMINAR TODOS LOS SERVICE WORKERS
-console.log('🔥 DESTRUYENDO TODOS LOS SERVICE WORKERS');
+console.log('🔥 DESTRUYENDO LOS SERVICE WORKERS');
 
 async function nukeSW() {
   try {
