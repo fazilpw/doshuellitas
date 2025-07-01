@@ -5,47 +5,44 @@
   command = "npm run build"
   publish = "dist"
 
-  [build]
-  command = "npm run build"
-  publish = "dist"
+[build.environment]
+  NODE_VERSION = "18"
 
 [functions]
   directory = "netlify/functions"
 
-  # API routes
+[dev]
+  command = "npm run dev"
+  port = 4321
+  targetPort = 4321
+  publish = "dist"
+  framework = "astro"
+
+# ============================================
+# 🔧 REDIRECCIONES PARA API (SOLO UNA VEZ)
+# ============================================
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
-# ============================================
-# 🎯 TRAILING SLASH FIX UNIVERSAL
-# ============================================
-
-# Redirigir TODAS las páginas sin slash a páginas con slash
-# Esto hace que funcionen ambos casos automáticamente
 [[redirects]]
   from = "/*"
   to = "/:splat/"
   status = 301
   conditions = {Role = ["missing"]}
 
-# ============================================
-# 🔧 REDIRECCIONES ESPECÍFICAS
-# ============================================
-
-# API routes - Si tienes funciones serverless
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-# SPA Fallback para páginas que no existen
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
   force = false
+
+[[redirects]]
+  from = "/404"
+  to = "/404.html"
+  status = 200
 
 # ============================================
 # 🔒 HEADERS DE SEGURIDAD
@@ -59,13 +56,11 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Headers específicos para HTML
 [[headers]]
   for = "/*.html"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Headers para assets estáticos
 [[headers]]
   for = "/assets/*"
   [headers.values]
@@ -75,40 +70,3 @@
   for = "/_astro/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
-
-# ============================================
-# 🌍 CONFIGURACIÓN DEL ENTORNO
-# ============================================
-
-[dev]
-  command = "npm run dev"
-  port = 4321
-  targetPort = 4321
-  publish = "dist"
-  framework = "astro"
-
-# ============================================
-# 🎯 CONFIGURACIÓN ESPECÍFICA ASTRO
-# ============================================
-
-[build.environment]
-  NODE_VERSION = "18"
-
-# Manejo de errores 404
-[[redirects]]
-  from = "/404"
-  to = "/404.html"
-  status = 200
-
-# ============================================
-# 💡 CÓMO FUNCIONA LA REDIRECCIÓN UNIVERSAL
-# ============================================
-# 
-# 1. Usuario va a /login → Redirige a /login/ (301)
-# 2. Usuario va a /login/ → Sirve /login/index.html directamente
-# 3. conditions = {Role = ["missing"]} asegura que solo redirija
-#    si el archivo /login no existe (evita loops infinitos)
-# 4. force = false asegura que archivos existentes no se redirijan
-#
-# RESULTADO: Ambas URLs funcionan perfectamente
-# ============================================
