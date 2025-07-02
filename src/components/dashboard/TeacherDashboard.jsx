@@ -458,8 +458,11 @@ const TeacherDashboard = ({ authUser, authProfile }) => {
         {dogs.map(dog => {
           // 🔧 CORREGIDO: Estructura correcta de dogAverages
           const averagesData = dogAverages[dog.id];
-          console.log(`📊 Averages para ${dog.name} (profesor):`, averagesData);
-          
+if (averagesData && !window.lastLoggedAverages?.[dog.id]) {
+  console.log(`📊 Averages para ${dog.name}:`, averagesData);
+  window.lastLoggedAverages = window.lastLoggedAverages || {};
+  window.lastLoggedAverages[dog.id] = averagesData;
+}          
           return (
             <div key={dog.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300">
               <div className="p-6 lg:p-8">

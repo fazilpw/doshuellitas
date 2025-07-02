@@ -1,395 +1,371 @@
-// ============================================
-// 🔗 INTEGRACIÓN CON COMPONENTES EXISTENTES
-// ============================================
-
-// 1. INTEGRAR EN FORMULARIO DE EVALUACIÓN
-// src/components/evaluation/EvaluationForm.jsx
-
-import { NotificationHelper } from '../../utils/notificationHelper.js';
-
-// En tu función de envío de evaluación, agregar:
-const handleEvaluationSubmit = async (evaluationData) => {
-  try {
-    // Crear evaluación normal
-    const { data: evaluation, error } = await supabase
-      .from('evaluations')
-      .insert([evaluationData])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // ✅ NUEVO: Verificar alertas de comportamiento automáticamente
-    const { data: dog } = await supabase
-      .from('dogs')
-      .select('*')
-      .eq('id', evaluationData.dog_id)
-      .single();
-
-    if (dog) {
-      await NotificationHelper.checkBehaviorAlertsAfterEvaluation(
-        evaluation, 
-        dog, 
-        evaluationData.evaluator_id
-      );
-    }
-
-    console.log('✅ Evaluación guardada y notificaciones enviadas');
-    return evaluation;
-
-  } catch (error) {
-    console.error('❌ Error:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// 2. INTEGRAR EN SISTEMA DE TRANSPORTE
-// src/components/transport/TransportManager.jsx
-
-import { NotificationHelper } from '../../utils/notificationHelper.js';
-
-// Función para iniciar ruta de transporte
-const startTransportRoute = async (vehicleId, dogIds) => {
-  try {
-    // Crear ruta en la base de datos
-    const { data: route, error } = await supabase
-      .from('vehicle_routes')
-      .insert([{
-        vehicle_id: vehicleId,
-        dog_ids: dogIds,
-        route_type: 'pickup',
-        status: 'in_progress',
-        actual_start_time: new Date().toISOString()
-      }])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // ✅ NUEVO: Enviar notificaciones automáticamente
-    await NotificationHelper.notifyTransportSequence(vehicleId, dogIds, route);
-
-    console.log('🚐 Ruta iniciada y notificaciones programadas');
-    return route;
-
-  } catch (error) {
-    console.error('❌ Error:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// 3. INTEGRAR EN GESTIÓN MÉDICA
-// src/components/medical/MedicalManager.jsx
-
-import { NotificationHelper } from '../../utils/notificationHelper.js';
-
-// Función que se ejecuta al cargar el dashboard médico
-const checkMedicalAlertsOnLoad = async () => {
-  await NotificationHelper.checkMedicalReminders();
-};
-
-// Función para programar recordatorio de medicina
-const scheduleMedicineReminder = async (medicineData) => {
-  try {
-    // Guardar medicina en la base de datos
-    const { data: medicine, error } = await supabase
-      .from('medicines')
-      .insert([medicineData])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // ✅ NUEVO: Si requiere dosis diarias, programar recordatorios
-    if (medicine.frequency === 'diario' && medicine.next_dose_date) {
-      // Esto se manejará automáticamente por el checkMedicalReminders()
-      // que debe ejecutarse diariamente
-    }
-
-    return medicine;
-  } catch (error) {
-    console.error('❌ Error:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// 4. INTEGRAR EN DASHBOARD PADRE
-// src/components/dashboard/ParentDashboard.jsx
-
-import { createTestNotification } from '../../utils/notificationHelper.js';
-
-// Agregar botones de prueba en el dashboard
-const TestNotificationsSection = ({ currentUser, dogs }) => {
-  const [testing, setTesting] = useState(false);
-
-  const testNotification = async (type) => {
-    if (!currentUser || dogs.length === 0) return;
-    
-    setTesting(true);
-    try {
-      await createTestNotification(currentUser.id, dogs[0].id, type);
-      alert(`✅ Notificación de ${type} enviada`);
-    } catch (error) {
-      alert(`❌ Error: ${error.message}`);
-    } finally {
-      setTesting(false);
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-xl shadow-lg p-6 mt-6">
-      <h3 className="text-lg font-bold text-[#2C3E50] mb-4">
-        🧪 Probar Notificaciones Reales
-      </h3>
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <button
-          onClick={() => testNotification('transport')}
-          disabled={testing}
-          className="bg-blue-100 text-blue-700 p-3 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
-        >
-          🚐 Transporte
-        </button>
-        
-        <button
-          onClick={() => testNotification('behavior')}
-          disabled={testing}
-          className="bg-orange-100 text-orange-700 p-3 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
-        >
-          🎯 Comportamiento
-        </button>
-        
-        <button
-          onClick={() => testNotification('medical')}
-          disabled={testing}
-          className="bg-red-100 text-red-700 p-3 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
-        >
-          💊 Médica
-        </button>
-        
-        <button
-          onClick={() => testNotification('improvement')}
-          disabled={testing}
-          className="bg-green-100 text-green-700 p-3 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
-        >
-          🎉 Mejora
-        </button>
-      </div>
-      
-      <p className="text-sm text-gray-600 mt-3">
-        Estos botones crean notificaciones reales que aparecerán en tu dashboard
-      </p>
-    </div>
-  );
-};
-
-// ============================================
-// 5. HOOK PERSONALIZADO PARA NOTIFICACIONES
-// src/hooks/useNotifications.js
+// src/components/dashboard/EvaluationForm.jsx
+// 🔔 VERSIÓN CON NOTIFICACIONES AUTOMÁTICAS INTEGRADAS
 
 import { useState, useEffect } from 'react';
-import { NotificationHelper } from '../utils/notificationHelper.js';
+import { supabase } from '../../lib/supabase.js';
+import { NotificationHelper } from '../../utils/notificationHelper.js'; // ✅ NUEVO IMPORT
 
-export const useNotifications = (userId, dogs) => {
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+const EvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    energy_level: 5,
+    sociability_level: 5,
+    obedience_level: 5,
+    anxiety_level: 5,
+    barks_much: 'normal',
+    begs_food: 'a_veces',
+    destructive: 'nunca',
+    social_with_dogs: 'normal',
+    follows_everywhere: 'a_veces',
+    window_watching: 'normal',
+    notes: ''
+  });
 
-  // Cargar notificaciones del usuario
-  const loadNotifications = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-
-      setNotifications(data || []);
-      setUnreadCount(data?.filter(n => !n.read).length || 0);
-    } catch (error) {
-      console.error('Error cargando notificaciones:', error);
-    }
-  };
-
-  // Marcar como leída
-  const markAsRead = async (notificationId) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true, read_at: new Date().toISOString() })
-        .eq('id', notificationId);
-
-      if (error) throw error;
-      await loadNotifications(); // Recargar
-    } catch (error) {
-      console.error('Error marcando como leída:', error);
-    }
-  };
-
-  // Crear notificación de prueba
-  const createTestNotification = async (type) => {
-    if (dogs.length === 0) return;
-    
-    try {
-      await createTestNotification(userId, dogs[0].id, type);
-      await loadNotifications(); // Recargar para mostrar la nueva
-    } catch (error) {
-      console.error('Error creando notificación de prueba:', error);
-    }
-  };
+  const [dog, setDog] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (userId) {
-      loadNotifications();
+    fetchDogInfo();
+  }, [dogId]);
+
+  const fetchDogInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('dogs')
+        .select('*')
+        .eq('id', dogId)
+        .single();
       
-      // Verificar nuevas notificaciones cada 30 segundos
-      const interval = setInterval(loadNotifications, 30000);
-      return () => clearInterval(interval);
+      if (error) throw error;
+      setDog(data);
+      console.log('✅ Datos del perro cargados:', data);
+    } catch (error) {
+      console.error('❌ Error fetching dog:', error);
     }
-  }, [userId]);
-
-  return {
-    notifications,
-    unreadCount,
-    loadNotifications,
-    markAsRead,
-    createTestNotification
   };
-};
 
-// ============================================
-// 6. COMPONENTE DE NOTIFICACIONES EN TIEMPO REAL
-// src/components/notifications/LiveNotificationBell.jsx
+  const handleSliderChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: parseInt(value)
+    }));
+  };
 
-import { useNotifications } from '../../hooks/useNotifications.js';
+  const handleSelectChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
-export const LiveNotificationBell = ({ userId, dogs }) => {
-  const { notifications, unreadCount, markAsRead } = useNotifications(userId, dogs);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      console.log('📝 Guardando evaluación simple...');
+      
+      const evaluationData = {
+        dog_id: dogId,
+        evaluator_id: userId,
+        location: userRole === 'profesor' ? 'colegio' : 'casa',
+        date: new Date().toISOString().split('T')[0],
+        ...formData
+      };
+
+      console.log('📤 Datos de evaluación:', evaluationData);
+
+      // 💾 Guardar evaluación en Supabase
+      const { data, error } = await supabase
+        .from('evaluations')
+        .insert([evaluationData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ Evaluación guardada:', data);
+
+      // 🔔 NUEVO: NOTIFICACIONES AUTOMÁTICAS
+      try {
+        console.log('🔔 Procesando notificaciones automáticas...');
+        
+        if (dog && data) {
+          await NotificationHelper.checkBehaviorAlertsAfterEvaluation(
+            data,     // evaluación recién guardada
+            dog,      // datos del perro
+            userId    // ID del evaluador
+          );
+          console.log('✅ Notificaciones automáticas procesadas exitosamente');
+          
+          // Mostrar confirmación al usuario
+          alert(`✅ Evaluación de ${dog.name} guardada con notificaciones automáticas activadas!`);
+          
+        } else {
+          console.warn('⚠️ Datos insuficientes para notificaciones automáticas');
+        }
+        
+      } catch (notificationError) {
+        console.error('❌ Error en notificaciones automáticas:', notificationError);
+        // No fallar la evaluación por errores de notificación
+        alert(`✅ Evaluación de ${dog?.name || 'perro'} guardada (notificaciones con problemas)`);
+      }
+
+      // 📞 Ejecutar callbacks
+      if (onSave) onSave(data);
+      if (onClose) onClose();
+
+    } catch (error) {
+      console.error('❌ Error saving evaluation:', error);
+      setError(error.message || 'Error al guardar evaluación');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!dog) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#56CCF2]"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative">
-      {/* Bell Icon con contador */}
-      <button
-        onClick={() => setShowDropdown(!showDropdown)}
-        className="relative p-2 text-gray-600 hover:text-[#56CCF2] transition-colors"
-      >
-        <span className="text-2xl">🔔</span>
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-            {unreadCount}
-          </span>
-        )}
-      </button>
-
-      {/* Dropdown de notificaciones */}
-      {showDropdown && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="font-bold text-gray-900">
-              Notificaciones ({unreadCount} nuevas)
-            </h3>
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <form onSubmit={handleSubmit}>
+          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold text-[#2C3E50]">
+                Evaluar a {dog.name} 🐕
+              </h2>
+              <p className="text-gray-600">
+                {userRole === 'profesor' ? 
+                  '📚 Evaluación en el colegio' : 
+                  '🏠 Evaluación en casa'
+                }
+              </p>
+              <div className="mt-2 text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-full inline-block">
+                🔔 Notificaciones automáticas activadas
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            >
+              ×
+            </button>
           </div>
-          
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.slice(0, 10).map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                  !notification.read ? 'bg-blue-50' : ''
-                }`}
-                onClick={() => markAsRead(notification.id)}
-              >
-                <div className="flex items-start">
-                  <span className="text-lg mr-3">
-                    {notification.category === 'transport' ? '🚐' :
-                     notification.category === 'medical' ? '💊' :
-                     notification.category === 'behavior' ? '🎯' :
-                     notification.category === 'routine' ? '⏰' : '📬'}
-                  </span>
-                  <div className="flex-1">
-                    <p className="font-medium text-sm text-gray-900">
-                      {notification.title}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {notification.message}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      {new Date(notification.created_at).toLocaleTimeString()}
-                    </p>
+
+          <div className="p-6 space-y-8">
+            
+            {/* Métricas principales */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Métricas Principales</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Energía */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ⚡ Nivel de Energía
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={formData.energy_level}
+                    onChange={(e) => handleSliderChange('energy_level', e.target.value)}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Muy bajo</span>
+                    <span className="font-bold text-[#56CCF2]">{formData.energy_level}/10</span>
+                    <span>Muy alto</span>
                   </div>
-                  {!notification.read && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  )}
+                </div>
+
+                {/* Sociabilidad */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🐕 Sociabilidad
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={formData.sociability_level}
+                    onChange={(e) => handleSliderChange('sociability_level', e.target.value)}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Tímido</span>
+                    <span className="font-bold text-[#56CCF2]">{formData.sociability_level}/10</span>
+                    <span>Muy social</span>
+                  </div>
+                </div>
+
+                {/* Obediencia */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🎯 Obediencia
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={formData.obedience_level}
+                    onChange={(e) => handleSliderChange('obedience_level', e.target.value)}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Desobediente</span>
+                    <span className="font-bold text-[#56CCF2]">{formData.obedience_level}/10</span>
+                    <span>Muy obediente</span>
+                  </div>
+                </div>
+
+                {/* Ansiedad */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    😰 Nivel de Ansiedad
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={formData.anxiety_level}
+                    onChange={(e) => handleSliderChange('anxiety_level', e.target.value)}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>Muy relajado</span>
+                    <span className="font-bold text-[#56CCF2]">{formData.anxiety_level}/10</span>
+                    <span>Muy ansioso</span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-          
-          {notifications.length === 0 && (
-            <div className="p-8 text-center text-gray-500">
-              <span className="text-4xl mb-4 block">📬</span>
-              <p>No hay notificaciones</p>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Comportamientos específicos */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">🎭 Comportamientos Observados</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🗣️ ¿Ladra mucho?
+                  </label>
+                  <select
+                    value={formData.barks_much}
+                    onChange={(e) => handleSelectChange('barks_much', e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+                  >
+                    <option value="nunca">Nunca ladra</option>
+                    <option value="poco">Ladra poco</option>
+                    <option value="normal">Normal</option>
+                    <option value="mucho">Ladra mucho</option>
+                    <option value="excesivo">Excesivo</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🍖 ¿Mendiga comida?
+                  </label>
+                  <select
+                    value={formData.begs_food}
+                    onChange={(e) => handleSelectChange('begs_food', e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+                  >
+                    <option value="nunca">Nunca</option>
+                    <option value="a_veces">A veces</option>
+                    <option value="frecuente">Frecuentemente</option>
+                    <option value="siempre">Siempre</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    💥 Comportamiento destructivo
+                  </label>
+                  <select
+                    value={formData.destructive}
+                    onChange={(e) => handleSelectChange('destructive', e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+                  >
+                    <option value="nunca">Nunca</option>
+                    <option value="raro">Muy rara vez</option>
+                    <option value="a_veces">A veces</option>
+                    <option value="frecuente">Frecuentemente</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🐾 Socialización con otros perros
+                  </label>
+                  <select
+                    value={formData.social_with_dogs}
+                    onChange={(e) => handleSelectChange('social_with_dogs', e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+                  >
+                    <option value="evita">Evita otros perros</option>
+                    <option value="timido">Tímido pero acepta</option>
+                    <option value="normal">Normal</option>
+                    <option value="amigable">Muy amigable</option>
+                    <option value="dominante">Dominante/agresivo</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Notas adicionales */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📝 Notas adicionales
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => handleSelectChange('notes', e.target.value)}
+                placeholder="Observaciones adicionales sobre el comportamiento de hoy..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+                rows={4}
+              />
+            </div>
+
+            {/* Error display */}
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-800">❌ {error}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer con botones */}
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-between">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-8 py-2 bg-[#56CCF2] text-white rounded-lg hover:bg-[#2C3E50] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? '🔄 Guardando...' : '✅ Guardar Evaluación'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
 
-// ============================================
-// 7. CRON JOB SIMULADO (PARA RECORDATORIOS DIARIOS)
-// src/utils/dailyNotificationCheck.js
-
-export const runDailyNotificationCheck = async () => {
-  console.log('🔄 Ejecutando verificación diaria de notificaciones...');
-  
-  try {
-    // 1. Verificar recordatorios médicos
-    await NotificationHelper.checkMedicalReminders();
-    
-    // 2. Procesar notificaciones programadas pendientes
-    const now = new Date().toISOString();
-    
-    const { data: pendingNotifications } = await supabase
-      .from('scheduled_notifications')
-      .select('*')
-      .eq('status', 'pending')
-      .lte('scheduled_for', now);
-
-    for (const scheduled of pendingNotifications) {
-      try {
-        // Crear la notificación real
-        await supabase.rpc('create_notification_from_template', {
-          user_id_param: scheduled.user_id,
-          dog_id_param: scheduled.dog_id,
-          template_key_param: scheduled.template_key,
-          variables_param: scheduled.variables
-        });
-
-        // Marcar como enviada
-        await supabase
-          .from('scheduled_notifications')
-          .update({ status: 'sent', sent_at: new Date().toISOString() })
-          .eq('id', scheduled.id);
-
-        console.log(`✅ Notificación programada enviada: ${scheduled.template_key}`);
-      } catch (error) {
-        console.error(`❌ Error enviando notificación programada ${scheduled.id}:`, error);
-      }
-    }
-
-    console.log('✅ Verificación diaria completada');
-  } catch (error) {
-    console.error('❌ Error en verificación diaria:', error);
-  }
-};
-
-// Para ejecutar manualmente (en desarrollo):
-// window.runDailyCheck = runDailyNotificationCheck;
+export default EvaluationForm;
