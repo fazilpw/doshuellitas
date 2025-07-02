@@ -12,6 +12,8 @@ import GroomingManager from '../routines/GroomingManager.jsx';
 import ParentManagementPanel from './ParentManagementPanel.jsx';
 import { LogoutButton } from '../../utils/logoutHandler.jsx';
 import NotificationSystem from '../notifications/NotificationSystem.jsx';
+import NotificationManagerDashboard from '../notifications/NotificationManagerDashboard.jsx';
+
 
 
 
@@ -654,24 +656,29 @@ const ParentDashboard = ({ authUser, authProfile }) => {
         </div>
       );
 
-      case 'notificaciones':
+     // Agregar nueva opción en el switch del case 'notificaciones':
+case 'notificaciones':
   return (
     <div className={contentClasses}>
       <div className={innerClasses}>
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-[#2C3E50] mb-2">🔔 Notificaciones</h1>
-          <p className="text-gray-600">Mantente informado sobre el estado de tu mascota</p>
-        </div>
-        
-        {/* Importar y usar NotificationSystem */}
+        {/* Dashboard existente */}
         <NotificationSystem 
           userId={currentUser?.id}
           dogs={dogs}
         />
+        
+        {/* NUEVO: Dashboard de gestión */}
+        <div className="mt-8">
+          <NotificationManagerDashboard
+            userId={currentUser?.id}
+            dogs={dogs}
+            isAdmin={false}
+          />
+        </div>
       </div>
     </div>
   );
-    
+  
     default: // dashboard
       return (
         <div className={contentClasses}>
