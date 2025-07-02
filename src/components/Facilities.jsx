@@ -204,7 +204,7 @@ const Facilities = () => {
 
             {/* Comodidades especiales */}
             <div className="text-center">
-              <div className="w-12 h-12 bg-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-12 h-12 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-white text-xl">⭐</span>
               </div>
               <h4 className="text-lg font-semibold text-[#2C3E50] mb-3">Comodidades Especiales</h4>
@@ -215,7 +215,7 @@ const Facilities = () => {
 
             {/* Cuidado nocturno */}
             <div className="text-center">
-              <div className="w-12 h-12 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-12 h-12 bg-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-white text-xl">🌙</span>
               </div>
               <h4 className="text-lg font-semibold text-[#2C3E50] mb-3">Cuidado Nocturno</h4>

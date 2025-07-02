@@ -1,84 +1,190 @@
-// src/components/notifications/NotificationSystem.jsx - SISTEMA COMPLETO DE NOTIFICACIONES
-// 🔔 FASE 1: SERVICE WORKER HABILITADO + VAPID KEYS REALES
+// src/components/notifications/NotificationSystem.jsx
+// 🔔 SISTEMA DE NOTIFICACIONES OPTIMIZADO - SIN MÚLTIPLES REGISTROS
+// ✅ CORREGIDO: Verificación de SW existente, singleton pattern
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import supabase from '../../lib/supabase.js';
+
+// ============================================
+// 🔧 SINGLETON PARA SERVICE WORKER
+// ============================================
+let swRegistrationPromise = null;
+let swRegistered = false;
 
 const NotificationSystem = ({ userId, dogs = [] }) => {
   const [permission, setPermission] = useState('default');
   const [preferences, setPreferences] = useState({});
   const [loading, setLoading] = useState(false);
-  const [testNotificationSent, setTestNotificationSent] = useState(false);
   const [swStatus, setSWStatus] = useState('checking');
   const [vapidKey, setVapidKey] = useState(null);
-
-  useEffect(() => {
-    // Verificar permisos existentes
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
-    }
-    
-    // Cargar preferencias de usuario
-    loadUserPreferences();
-    
-    // Registrar service worker - AHORA HABILITADO
-    registerServiceWorker();
-    
-    // Obtener VAPID key del entorno
-    initializeVapidKey();
-  }, [userId]);
+  
+  // Ref para evitar re-ejecuciones
+  const initializedRef = useRef(false);
+  const preferencesLoadedRef = useRef(false);
 
   // ============================================
-  // 🔑 INICIALIZAR VAPID KEY REAL
+  // 🔄 INICIALIZACIÓN ÚNICA
+  // ============================================
+  useEffect(() => {
+    // Evitar re-ejecución en Strict Mode
+    if (initializedRef.current) {
+      console.log('🔄 NotificationSystem ya inicializado, saltando...');
+      return;
+    }
+
+    console.log('🔔 NotificationSystem: Inicializando por primera vez');
+    initializedRef.current = true;
+
+    const initializeSystem = async () => {
+      try {
+        // 1. Verificar permisos existentes
+        if ('Notification' in window) {
+          setPermission(Notification.permission);
+        }
+        
+        // 2. Inicializar VAPID key
+        initializeVapidKey();
+        
+        // 3. Registrar Service Worker (solo si no existe)
+        await registerServiceWorkerSingleton();
+        
+      } catch (error) {
+        console.error('❌ Error inicializando NotificationSystem:', error);
+        setSWStatus('error');
+      }
+    };
+
+    initializeSystem();
+  }, []); // Sin dependencias para que solo se ejecute una vez
+
+  // ============================================
+  // 📥 CARGAR PREFERENCIAS (CON CACHE)
+  // ============================================
+  useEffect(() => {
+    if (userId && dogs.length > 0 && !preferencesLoadedRef.current) {
+      console.log('🔄 Cargando preferencias de notificación...');
+      preferencesLoadedRef.current = true;
+      loadUserPreferences();
+    }
+  }, [userId, dogs.length]);
+
+  // ============================================
+  // 🔑 INICIALIZAR VAPID KEY
   // ============================================
   const initializeVapidKey = () => {
-    // Intentar obtener la VAPID key real del entorno
     const envVapidKey = import.meta.env.PUBLIC_VAPID_PUBLIC_KEY;
     
     if (envVapidKey && envVapidKey !== 'your_vapid_public_key_here') {
       setVapidKey(envVapidKey);
       console.log('✅ VAPID key real cargada desde entorno');
     } else {
-      // Fallback: usar key de desarrollo (no funcionará en producción)
+      // Fallback: usar key de desarrollo
       setVapidKey('BJqPZ7FY8nNgJYw8kQ1m6F4Q0VWz5rKh9KjKnTXrJwDgA2VmKjLo3PmNzRtYuIpL6QxBvCdE2HsJt8KlMnOpQr4');
       console.warn('⚠️ Usando VAPID key de desarrollo. Configura PUBLIC_VAPID_PUBLIC_KEY en producción');
     }
   };
 
   // ============================================
-  // 📡 SERVICE WORKER - AHORA HABILITADO
+  // 📡 SERVICE WORKER SINGLETON
   // ============================================
-  const registerServiceWorker = async () => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
+  const registerServiceWorkerSingleton = async () => {
+    // Si ya está registrado o en proceso, usar la instancia existente
+    if (swRegistered) {
+      console.log('✅ Service Worker ya registrado, usando instancia existente');
+      setSWStatus('ready');
+      return swRegistrationPromise;
+    }
+
+    if (swRegistrationPromise) {
+      console.log('🔄 Service Worker en proceso de registro, esperando...');
+      setSWStatus('registering');
       try {
-        setSWStatus('registering');
-        console.log('📡 Registrando Service Worker para notificaciones...');
-        
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('✅ Service Worker registrado:', registration);
-        
-        setSWStatus('registered');
-        
-        // Esperar a que esté listo
-        await navigator.serviceWorker.ready;
+        await swRegistrationPromise;
         setSWStatus('ready');
-        
-        console.log('🚀 Service Worker listo para push notifications');
-        
+        return swRegistrationPromise;
       } catch (error) {
-        console.error('❌ Error registrando Service Worker:', error);
+        console.error('❌ Error esperando registro de SW:', error);
         setSWStatus('error');
+        return null;
       }
-    } else {
+    }
+
+    // Verificar soporte
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.warn('⚠️ Service Worker o Push Manager no soportados');
       setSWStatus('not-supported');
+      return null;
     }
+
+    // Verificar si ya hay un SW activo
+    try {
+      const existingRegistration = await navigator.serviceWorker.getRegistration('/');
+      if (existingRegistration && existingRegistration.active) {
+        console.log('✅ Service Worker ya activo:', existingRegistration.scope);
+        swRegistered = true;
+        swRegistrationPromise = Promise.resolve(existingRegistration);
+        setSWStatus('ready');
+        return existingRegistration;
+      }
+    } catch (error) {
+      console.warn('⚠️ Error verificando SW existente:', error);
+    }
+
+    // Registrar nuevo SW
+    console.log('📡 Registrando nuevo Service Worker...');
+    setSWStatus('registering');
+    
+    swRegistrationPromise = navigator.serviceWorker.register('/sw.js', {
+      scope: '/',
+      updateViaCache: 'none'
+    }).then(async (registration) => {
+      console.log('✅ Service Worker registrado exitosamente:', registration.scope);
+      
+      // Esperar a que esté activo
+      if (registration.installing) {
+        await new Promise((resolve) => {
+          registration.installing.addEventListener('statechange', (e) => {
+            if (e.target.state === 'activated') {
+              resolve();
+            }
+          });
+        });
+      } else if (registration.waiting) {
+        // Activar SW en espera
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        await new Promise((resolve) => {
+          registration.addEventListener('controllerchange', resolve);
+        });
+      }
+      
+      swRegistered = true;
+      console.log('🚀 Service Worker listo para push notifications');
+      return registration;
+    }).catch((error) => {
+      console.error('❌ Error registrando Service Worker:', error);
+      swRegistrationPromise = null;
+      throw error;
+    });
+
+    try {
+      await swRegistrationPromise;
+      setSWStatus('ready');
+    } catch (error) {
+      setSWStatus('error');
+    }
+
+    return swRegistrationPromise;
   };
 
+  // ============================================
+  // 📥 CARGAR PREFERENCIAS DE USUARIO
+  // ============================================
   const loadUserPreferences = async () => {
     if (!userId || dogs.length === 0) return;
     
     try {
+      console.log('📥 Cargando preferencias para usuario:', userId);
+      
       const { data, error } = await supabase
         .from('notification_preferences')
         .select('*')
@@ -88,13 +194,15 @@ const NotificationSystem = ({ userId, dogs = [] }) => {
 
       // Convertir array a objeto para fácil acceso
       const prefsMap = {};
-      data.forEach(pref => {
+      data?.forEach(pref => {
         prefsMap[pref.dog_id] = pref;
       });
       
       setPreferences(prefsMap);
+      console.log('✅ Preferencias cargadas:', Object.keys(prefsMap).length, 'perros');
+      
     } catch (error) {
-      console.error('Error loading preferences:', error);
+      console.error('❌ Error cargando preferencias:', error);
     }
   };
 
@@ -107,33 +215,43 @@ const NotificationSystem = ({ userId, dogs = [] }) => {
       return;
     }
 
+    if (permission === 'granted') {
+      console.log('✅ Permisos ya concedidos');
+      return;
+    }
+
     setLoading(true);
     
     try {
-      const permission = await Notification.requestPermission();
-      setPermission(permission);
+      console.log('🔔 Solicitando permisos de notificación...');
+      const newPermission = await Notification.requestPermission();
+      setPermission(newPermission);
       
-      if (permission === 'granted') {
+      if (newPermission === 'granted') {
         console.log('✅ Permisos de notificación concedidos');
         
         // Suscribir a push notifications
         await subscribeToPush();
         
-        // Mostrar notificación de prueba local
+        // Mostrar notificación de prueba
         showLocalTestNotification();
         
-      } else if (permission === 'denied') {
+      } else if (newPermission === 'denied') {
         alert('❌ Notificaciones bloqueadas. Ve a configuración del navegador para habilitarlas.');
+      } else {
+        console.log('⚠️ Permisos no concedidos');
       }
+      
     } catch (error) {
       console.error('❌ Error solicitando permisos:', error);
+      alert('Error solicitando permisos de notificación');
     } finally {
       setLoading(false);
     }
   };
 
   // ============================================
-  // 📝 SUSCRIPCIÓN A PUSH NOTIFICATIONS
+  // 📬 SUSCRIPCIÓN A PUSH
   // ============================================
   const subscribeToPush = async () => {
     if (!vapidKey) {
@@ -142,259 +260,146 @@ const NotificationSystem = ({ userId, dogs = [] }) => {
     }
 
     try {
-      const registration = await navigator.serviceWorker.ready;
-      
-      // Verificar si ya existe una suscripción
-      let subscription = await registration.pushManager.getSubscription();
-      
-      if (!subscription) {
-        console.log('🔔 Creando nueva suscripción push...');
-        
-        const subscriptionOptions = {
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey)
-        };
-        
-        subscription = await registration.pushManager.subscribe(subscriptionOptions);
+      const registration = await swRegistrationPromise;
+      if (!registration) {
+        throw new Error('Service Worker no disponible');
       }
-      
-      // Enviar suscripción al servidor
-      await sendSubscriptionToServer(subscription);
-      
-      console.log('✅ Suscripción push exitosa');
-      
-    } catch (error) {
-      console.error('❌ Error en suscripción push:', error);
-      
-      if (error.name === 'NotSupportedError') {
-        alert('❌ Push notifications no soportadas en este navegador');
-      } else if (error.name === 'NotAllowedError') {
-        alert('❌ Permisos denegados para notificaciones');
-      } else {
-        alert('❌ Error técnico en notificaciones. Intenta de nuevo.');
-      }
-    }
-  };
 
-  // ============================================
-  // 🌐 COMUNICACIÓN CON SERVIDOR
-  // ============================================
-  const sendSubscriptionToServer = async (subscription) => {
-    try {
-      const response = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscription,
-          userId,
-          userRole: 'padre', // o detectar rol actual
-          deviceInfo: {
-            userAgent: navigator.userAgent,
-            timestamp: Date.now(),
-            vapidKey: vapidKey?.substring(0, 20) + '...' // Log parcial por seguridad
-          }
-        }),
+      console.log('📬 Suscribiendo a push notifications...');
+      
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error enviando suscripción');
-      }
-
-      const result = await response.json();
-      console.log('✅ Suscripción enviada al servidor:', result.message);
+      console.log('✅ Suscripción a push exitosa:', subscription.endpoint);
+      
+      // Guardar suscripción en la base de datos
+      await savePushSubscription(subscription);
       
     } catch (error) {
-      console.error('❌ Error enviando suscripción:', error);
-      // No fallar completamente, las notificaciones locales aún funcionan
+      console.error('❌ Error suscribiendo a push:', error);
     }
   };
 
   // ============================================
-  // 🧪 NOTIFICACIONES DE PRUEBA
+  // 💾 GUARDAR SUSCRIPCIÓN
+  // ============================================
+  const savePushSubscription = async (subscription) => {
+    try {
+      const subscriptionData = {
+        user_id: userId,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys?.p256dh || null,
+        auth: subscription.keys?.auth || null,
+        active: true
+      };
+
+      const { error } = await supabase
+        .from('push_subscriptions')
+        .upsert([subscriptionData], { 
+          onConflict: 'user_id' 
+        });
+
+      if (error) throw error;
+      
+      console.log('✅ Suscripción guardada en base de datos');
+      
+    } catch (error) {
+      console.error('❌ Error guardando suscripción:', error);
+    }
+  };
+
+  // ============================================
+  // 🧪 NOTIFICACIÓN DE PRUEBA
   // ============================================
   const showLocalTestNotification = () => {
-    if (Notification.permission === 'granted') {
-      new Notification('🐕 Club Canino Dos Huellitas', {
-        body: '¡Notificaciones activadas! Te mantendremos informado sobre tu mascota.',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
-        tag: 'welcome-local',
-        vibrate: [100, 50, 100]
-      });
-    }
-  };
-
-  const sendTestPushNotification = async () => {
-    if (!userId) {
-      alert('⚠️ Debes estar logueado para probar notificaciones push');
-      return;
-    }
-
-    setTestNotificationSent(true);
-    
-    try {
-      const response = await fetch('/api/test-push', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('🧪 Notificación de prueba enviada:', result.notification);
+    if (permission === 'granted') {
+      try {
+        new Notification('🐕 Club Canino Dos Huellitas', {
+          body: '¡Notificaciones activadas correctamente!',
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          tag: 'test-notification'
+        });
         
-        // Mostrar feedback visual
-        setTimeout(() => {
-          alert(`✅ Notificación enviada: "${result.notification.title}"`);
-        }, 1000);
-      } else {
-        throw new Error(result.error);
+        console.log('✅ Notificación de prueba enviada');
+      } catch (error) {
+        console.error('❌ Error enviando notificación de prueba:', error);
       }
-      
-    } catch (error) {
-      console.error('❌ Error enviando notificación de prueba:', error);
-      alert('❌ Error enviando notificación de prueba. Verifica la consola.');
-    } finally {
-      setTimeout(() => setTestNotificationSent(false), 3000);
     }
   };
 
   // ============================================
-  // 🛠️ UTILIDADES
-  // ============================================
-  const urlBase64ToUint8Array = (base64String) => {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'ready': return 'text-green-600';
-      case 'registered': return 'text-blue-600';
-      case 'registering': return 'text-yellow-600';
-      case 'error': return 'text-red-600';
-      case 'not-supported': return 'text-gray-500';
-      default: return 'text-gray-400';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'ready': return '✅ Listo';
-      case 'registered': return '📡 Registrado';
-      case 'registering': return '🔄 Registrando...';
-      case 'error': return '❌ Error';
-      case 'not-supported': return '❌ No soportado';
-      default: return '🔍 Verificando...';
-    }
-  };
-
-  // ============================================
-  // 🎨 RENDER
+  // 🎨 RENDERIZADO
   // ============================================
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className="bg-white rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-xl font-bold text-[#2C3E50]">🔔 Notificaciones</h3>
-          <p className="text-gray-600 text-sm">Mantente informado sobre tu mascota</p>
-        </div>
-        <div className="text-right">
-          <div className={`text-sm font-medium ${getStatusColor(swStatus)}`}>
-            Service Worker: {getStatusText(swStatus)}
-          </div>
-          <div className={`text-sm ${permission === 'granted' ? 'text-green-600' : permission === 'denied' ? 'text-red-600' : 'text-gray-500'}`}>
-            Permisos: {permission === 'granted' ? '✅ Activados' : permission === 'denied' ? '❌ Bloqueados' : '⏳ Pendientes'}
-          </div>
+        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+          🔔 Notificaciones
+        </h2>
+        
+        {/* Estado del Service Worker */}
+        <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+          swStatus === 'ready' ? 'bg-green-100 text-green-800' :
+          swStatus === 'registering' ? 'bg-yellow-100 text-yellow-800' :
+          swStatus === 'error' ? 'bg-red-100 text-red-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {swStatus === 'ready' ? '✅ Activo' :
+           swStatus === 'registering' ? '🔄 Registrando' :
+           swStatus === 'error' ? '❌ Error' :
+           '🔍 Verificando'}
         </div>
       </div>
 
-      {/* Estado de la funcionalidad */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h4 className="font-bold text-blue-900 mb-2">📊 Estado del Sistema</h4>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="font-medium text-blue-800">VAPID Key:</span>
-            <span className={`ml-2 ${vapidKey ? 'text-green-600' : 'text-red-600'}`}>
-              {vapidKey ? '✅ Configurada' : '❌ Faltante'}
-            </span>
-          </div>
-          <div>
-            <span className="font-medium text-blue-800">Navegador:</span>
-            <span className={`ml-2 ${'Notification' in window ? 'text-green-600' : 'text-red-600'}`}>
-              {'Notification' in window ? '✅ Compatible' : '❌ No compatible'}
-            </span>
-          </div>
+      {/* Estado de permisos */}
+      <div className="mb-4">
+        <div className={`flex items-center gap-2 text-sm ${
+          permission === 'granted' ? 'text-green-600' :
+          permission === 'denied' ? 'text-red-600' :
+          'text-yellow-600'
+        }`}>
+          <span className="text-lg">
+            {permission === 'granted' ? '✅' : permission === 'denied' ? '❌' : '⚠️'}
+          </span>
+          <span>
+            {permission === 'granted' ? 'Notificaciones habilitadas' :
+             permission === 'denied' ? 'Notificaciones bloqueadas' :
+             'Permisos pendientes'}
+          </span>
         </div>
       </div>
 
       {/* Botones de acción */}
-      <div className="space-y-4">
-        {permission === 'default' && (
+      <div className="space-y-3">
+        {permission !== 'granted' && (
           <button
             onClick={requestNotificationPermission}
-            disabled={loading || swStatus === 'error'}
-            className="w-full bg-[#56CCF2] text-white py-3 px-4 rounded-lg hover:bg-[#5B9BD5] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
+            className="w-full bg-[#56CCF2] hover:bg-[#2C3E50] text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
           >
-            {loading ? '⏳ Activando...' : '🔔 Activar Notificaciones'}
+            {loading ? '🔄 Solicitando permisos...' : '🔔 Habilitar Notificaciones'}
           </button>
         )}
 
         {permission === 'granted' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={showLocalTestNotification}
-              className="bg-green-100 text-green-700 py-2 px-4 rounded-lg hover:bg-green-200 transition-colors font-medium"
-            >
-              🧪 Prueba Local
-            </button>
-            <button
-              onClick={sendTestPushNotification}
-              disabled={testNotificationSent || swStatus !== 'ready'}
-              className="bg-blue-100 text-blue-700 py-2 px-4 rounded-lg hover:bg-blue-200 transition-colors font-medium disabled:opacity-50"
-            >
-              {testNotificationSent ? '📤 Enviando...' : '🚀 Prueba Push'}
-            </button>
-          </div>
-        )}
-
-        {permission === 'denied' && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-700 text-sm font-medium mb-2">
-              ❌ Notificaciones bloqueadas
-            </p>
-            <p className="text-red-600 text-sm">
-              Ve a configuración del navegador → Privacidad → Notificaciones → Permitir para este sitio
-            </p>
-          </div>
+          <button
+            onClick={showLocalTestNotification}
+            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            🧪 Enviar Notificación de Prueba
+          </button>
         )}
       </div>
 
-      {/* Información educativa */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
-        <h4 className="font-bold text-yellow-900 mb-2">💡 ¿Cómo funcionan?</h4>
-        <ul className="text-sm text-yellow-800 space-y-1">
-          <li>• <strong>Locales:</strong> Aparecen inmediatamente en tu dispositivo</li>
-          <li>• <strong>Push:</strong> Te llegan aunque cierres la app</li>
-          <li>• <strong>Programadas:</strong> Para recordatorios de vacunas y rutinas</li>
-          <li>• <strong>En tiempo real:</strong> Cuando el transporte esté cerca</li>
-        </ul>
+      {/* Información para el usuario */}
+      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-800">
+          <strong>💡 Tip:</strong> Las notificaciones te ayudarán a recibir actualizaciones 
+          sobre las evaluaciones de tus perros y recordatorios importantes.
+        </p>
       </div>
     </div>
   );

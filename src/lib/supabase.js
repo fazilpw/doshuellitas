@@ -1,4 +1,6 @@
-// src/lib/supabase.js - VERSIÓN COMPLETA CON EXPORTS CORREGIDOS ✅
+// src/lib/supabase.js - VERSIÓN COMPLETA CON TODAS LAS FUNCIONES
+// ✅ CORREGIDO: Cliente unificado + todas las funciones del proyecto original
+
 import { createClient } from '@supabase/supabase-js';
 
 // ============================================
@@ -11,19 +13,67 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-// Cliente principal de Supabase
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Cliente único de Supabase con configuración optimizada
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    storage: {
+      getItem: (key) => {
+        if (typeof window === 'undefined') return null;
+        try {
+          return localStorage.getItem(key);
+        } catch (e) {
+          console.warn('⚠️ Error leyendo localStorage:', e);
+          return null;
+        }
+      },
+      setItem: (key, value) => {
+        if (typeof window === 'undefined') return;
+        try {
+          localStorage.setItem(key, value);
+        } catch (e) {
+          console.warn('⚠️ Error escribiendo localStorage:', e);
+        }
+      },
+      removeItem: (key) => {
+        if (typeof window === 'undefined') return;
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn('⚠️ Error eliminando localStorage:', e);
+        }
+      },
+    },
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
+});
+
+if (!supabase) {
+  throw new Error('❌ Error creando cliente Supabase');
+}
+
+console.log('✅ Cliente Supabase inicializado:', {
+  url: supabaseUrl.substring(0, 30) + '...',
+  hasKey: !!supabaseAnonKey
+});
 
 // ============================================
-// 🎯 FUNCIONES DE DATOS PARA CLUB CANINO
+// 🎯 FUNCIONES DE PERROS
 // ============================================
 
 /**
  * Obtiene los perros de un usuario específico
- * 🔧 CORREGIDO: Función independiente que no necesita parámetro supabase
  */
 export async function getUserDogs(userId) {
   try {
+    console.log('🔍 Obteniendo perros para usuario:', userId);
+    
     const { data, error } = await supabase
       .from('dogs')
       .select(`
@@ -34,17 +84,54 @@ export async function getUserDogs(userId) {
       .eq('active', true)
       .order('name');
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error obteniendo perros:', error);
+      throw error;
+    }
+
+    console.log('✅ Perros obtenidos:', data?.length || 0);
     return { data, error: null };
   } catch (error) {
-    console.error('Error fetching user dogs:', error);
+    console.error('❌ Error en getUserDogs:', error);
     return { data: null, error };
   }
 }
 
 /**
+ * Obtiene todos los perros activos (para profesores/admin)
+ */
+export async function getAllDogs() {
+  try {
+    console.log('🔍 Obteniendo todos los perros activos...');
+    
+    const { data, error } = await supabase
+      .from('dogs')
+      .select(`
+        *,
+        profiles!dogs_owner_id_fkey(full_name, email, phone)
+      `)
+      .eq('active', true)
+      .order('name');
+
+    if (error) {
+      console.error('❌ Error obteniendo todos los perros:', error);
+      throw error;
+    }
+
+    console.log('✅ Todos los perros obtenidos:', data?.length || 0);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error en getAllDogs:', error);
+    return { data: null, error };
+  }
+}
+
+// ============================================
+// 🎯 FUNCIONES DE EVALUACIONES
+// ============================================
+
+/**
  * Obtiene evaluaciones recientes de perros
- * 🔧 CORREGIDO: Función independiente que no necesita parámetro supabase
  */
 export async function getRecentEvaluations(dogIds, days = 7) {
   try {
@@ -55,6 +142,8 @@ export async function getRecentEvaluations(dogIds, days = 7) {
     const dateFrom = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
       .toISOString()
       .split('T')[0];
+
+    console.log('🔍 Obteniendo evaluaciones desde:', dateFrom);
 
     const { data, error } = await supabase
       .from('evaluations')
@@ -68,19 +157,26 @@ export async function getRecentEvaluations(dogIds, days = 7) {
       .order('date', { ascending: false })
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error obteniendo evaluaciones:', error);
+      throw error;
+    }
+
+    console.log('✅ Evaluaciones obtenidas:', data?.length || 0);
     return { data, error: null };
   } catch (error) {
-    console.error('Error fetching recent evaluations:', error);
+    console.error('❌ Error en getRecentEvaluations:', error);
     return { data: null, error };
   }
 }
 
 /**
- * 🔍 FUNCIÓN QUE FALTABA: Obtiene todas las evaluaciones de un perro específico
+ * Obtiene todas las evaluaciones de un perro específico
  */
 export async function getDogEvaluations(dogId, limit = 50) {
   try {
+    console.log('🔍 Obteniendo evaluaciones para perro:', dogId);
+    
     const { data, error } = await supabase
       .from('evaluations')
       .select(`
@@ -92,265 +188,15 @@ export async function getDogEvaluations(dogId, limit = 50) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error) throw error;
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error fetching dog evaluations:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Crea una nueva evaluación
- */
-export async function createEvaluation(evaluationData) {
-  try {
-    const { data, error } = await supabase
-      .from('evaluations')
-      .insert([evaluationData])
-      .select(`
-        *,
-        dogs(name, breed),
-        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
-      `)
-      .single();
-
-    if (error) throw error;
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error creating evaluation:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * 📊 Obtiene promedios/estadísticas de un perro específico
- */
-export async function getDogAverages(dogId) {
-  try {
-    const { data, error } = await supabase
-      .from('evaluations')
-      .select('energy_level, sociability_level, obedience_level, anxiety_level, location, date')
-      .eq('dog_id', dogId)
-      .order('date', { ascending: false });
-
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      return {
-        data: {
-          energy_percentage: 0,
-          sociability_percentage: 0,
-          obedience_percentage: 0,
-          anxiety_percentage: 0,
-          total_evaluations: 0,
-          casa_evaluations: 0,
-          colegio_evaluations: 0,
-          last_evaluation_date: null,
-          trend: 'sin_datos'
-        },
-        error: null
-      };
+    if (error) {
+      console.error('❌ Error obteniendo evaluaciones:', error);
+      throw error;
     }
 
-    // Calcular promedios generales
-    const totalEvaluations = data.length;
-    
-    const averages = {
-      energy: Math.round(data.reduce((sum, item) => sum + (item.energy_level || 0), 0) / totalEvaluations),
-      sociability: Math.round(data.reduce((sum, item) => sum + (item.sociability_level || 0), 0) / totalEvaluations),
-      obedience: Math.round(data.reduce((sum, item) => sum + (item.obedience_level || 0), 0) / totalEvaluations),
-      anxiety: Math.round(data.reduce((sum, item) => sum + (item.anxiety_level || 0), 0) / totalEvaluations)
-    };
-
-    // Separar por ubicación
-    const casaEvaluations = data.filter(e => e.location === 'casa');
-    const colegioEvaluations = data.filter(e => e.location === 'colegio');
-
-    // Calcular tendencia (últimas 3 vs anteriores)
-    const recent = data.slice(0, 3);
-    const older = data.slice(3, 6);
-    
-    let trend = 'estable';
-    if (recent.length >= 2 && older.length >= 2) {
-      const recentAvg = recent.reduce((sum, e) => sum + (e.energy_level || 0), 0) / recent.length;
-      const olderAvg = older.reduce((sum, e) => sum + (e.energy_level || 0), 0) / older.length;
-      
-      if (recentAvg > olderAvg + 1) trend = 'mejorando';
-      else if (recentAvg < olderAvg - 1) trend = 'decreciendo';
-    }
-
-    return {
-      data: {
-        energy_percentage: Math.round((averages.energy / 10) * 100),
-        sociability_percentage: Math.round((averages.sociability / 10) * 100),
-        obedience_percentage: Math.round((averages.obedience / 10) * 100),
-        anxiety_percentage: Math.round((averages.anxiety / 10) * 100),
-        total_evaluations: totalEvaluations,
-        casa_evaluations: casaEvaluations.length,
-        colegio_evaluations: colegioEvaluations.length,
-        last_evaluation_date: data[0].date,
-        trend
-      },
-      error: null
-    };
-  } catch (error) {
-    console.error('Error fetching dog averages:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Obtiene estadísticas rápidas para un profesor
- */
-export async function getTeacherStats(teacherId) {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Contar perros totales activos
-    const { count: totalDogs, error: dogsError } = await supabase
-      .from('dogs')
-      .select('*', { count: 'exact', head: true })
-      .eq('active', true);
-
-    if (dogsError) throw dogsError;
-
-    // Evaluaciones de hoy por este profesor
-    const { count: todayEvaluations, error: evalError } = await supabase
-      .from('evaluations')
-      .select('*', { count: 'exact', head: true })
-      .eq('evaluator_id', teacherId)
-      .eq('date', today);
-
-    if (evalError) throw evalError;
-
-    // Evaluaciones totales del profesor
-    const { count: totalEvaluations, error: totalError } = await supabase
-      .from('evaluations')
-      .select('*', { count: 'exact', head: true })
-      .eq('evaluator_id', teacherId);
-
-    if (totalError) throw totalError;
-
-    return {
-      data: {
-        total_dogs: totalDogs || 0,
-        today_evaluations: todayEvaluations || 0,
-        total_evaluations: totalEvaluations || 0
-      },
-      error: null
-    };
-  } catch (error) {
-    console.error('Error fetching teacher stats:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Obtiene estadísticas para un padre
- */
-export async function getParentStats(parentId) {
-  try {
-    // Contar perros del padre
-    const { count: myDogs, error: dogsError } = await supabase
-      .from('dogs')
-      .select('*', { count: 'exact', head: true })
-      .eq('owner_id', parentId)
-      .eq('active', true);
-
-    if (dogsError) throw dogsError;
-
-    // Evaluaciones totales de mis perros
-    let totalEvaluations = 0;
-    let weekEvaluations = 0;
-
-    if (myDogs && myDogs > 0) {
-      // Obtener IDs de mis perros
-      const { data: dogIds, error: idsError } = await supabase
-        .from('dogs')
-        .select('id')
-        .eq('owner_id', parentId)
-        .eq('active', true);
-
-      if (!idsError && dogIds) {
-        const ids = dogIds.map(d => d.id);
-        
-        // Total evaluaciones
-        const { count: total, error: totalError } = await supabase
-          .from('evaluations')
-          .select('*', { count: 'exact', head: true })
-          .in('dog_id', ids);
-
-        if (!totalError) totalEvaluations = total || 0;
-
-        // Evaluaciones de esta semana
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split('T')[0];
-
-        const { count: week, error: weekError } = await supabase
-          .from('evaluations')
-          .select('*', { count: 'exact', head: true })
-          .in('dog_id', ids)
-          .gte('date', weekAgo);
-
-        if (!weekError) weekEvaluations = week || 0;
-      }
-    }
-
-    return {
-      data: {
-        my_dogs: myDogs || 0,
-        total_evaluations: totalEvaluations,
-        week_evaluations: weekEvaluations
-      },
-      error: null
-    };
-  } catch (error) {
-    console.error('Error fetching parent stats:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Busca un usuario por email y rol
- */
-export async function getUserByEmailAndRole(email, role) {
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', email)
-      .eq('role', role)
-      .eq('active', true)
-      .single();
-
-    if (error) throw error;
+    console.log('✅ Evaluaciones obtenidas:', data?.length || 0);
     return { data, error: null };
   } catch (error) {
-    console.error('Error fetching user by email and role:', error);
-    return { data: null, error };
-  }
-}
-
-/**
- * Obtiene todos los perros activos (para profesores/admin)
- */
-export async function getAllDogs() {
-  try {
-    const { data, error } = await supabase
-      .from('dogs')
-      .select(`
-        *,
-        profiles!dogs_owner_id_fkey(full_name, email, phone)
-      `)
-      .eq('active', true)
-      .order('name');
-
-    if (error) throw error;
-    return { data, error: null };
-  } catch (error) {
-    console.error('Error fetching all dogs:', error);
+    console.error('❌ Error en getDogEvaluations:', error);
     return { data: null, error };
   }
 }
@@ -379,19 +225,144 @@ export async function getTodayEvaluations(location, evaluatorId = null) {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error obteniendo evaluaciones de hoy:', error);
+      throw error;
+    }
+
+    console.log('✅ Evaluaciones de hoy obtenidas:', data?.length || 0);
     return { data, error: null };
   } catch (error) {
-    console.error('Error fetching today evaluations:', error);
+    console.error('❌ Error en getTodayEvaluations:', error);
     return { data: null, error };
   }
 }
 
 /**
- * 🔧 FUNCIÓN FALTANTE: Obtiene promedios para múltiples perros
+ * Crear nueva evaluación
+ */
+export async function createEvaluation(evaluationData) {
+  try {
+    console.log('📝 Creando evaluación:', evaluationData);
+    
+    const { data, error } = await supabase
+      .from('evaluations')
+      .insert([evaluationData])
+      .select(`
+        *,
+        dogs(name, breed),
+        profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+      `)
+      .single();
+
+    if (error) {
+      console.error('❌ Error creando evaluación:', error);
+      throw error;
+    }
+
+    console.log('✅ Evaluación creada:', data.id);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error en createEvaluation:', error);
+    return { data: null, error };
+  }
+}
+
+// ============================================
+// 📊 FUNCIONES DE ESTADÍSTICAS Y PROMEDIOS
+// ============================================
+
+/**
+ * Obtiene promedios/estadísticas de un perro específico
+ */
+export async function getDogAverages(dogId) {
+  try {
+    console.log('📊 Calculando promedios para perro:', dogId);
+    
+    const { data, error } = await supabase
+      .from('evaluations')
+      .select('energy_level, sociability_level, obedience_level, anxiety_level, location, date')
+      .eq('dog_id', dogId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error obteniendo datos para promedios:', error);
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      console.log('⚠️ No hay evaluaciones para calcular promedios');
+      return {
+        data: {
+          energy_percentage: 0,
+          sociability_percentage: 0,
+          obedience_percentage: 0,
+          anxiety_percentage: 0,
+          total_evaluations: 0,
+          casa_evaluations: 0,
+          colegio_evaluations: 0,
+          last_evaluation_date: null,
+          trend: 'sin_datos'
+        },
+        error: null
+      };
+    }
+
+    // Calcular promedios generales
+    const totalEvaluations = data.length;
+    
+    const averages = {
+      energy: Math.round(data.reduce((sum, item) => sum + (item.energy_level || 0), 0) / totalEvaluations),
+      sociability: Math.round(data.reduce((sum, item) => sum + (item.sociability_level || 0), 0) / totalEvaluations),
+      obedience: Math.round(data.reduce((sum, item) => sum + (item.obedience_level || 0), 0) / totalEvaluations),
+      anxiety: Math.round(data.reduce((sum, item) => sum + (item.anxiety_level || 0), 0) / totalEvaluations)
+    };
+
+    // Separar por ubicación
+    const casaEvaluations = data.filter(item => item.location === 'casa');
+    const colegioEvaluations = data.filter(item => item.location === 'colegio');
+
+    // Calcular tendencia básica (últimas 5 vs anteriores)
+    let trend = 'estable';
+    if (totalEvaluations >= 10) {
+      const recent = data.slice(0, 5);
+      const older = data.slice(5, 10);
+      
+      const recentAvg = recent.reduce((sum, item) => sum + (item.energy_level || 0), 0) / recent.length;
+      const olderAvg = older.reduce((sum, item) => sum + (item.energy_level || 0), 0) / older.length;
+      
+      if (recentAvg > olderAvg + 1) trend = 'mejorando';
+      else if (recentAvg < olderAvg - 1) trend = 'empeorando';
+    }
+
+    const result = {
+      energy_percentage: Math.round((averages.energy / 10) * 100),
+      sociability_percentage: Math.round((averages.sociability / 10) * 100),
+      obedience_percentage: Math.round((averages.obedience / 10) * 100),
+      anxiety_percentage: Math.round((averages.anxiety / 10) * 100),
+      total_evaluations: totalEvaluations,
+      casa_evaluations: casaEvaluations.length,
+      colegio_evaluations: colegioEvaluations.length,
+      last_evaluation_date: data[0]?.date || null,
+      trend
+    };
+
+    console.log('✅ Promedios calculados:', result);
+    return { data: result, error: null };
+    
+  } catch (error) {
+    console.error('❌ Error en getDogAverages:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene promedios para múltiples perros
  */
 export async function getMultipleDogsAverages(dogIds) {
   try {
+    console.log('🔢 Obteniendo promedios para múltiples perros:', dogIds?.length);
+    
     if (!dogIds || dogIds.length === 0) {
       return {};
     }
@@ -403,7 +374,7 @@ export async function getMultipleDogsAverages(dogIds) {
       const { data, error } = await getDogAverages(dogId);
       
       if (error) {
-        console.error(`Error obteniendo promedios para perro ${dogId}:`, error);
+        console.error(`❌ Error obteniendo promedios para perro ${dogId}:`, error);
         averages[dogId] = {
           energy_percentage: 0,
           sociability_percentage: 0,
@@ -417,18 +388,307 @@ export async function getMultipleDogsAverages(dogIds) {
       }
     }
 
+    console.log('✅ Promedios múltiples obtenidos para', Object.keys(averages).length, 'perros');
     return averages;
   } catch (error) {
-    console.error('Error fetching multiple dogs averages:', error);
+    console.error('❌ Error en getMultipleDogsAverages:', error);
     return {};
   }
 }
 
 /**
- * Función de diagnóstico - verifica conexión con Supabase
+ * Obtiene estadísticas rápidas para un padre
+ */
+export async function getParentStats(userId) {
+  try {
+    console.log('📊 Obteniendo estadísticas para padre:', userId);
+
+    // Obtener perros del usuario
+    const { data: dogs, error: dogsError } = await getUserDogs(userId);
+    
+    if (dogsError) {
+      console.error('❌ Error obteniendo perros para stats:', dogsError);
+      throw dogsError;
+    }
+
+    const myDogs = dogs?.length || 0;
+    let totalEvaluations = 0;
+    let weekEvaluations = 0;
+
+    if (dogs && dogs.length > 0) {
+      const ids = dogs.map(dog => dog.id);
+      
+      // Contar evaluaciones totales
+      const { count: total, error: totalError } = await supabase
+        .from('evaluations')
+        .select('*', { count: 'exact', head: true })
+        .in('dog_id', ids);
+
+      if (!totalError) totalEvaluations = total || 0;
+
+      // Contar evaluaciones de la semana
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      
+      const { count: week, error: weekError } = await supabase
+        .from('evaluations')
+        .select('*', { count: 'exact', head: true })
+        .in('dog_id', ids)
+        .gte('date', weekAgo.toISOString().split('T')[0]);
+
+      if (!weekError) weekEvaluations = week || 0;
+    }
+
+    const result = {
+      my_dogs: myDogs,
+      total_evaluations: totalEvaluations,
+      week_evaluations: weekEvaluations
+    };
+
+    console.log('✅ Estadísticas padre calculadas:', result);
+    return { data: result, error: null };
+  } catch (error) {
+    console.error('❌ Error en getParentStats:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene estadísticas rápidas para un profesor
+ */
+export async function getTeacherStats(teacherId) {
+  try {
+    console.log('📊 Obteniendo estadísticas para profesor:', teacherId);
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Contar perros totales activos
+    const { count: totalDogs, error: dogsError } = await supabase
+      .from('dogs')
+      .select('*', { count: 'exact', head: true })
+      .eq('active', true);
+
+    if (dogsError) {
+      console.error('❌ Error contando perros:', dogsError);
+      throw dogsError;
+    }
+
+    // Evaluaciones de hoy por este profesor
+    const { count: todayEvaluations, error: evalError } = await supabase
+      .from('evaluations')
+      .select('*', { count: 'exact', head: true })
+      .eq('date', today)
+      .eq('evaluator_id', teacherId);
+
+    if (evalError) {
+      console.error('❌ Error contando evaluaciones de hoy:', evalError);
+    }
+
+    // Evaluaciones totales por este profesor
+    const { count: totalEvaluations, error: totalEvalError } = await supabase
+      .from('evaluations')
+      .select('*', { count: 'exact', head: true })
+      .eq('evaluator_id', teacherId);
+
+    if (totalEvalError) {
+      console.error('❌ Error contando evaluaciones totales:', totalEvalError);
+    }
+
+    const result = {
+      total_dogs: totalDogs || 0,
+      today_evaluations: todayEvaluations || 0,
+      total_evaluations: totalEvaluations || 0
+    };
+
+    console.log('✅ Estadísticas profesor calculadas:', result);
+    return { data: result, error: null };
+  } catch (error) {
+    console.error('❌ Error en getTeacherStats:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Obtiene estadísticas completas para admin
+ */
+export async function getAdminStats() {
+  try {
+    console.log('📊 Obteniendo estadísticas para admin...');
+
+    // Obtener conteos de todas las tablas principales
+    const [usersResult, dogsResult, evaluationsResult, vehiclesResult] = await Promise.all([
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('dogs').select('*', { count: 'exact', head: true }).eq('active', true),
+      supabase.from('evaluations').select('*', { count: 'exact', head: true }),
+      supabase.from('vehicles').select('*', { count: 'exact', head: true })
+    ]);
+
+    const result = {
+      total_users: usersResult.count || 0,
+      total_dogs: dogsResult.count || 0,
+      total_evaluations: evaluationsResult.count || 0,
+      total_vehicles: vehiclesResult.count || 0
+    };
+
+    console.log('✅ Estadísticas admin calculadas:', result);
+    return { data: result, error: null };
+  } catch (error) {
+    console.error('❌ Error en getAdminStats:', error);
+    return { data: null, error };
+  }
+}
+
+// ============================================
+// 👥 FUNCIONES DE USUARIOS
+// ============================================
+
+/**
+ * Obtener perfil de usuario
+ */
+export async function getUserProfile(userId) {
+  try {
+    console.log('🔍 Obteniendo perfil para:', userId);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('❌ Error obteniendo perfil:', error);
+      throw error;
+    }
+
+    console.log('✅ Perfil obtenido:', data?.email);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error en getUserProfile:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Busca un usuario por email y rol
+ */
+export async function getUserByEmailAndRole(email, role) {
+  try {
+    console.log('🔍 Buscando usuario:', email, 'con rol:', role);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .eq('role', role)
+      .eq('active', true)
+      .single();
+
+    if (error) {
+      console.error('❌ Error buscando usuario:', error);
+      throw error;
+    }
+
+    console.log('✅ Usuario encontrado:', data?.email);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error en getUserByEmailAndRole:', error);
+    return { data: null, error };
+  }
+}
+
+// ============================================
+// 🚐 FUNCIONES DE VEHÍCULOS
+// ============================================
+
+/**
+ * Obtiene todos los vehículos
+ */
+export async function getVehicles() {
+  try {
+    console.log('🔍 Obteniendo vehículos...');
+    
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select(`
+        *,
+        current_driver:profiles(*)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error obteniendo vehículos:', error);
+      throw error;
+    }
+
+    console.log('✅ Vehículos obtenidos:', data?.length || 0);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error en getVehicles:', error);
+    return { data: null, error };
+  }
+}
+
+/**
+ * Crea un nuevo vehículo
+ */
+export async function createVehicle(vehicleData) {
+  try {
+    console.log('🚐 Creando vehículo:', vehicleData);
+    
+    const { data, error } = await supabase
+      .from('vehicles')
+      .insert([vehicleData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error creando vehículo:', error);
+      throw error;
+    }
+
+    console.log('✅ Vehículo creado:', data.id);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error en createVehicle:', error);
+    return { data: null, error };
+  }
+}
+
+// ============================================
+// 🔧 FUNCIONES DE UTILIDAD Y DIAGNÓSTICO
+// ============================================
+
+/**
+ * Verificar conexión a Supabase
+ */
+export async function testConnection() {
+  try {
+    console.log('🧪 Probando conexión a Supabase...');
+    
+    const { count, error } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) {
+      console.error('❌ Error de conexión:', error);
+      throw error;
+    }
+
+    console.log('✅ Conexión exitosa, profiles:', count);
+    return { success: true, count };
+  } catch (error) {
+    console.error('❌ Error testConnection:', error);
+    return { success: false, error };
+  }
+}
+
+/**
+ * Función de diagnóstico avanzada
  */
 export async function testSupabaseConnection() {
   try {
+    console.log('🔍 Diagnóstico completo de Supabase...');
+    
     const { data, error } = await supabase
       .from('profiles')
       .select('count')
@@ -442,7 +702,7 @@ export async function testSupabaseConnection() {
       data 
     };
   } catch (error) {
-    console.error('Error testing Supabase connection:', error);
+    console.error('❌ Error en diagnóstico:', error);
     return { 
       success: false, 
       message: '❌ Error de conexión con Supabase: ' + error.message,
@@ -503,23 +763,7 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
       }
     },
 
-    // Helper para probar routine_completions
-    async testRoutineCompletions() {
-      try {
-        const { data, error } = await supabase
-          .from('routine_completions')
-          .select('*')
-          .limit(3);
-        
-        console.log('✅ routine_completions query exitoso:', data);
-        return { data, error };
-      } catch (err) {
-        console.log('❌ routine_completions query falló:', err);
-        return { data: null, error: err };
-      }
-    },
-
-    // Test específico para getUserDogs
+    // Tests para todas las funciones principales
     async testGetUserDogs(userId = 'test-user-id') {
       try {
         const result = await getUserDogs(userId);
@@ -531,24 +775,54 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
       }
     },
 
-    // Test específico para getRecentEvaluations
-    async testGetRecentEvaluations(dogIds = ['test-dog-id']) {
+    async testGetDogAverages(dogId = 'test-dog-id') {
       try {
-        const result = await getRecentEvaluations(dogIds);
-        console.log('✅ getRecentEvaluations test:', result);
+        const result = await getDogAverages(dogId);
+        console.log('✅ getDogAverages test:', result);
         return result;
       } catch (err) {
-        console.log('❌ getRecentEvaluations test falló:', err);
+        console.log('❌ getDogAverages test falló:', err);
+        return { data: null, error: err };
+      }
+    },
+
+    async testGetAllDogs() {
+      try {
+        const result = await getAllDogs();
+        console.log('✅ getAllDogs test:', result);
+        return result;
+      } catch (err) {
+        console.log('❌ getAllDogs test falló:', err);
         return { data: null, error: err };
       }
     }
   };
   
   console.log('🔧 Supabase debug disponible en window.debugSupabase');
-  console.log('📝 Funciones exportadas: getUserDogs, getRecentEvaluations, getDogEvaluations, createEvaluation');
+  console.log('📝 Funciones exportadas completas - ', Object.keys({
+    getUserDogs, getAllDogs, getRecentEvaluations, getDogEvaluations, 
+    getTodayEvaluations, createEvaluation, getDogAverages, getMultipleDogsAverages,
+    getParentStats, getTeacherStats, getAdminStats, getUserProfile, 
+    getUserByEmailAndRole, getVehicles, createVehicle, testConnection, testSupabaseConnection
+  }).length, 'funciones');
 }
 
 // ============================================
-// 🚀 EXPORTACIÓN PRINCIPAL
+// 🔄 EXPORTACIONES PRINCIPALES
 // ============================================
+
+// EXPORTACIÓN DEFAULT: Cliente Supabase (para authService.js)
 export default supabase;
+
+// EXPORTACIÓN NOMBRADA: Para compatibilidad (para otros archivos)
+export { supabase };
+
+// Re-exportar createClient para casos especiales
+export { createClient };
+
+// Información del cliente
+export const supabaseConfig = {
+  url: supabaseUrl,
+  anonKey: supabaseAnonKey,
+  initialized: true
+};
