@@ -19,6 +19,7 @@ import { createTestNotification } from '../../utils/notificationHelper.js';
 
 
 
+
 const ParentDashboard = ({ authUser, authProfile }) => {
   // ===============================================
   // 🎯 ESTADOS PRINCIPALES
@@ -738,32 +739,50 @@ const ParentDashboard = ({ authUser, authProfile }) => {
         </div>
       );
 
-    case 'notificaciones':
-      return (
-        <div className={contentClasses}>
-          <div className={innerClasses}>
-            {/* Dashboard existente */}
-            <NotificationSystem 
-              userId={currentUser?.id}
-              dogs={dogs}
-            />
-            
-            {/* NUEVO: Dashboard de gestión */}
-            <div className="mt-8">
-              <NotificationManagerDashboard
-                userId={currentUser?.id}
-                dogs={dogs}
-                isAdmin={false}
-              />
+    // ACTUALIZACIÓN RÁPIDA: Usa componentes existentes + notificaciones automáticas
+// Solo modifica la sección 'notificaciones' en tu ParentDashboard.jsx
 
-              <TestNotificationButtons 
-                currentUser={currentUser}
-                dogs={dogs}
-              />
-            </div>
-          </div>
+case 'notificaciones':
+  return (
+    <div className={contentClasses}>
+      <div className={innerClasses}>
+        
+        {/* 🔔 COMPONENTE EXISTENTE DE NOTIFICACIONES */}
+        <NotificationSystem 
+          userId={currentUser?.id}
+          dogs={dogs}
+        />
+        
+        {/* 🔔 AGREGAR: COMPONENTE SIMPLE PARA VER NOTIFICACIONES AUTOMÁTICAS */}
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">
+            🔔 Notificaciones Automáticas Recientes
+          </h3>
+          <NotificationListSimple userId={currentUser?.id} />
         </div>
-      );
+        
+        {/* 🧪 BOTÓN DE PRUEBA RÁPIDO */}
+        <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <h4 className="font-medium text-purple-900 mb-2">🧪 Prueba Rápida del Sistema</h4>
+          <button
+            onClick={() => testNotificationSystem(currentUser?.id, dogs[0]?.id)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm"
+          >
+            Probar Notificaciones Automáticas
+          </button>
+        </div>
+
+        {/* Dashboard de gestión existente */}
+        <div className="mt-8">
+          <NotificationManagerDashboard
+            userId={currentUser?.id}
+            dogs={dogs}
+            isAdmin={false}
+          />
+        </div>
+      </div>
+    </div>
+  );
 
     default: // dashboard
       return (
@@ -826,6 +845,138 @@ const ParentDashboard = ({ authUser, authProfile }) => {
       )}
     </div>
   );
+};
+// 🔔 Componente simple para mostrar notificaciones
+const NotificationListSimple = ({ userId }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadNotifications();
+    // Recargar cada 30 segundos
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  const loadNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('❌ Error cargando notificaciones:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="animate-pulse">Cargando notificaciones...</div>;
+  }
+
+  if (notifications.length === 0) {
+    return (
+      <div className="text-center py-4 text-gray-500">
+        <div className="text-2xl mb-2">📬</div>
+        <p>No hay notificaciones automáticas aún</p>
+        <p className="text-sm mt-1">Evalúa a tu perro para generar notificaciones</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {notifications.map((notification) => (
+        <div
+          key={notification.id}
+          className="bg-blue-50 border border-blue-200 rounded-lg p-4"
+        >
+          <div className="flex items-start space-x-3">
+            <div className="text-lg">
+              {notification.category === 'behavior' ? '🚨' :
+               notification.category === 'improvement' ? '✅' :
+               notification.category === 'comparison' ? '📊' : '🔔'}
+            </div>
+            <div className="flex-1">
+              <h4 className="font-medium text-blue-900 text-sm">
+                {notification.title}
+              </h4>
+              <p className="text-blue-800 text-sm mt-1">
+                {notification.message}
+              </p>
+              <p className="text-xs text-blue-600 mt-2">
+                {new Date(notification.created_at).toLocaleString('es-CO')}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+      
+      <button
+        onClick={loadNotifications}
+        className="w-full text-center text-blue-600 hover:text-blue-800 text-sm py-2"
+      >
+        🔄 Actualizar
+      </button>
+    </div>
+  );
+};
+
+// 🧪 Función de prueba del sistema de notificaciones
+const testNotificationSystem = async (userId, dogId) => {
+  try {
+    console.log('🧪 Iniciando prueba del sistema de notificaciones...');
+    
+    if (!userId || !dogId) {
+      alert('❌ Faltan datos: Usuario o perro no encontrado');
+      return;
+    }
+
+    // Importar el helper
+    const { NotificationHelper } = await import('../../utils/notificationHelper.js');
+    
+    // Crear notificación de prueba
+    await NotificationHelper.createTestNotification(userId, dogId, 'Rio');
+    
+    // Simular evaluación con ansiedad alta
+    const mockEvaluation = {
+      anxiety_level: 9,
+      obedience_level: 3,
+      energy_level: 8,
+      sociability_level: 7,
+      location: 'casa'
+    };
+    
+    const mockDog = {
+      id: dogId,
+      name: 'Rio',
+      owner_id: userId
+    };
+    
+    // Procesar alertas automáticas
+    await NotificationHelper.checkBehaviorAlertsAfterEvaluation(
+      mockEvaluation,
+      mockDog,
+      userId
+    );
+    
+    alert('✅ Prueba completada! Revisa las notificaciones en 30 segundos o actualiza manualmente.');
+    
+    // Forzar recarga de notificaciones después de 2 segundos
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+    
+  } catch (error) {
+    console.error('❌ Error en prueba:', error);
+    alert('❌ Error en la prueba: ' + error.message);
+  }
 };
 
 export default ParentDashboard;
