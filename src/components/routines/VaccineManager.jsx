@@ -721,10 +721,10 @@ const VaccineManager = ({ dogs = [], currentUser, onVaccineUpdated }) => {
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-lg">{typeInfo.icon}</span>
+                        <div className=" grid-cols-1  mb-2">
+                          
                           <h4 className="font-semibold text-gray-800">
-                            {vaccine.vaccine_name}
+                            <span className="text-lg m-2">{typeInfo.icon}</span>{vaccine.vaccine_name}
                           </h4>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${typeInfo.color}`}>
                             {typeInfo.label}
@@ -758,7 +758,7 @@ const VaccineManager = ({ dogs = [], currentUser, onVaccineUpdated }) => {
                         </div>
                       </div>
 
-                      <div className="flex gap-2 ml-4">
+                      <div className="grid grid-cols-1  gap-2 ml-4">
                         <button
                           onClick={() => handleEdit(vaccine)}
                           className="text-blue-600 hover:text-blue-800 p-1"
