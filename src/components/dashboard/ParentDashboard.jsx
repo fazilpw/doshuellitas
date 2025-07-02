@@ -14,6 +14,8 @@ import { LogoutButton } from '../../utils/logoutHandler.jsx';
 import NotificationSystem from '../notifications/NotificationSystem.jsx';
 import NotificationManagerDashboard from '../notifications/NotificationManagerDashboard.jsx';
 import { createTestNotification } from '../../utils/notificationHelper.js';
+import RealPushNotifications from '../notifications/RealPushNotifications.jsx';
+
 
 
 
@@ -780,6 +782,11 @@ case 'notificaciones':
             isAdmin={false}
           />
         </div>
+        <RealPushNotifications 
+  userId={currentUser?.id}
+  userRole={currentUser?.role}
+  dogs={dogs}
+/>
       </div>
     </div>
   );

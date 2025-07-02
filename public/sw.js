@@ -1,91 +1,49 @@
-// public/sw.js - Service Worker para PWA + Push Notifications
-// 🎯 Objetivo: Caching inteligente + Push notifications funcionales
+// public/sw.js
+// 🔔 SERVICE WORKER CON PUSH NOTIFICATIONS REALES
+// Version 3.0.0 - Club Canino Dos Huellitas
 
-const CACHE_VERSION = 'club-canino-push-v1.0.0';
-const STATIC_CACHE = 'club-canino-static-v1';
-const RUNTIME_CACHE = 'club-canino-runtime-v1';
+const CACHE_NAME = 'club-canino-v3.0.0';
+const SW_VERSION = '3.0.0';
+
+console.log(`🚀 Service Worker v${SW_VERSION} iniciando...`);
 
 // ============================================
-// 🚫 RECURSOS QUE NUNCA SE DEBEN CACHEAR
+// 📦 RECURSOS PARA CACHE
 // ============================================
-const NEVER_CACHE = [
-  // APIs y backends
-  /supabase/,
-  /\.supabase\./,
-  /\/api\//,
-  /\/auth\//,
-  /\/rest\//,
-  
-  // JavaScript dinámico (evita MIME type errors)
-  /\.js$/,
-  /\.jsx$/,
-  /\.ts$/,
-  /\.tsx$/,
-  /\.mjs$/,
-  /_astro\/.*\.js/,
-  /chunks\/.*\.js/,
-  
-  // CSS dinámico 
-  /\.css$/,
-  /_astro\/.*\.css/,
-  
-  // Rutas dinámicas
-  /\/dashboard\//,
-  /\/login/,
-  /\/register/,
-  /\/evaluacion/,
-  /\/admin/,
-  
-  // Development
-  /localhost/,
-  /127\.0\.0\.1/,
-  /@vite/,
-  /@id/,
-  /__vite/
+const CORE_ASSETS = [
+  '/',
+  '/manifest.json',
+  '/favicon.ico',
+  '/offline.html'
 ];
 
 // ============================================
-// ✅ RECURSOS SEGUROS PARA CACHEAR
-// ============================================
-const SAFE_TO_CACHE = [
-  // Solo imágenes y fuentes
-  /\.(png|jpg|jpeg|gif|svg|ico|webp|avif)$/,
-  /\.(woff|woff2|ttf|eot)$/,
-  // Página principal
-  /^https:\/\/[^\/]+\/$/, 
-];
-
-// ============================================
-// 📦 INSTALACIÓN DEL SW
+// 🎯 INSTALACIÓN DEL SW
 // ============================================
 self.addEventListener('install', (event) => {
-  console.log('🔧 SW Club Canino: Instalando...');
+  console.log('📥 SW: Instalando...');
   
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => {
-      console.log('📦 Cache estático abierto');
-      // Pre-cachear recursos críticos mínimos
-      return cache.addAll([
-        '/',
-        '/manifest.json',
-        '/icons/icon-192x192.png',
-        '/icons/icon-512x512.png'
-      ]).catch((error) => {
-        console.warn('⚠️ Error pre-cacheando recursos:', error);
-        // No fallar la instalación por esto
-      });
-    })
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('💾 SW: Cacheando recursos core...');
+        return cache.addAll(CORE_ASSETS);
+      })
+      .then(() => {
+        console.log('✅ SW: Instalado exitosamente');
+        self.skipWaiting(); // Activar inmediatamente
+      })
+      .catch((error) => {
+        console.error('❌ SW: Error en instalación:', error);
+      })
   );
-  
-  // Activar inmediatamente
-  self.skipWaiting();
 });
 
 // ============================================
-// 🚀 ACTIVACIÓN DEL SW
+// 🔄 ACTIVACIÓN DEL SW  
 // ============================================
 self.addEventListener('activate', (event) => {
-  console.log('🚀 SW Club Canino: Activando...');
+  console.log('🔄 SW: Activando...');
   
   event.waitUntil(
     Promise.all([
@@ -93,243 +51,411 @@ self.addEventListener('activate', (event) => {
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE && cacheName !== RUNTIME_CACHE) {
-              console.log('🗑️ Eliminando cache antiguo:', cacheName);
+            if (cacheName !== CACHE_NAME) {
+              console.log('🗑️ SW: Eliminando cache antiguo:', cacheName);
               return caches.delete(cacheName);
             }
           })
         );
       }),
-      // Tomar control inmediato
+      
+      // Tomar control de todas las ventanas
       self.clients.claim()
     ])
-  );
-  
-  console.log('✅ SW Club Canino: Activo y listo para push notifications');
-  
-  // Notificar al cliente que el SW está listo
-  self.clients.matchAll().then((clients) => {
-    clients.forEach((client) => {
-      client.postMessage({
-        type: 'SW_ACTIVATED',
-        data: { version: CACHE_VERSION }
+    .then(() => {
+      console.log('✅ SW: Activado y controlando todas las ventanas');
+      
+      // Notificar al cliente que estamos listos
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'SW_ACTIVATED',
+            data: { version: SW_VERSION }
+          });
+        });
       });
-    });
-  });
+    })
+  );
 });
 
 // ============================================
-// 🌐 INTERCEPCIÓN DE REQUESTS (Caching)
+// 🔔 MANEJO DE PUSH NOTIFICATIONS
 // ============================================
-self.addEventListener('fetch', (event) => {
-  // Solo manejar requests GET
-  if (event.request.method !== 'GET') return;
+self.addEventListener('push', (event) => {
+  console.log('🔔 SW: Push notification recibida');
   
-  const url = event.request.url;
+  let notificationData = {
+    title: '🐕 Club Canino Dos Huellitas',
+    body: 'Nueva notificación disponible',
+    icon: '/icon-192.png',
+    badge: '/badge-72.png',
+    tag: 'club-canino-notification',
+    requireInteraction: true,
+    data: {}
+  };
   
-  // Nunca cachear estos recursos
-  if (NEVER_CACHE.some(pattern => pattern.test(url))) {
-    return; // Ir directo a la red
+  // Procesar datos del push
+  if (event.data) {
+    try {
+      const pushData = event.data.json();
+      console.log('📨 SW: Datos del push:', pushData);
+      
+      // Mergear con datos por defecto
+      notificationData = {
+        ...notificationData,
+        ...pushData,
+        data: pushData.data || {}
+      };
+      
+    } catch (error) {
+      console.error('❌ SW: Error parseando datos push:', error);
+      notificationData.body = event.data.text() || notificationData.body;
+    }
   }
   
-  // Solo cachear recursos seguros
-  if (SAFE_TO_CACHE.some(pattern => pattern.test(url))) {
-    event.respondWith(
-      caches.open(RUNTIME_CACHE).then((cache) => {
-        return cache.match(event.request).then((response) => {
-          if (response) {
-            console.log('📦 Cache hit:', url);
-            return response;
-          }
-          
-          // Fetch y cachear
-          return fetch(event.request).then((response) => {
-            // Solo cachear respuestas exitosas
-            if (response.status === 200) {
-              cache.put(event.request, response.clone());
-            }
-            return response;
-          });
+  // Personalizar según el tipo de notificación
+  if (notificationData.data.type) {
+    notificationData = customizeNotificationByType(notificationData);
+  }
+  
+  console.log('📢 SW: Mostrando notificación:', notificationData.title);
+  
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, {
+      body: notificationData.body,
+      icon: notificationData.icon,
+      badge: notificationData.badge,
+      tag: notificationData.tag,
+      requireInteraction: notificationData.requireInteraction,
+      data: notificationData.data,
+      actions: generateNotificationActions(notificationData.data.type),
+      vibrate: [200, 100, 200, 100, 200],
+      silent: false
+    })
+  );
+});
+
+// ============================================
+// 🎨 PERSONALIZAR NOTIFICACIÓN POR TIPO
+// ============================================
+function customizeNotificationByType(notification) {
+  const { type } = notification.data;
+  
+  switch (type) {
+    case 'behavior_alert':
+      return {
+        ...notification,
+        icon: '/icons/alert-icon.png',
+        tag: 'behavior-alert',
+        requireInteraction: true,
+        data: {
+          ...notification.data,
+          url: '/dashboard/parent/',
+          action: 'view_evaluation'
+        }
+      };
+      
+    case 'behavior_improvement':
+      return {
+        ...notification,
+        icon: '/icons/success-icon.png',
+        tag: 'behavior-improvement',
+        requireInteraction: false,
+        data: {
+          ...notification.data,
+          url: '/dashboard/parent/',
+          action: 'view_progress'
+        }
+      };
+      
+    case 'transport_update':
+      return {
+        ...notification,
+        icon: '/icons/transport-icon.png',
+        tag: 'transport-update',
+        requireInteraction: true,
+        data: {
+          ...notification.data,
+          url: '/dashboard/parent/?page=tracking',
+          action: 'track_transport'
+        }
+      };
+      
+    case 'medical_reminder':
+      return {
+        ...notification,
+        icon: '/icons/medical-icon.png',
+        tag: 'medical-reminder',
+        requireInteraction: true,
+        data: {
+          ...notification.data,
+          url: '/dashboard/parent/?page=salud',
+          action: 'view_medical'
+        }
+      };
+      
+    default:
+      return notification;
+  }
+}
+
+// ============================================
+// 🎮 GENERAR ACCIONES DE NOTIFICACIÓN
+// ============================================
+function generateNotificationActions(type) {
+  const commonActions = [
+    {
+      action: 'open',
+      title: '👀 Ver detalles'
+    }
+  ];
+  
+  switch (type) {
+    case 'behavior_alert':
+      return [
+        {
+          action: 'view_evaluation',
+          title: '📊 Ver evaluación'
+        },
+        {
+          action: 'dismiss',
+          title: '✖️ Cerrar'
+        }
+      ];
+      
+    case 'transport_update':
+      return [
+        {
+          action: 'track_transport',
+          title: '📍 Seguir ruta'
+        },
+        {
+          action: 'dismiss',
+          title: '✖️ Cerrar'
+        }
+      ];
+      
+    case 'medical_reminder':
+      return [
+        {
+          action: 'view_medical',
+          title: '💊 Ver recordatorio'
+        },
+        {
+          action: 'snooze',
+          title: '⏰ Recordar después'
+        }
+      ];
+      
+    default:
+      return commonActions;
+  }
+}
+
+// ============================================
+// 👆 MANEJO DE CLICKS EN NOTIFICACIONES
+// ============================================
+self.addEventListener('notificationclick', (event) => {
+  console.log('👆 SW: Click en notificación:', event.action);
+  
+  const notification = event.notification;
+  const data = notification.data || {};
+  
+  // Cerrar la notificación
+  notification.close();
+  
+  // Manejar acciones específicas
+  let targetUrl = data.url || '/dashboard/parent/';
+  
+  switch (event.action) {
+    case 'view_evaluation':
+      targetUrl = '/dashboard/parent/?tab=evaluaciones';
+      break;
+      
+    case 'track_transport':
+      targetUrl = '/dashboard/parent/?page=tracking';
+      break;
+      
+    case 'view_medical':
+      targetUrl = '/dashboard/parent/?page=salud';
+      break;
+      
+    case 'snooze':
+      // Programar recordatorio en 1 hora
+      scheduleSnoozeReminder(data);
+      return; // No abrir ventana
+      
+    case 'dismiss':
+      return; // Solo cerrar notificación
+      
+    default:
+      // Acción 'open' o click principal
+      break;
+  }
+  
+  console.log('🌐 SW: Abriendo URL:', targetUrl);
+  
+  // Abrir o enfocar ventana de la app
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Buscar ventana existente de la app
+        const existingClient = clientList.find((client) => {
+          return client.url.includes(self.location.origin);
         });
+        
+        if (existingClient) {
+          // Enfocar ventana existente y navegar
+          return existingClient.focus().then(() => {
+            return existingClient.navigate(targetUrl);
+          });
+        } else {
+          // Abrir nueva ventana
+          return clients.openWindow(targetUrl);
+        }
       })
+      .catch((error) => {
+        console.error('❌ SW: Error manejando click:', error);
+        // Fallback: abrir nueva ventana
+        return clients.openWindow(targetUrl);
+      })
+  );
+});
+
+// ============================================
+// ⏰ RECORDATORIO DIFERIDO
+// ============================================
+function scheduleSnoozeReminder(data) {
+  console.log('⏰ SW: Programando recordatorio diferido...');
+  
+  // Mostrar notificación en 1 hora
+  setTimeout(() => {
+    self.registration.showNotification('🔔 Recordatorio médico', {
+      body: `No olvides: ${data.reminderText || 'Atención médica pendiente'}`,
+      icon: '/icons/medical-icon.png',
+      tag: 'medical-snooze',
+      requireInteraction: true,
+      data: data
+    });
+  }, 60 * 60 * 1000); // 1 hora
+}
+
+// ============================================
+// 📬 MANEJO DE MENSAJES DEL CLIENTE
+// ============================================
+self.addEventListener('message', (event) => {
+  const { type, data } = event.data || {};
+  console.log('📬 SW: Mensaje recibido:', type);
+  
+  switch (type) {
+    case 'SKIP_WAITING':
+      console.log('⏭️ SW: Saltando espera...');
+      self.skipWaiting();
+      break;
+      
+    case 'GET_VERSION':
+      event.ports[0].postMessage({ version: SW_VERSION });
+      break;
+      
+    case 'CLEAR_NOTIFICATIONS':
+      // Limpiar todas las notificaciones
+      self.registration.getNotifications().then((notifications) => {
+        notifications.forEach((notification) => {
+          notification.close();
+        });
+        console.log(`🧹 SW: ${notifications.length} notificaciones limpiadas`);
+      });
+      break;
+      
+    case 'TEST_NOTIFICATION':
+      // Notificación de prueba
+      self.registration.showNotification('🧪 Prueba de Notificación', {
+        body: 'Esta es una notificación de prueba del Service Worker',
+        icon: '/icon-192.png',
+        tag: 'test-notification',
+        requireInteraction: false,
+        data: { type: 'test', url: '/dashboard/parent/' }
+      });
+      break;
+      
+    default:
+      console.log('❓ SW: Tipo de mensaje desconocido:', type);
+  }
+});
+
+// ============================================
+// 🌐 ESTRATEGIA DE CACHE PARA REQUESTS
+// ============================================
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Solo cachear requests de nuestro dominio
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+  
+  // Estrategia Network First para páginas dinámicas
+  if (url.pathname.startsWith('/dashboard/') || url.pathname.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Cachear respuestas exitosas
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback al cache si la red falla
+          return caches.match(event.request);
+        })
+    );
+  }
+  // Estrategia Cache First para assets estáticos
+  else if (
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.jpg') ||
+    url.pathname.endsWith('.ico')
+  ) {
+    event.respondWith(
+      caches.match(event.request)
+        .then((response) => {
+          return response || fetch(event.request);
+        })
     );
   }
 });
 
 // ============================================
-// 🔔 PUSH NOTIFICATIONS - EVENTO PRINCIPAL
-// ============================================
-self.addEventListener('push', (event) => {
-  console.log('🔔 Push notification recibida:', event);
-  
-  let notificationData = {};
-  
-  try {
-    // Intentar parsear datos del push
-    if (event.data) {
-      notificationData = event.data.json();
-    }
-  } catch (error) {
-    console.warn('⚠️ Error parseando datos push:', error);
-    // Usar datos por defecto
-    notificationData = {
-      title: '🐕 Club Canino Dos Huellitas',
-      body: 'Nueva notificación disponible',
-      icon: '/icons/icon-192x192.png'
-    };
-  }
-  
-  // Configuración por defecto de notificación
-  const notificationOptions = {
-    body: notificationData.body || 'Tienes una nueva actualización',
-    icon: notificationData.icon || '/icons/icon-192x192.png',
-    badge: notificationData.badge || '/icons/badge-72x72.png',
-    tag: notificationData.tag || 'club-canino-notification',
-    data: notificationData.data || {},
-    
-    // Configuraciones avanzadas
-    requireInteraction: true, // La notificación permanece hasta que el usuario interactúe
-    vibrate: [100, 50, 100], // Patrón de vibración
-    
-    // Acciones disponibles en la notificación
-    actions: [
-      {
-        action: 'view',
-        title: '👀 Ver detalles',
-        icon: '/icons/view-icon.png'
-      },
-      {
-        action: 'dismiss',
-        title: '❌ Descartar',
-        icon: '/icons/dismiss-icon.png'
-      }
-    ]
-  };
-  
-  // Personalización según tipo de notificación
-  if (notificationData.data && notificationData.data.type) {
-    switch (notificationData.data.type) {
-      case 'transport':
-        notificationOptions.requireInteraction = true;
-        notificationOptions.tag = 'transport-update';
-        break;
-      case 'evaluation':
-        notificationOptions.tag = 'evaluation-new';
-        break;
-      case 'vaccine':
-        notificationOptions.requireInteraction = true;
-        notificationOptions.tag = 'vaccine-reminder';
-        break;
-    }
-  }
-  
-  event.waitUntil(
-    self.registration.showNotification(
-      notificationData.title || '🐕 Club Canino',
-      notificationOptions
-    ).then(() => {
-      console.log('✅ Notificación mostrada:', notificationData.title);
-    }).catch((error) => {
-      console.error('❌ Error mostrando notificación:', error);
-    })
-  );
-});
-
-// ============================================
-// 👆 CLICK EN NOTIFICACIÓN
-// ============================================
-self.addEventListener('notificationclick', (event) => {
-  console.log('👆 Notificación clickeada:', event.notification.tag, event.action);
-  
-  event.notification.close();
-  
-  let url = '/dashboard/';
-  
-  // Determinar URL según el tipo de notificación
-  if (event.notification.data) {
-    switch (event.notification.data.type) {
-      case 'transport':
-        url = '/dashboard/tracking/';
-        break;
-      case 'evaluation':
-        url = '/dashboard/evaluaciones/';
-        break;
-      case 'vaccine':
-        url = '/dashboard/recordatorios/';
-        break;
-    }
-  }
-  
-  // Manejar acciones específicas
-  if (event.action === 'dismiss') {
-    console.log('🗑️ Notificación descartada');
-    return;
-  }
-  
-  // Abrir la app
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((clientList) => {
-      // Buscar si ya hay una ventana abierta
-      for (const client of clientList) {
-        if (client.url.includes('/dashboard') && 'focus' in client) {
-          console.log('🔄 Enfocando ventana existente');
-          return client.focus();
-        }
-      }
-      
-      // Si no hay ventana abierta, abrir nueva
-      if (clients.openWindow) {
-        console.log('🆕 Abriendo nueva ventana:', url);
-        return clients.openWindow(url);
-      }
-    })
-  );
-});
-
-// ============================================
-// 🔕 CERRAR NOTIFICACIÓN
-// ============================================
-self.addEventListener('notificationclose', (event) => {
-  console.log('🔕 Notificación cerrada:', event.notification.tag);
-  
-  // Opcional: Analytics de notificaciones cerradas
-  // trackNotificationClose(event.notification.data);
-});
-
-// ============================================
-// 📨 MENSAJES DEL CLIENTE
-// ============================================
-self.addEventListener('message', (event) => {
-  console.log('📨 Mensaje recibido en SW:', event.data);
-  
-  switch (event.data.type) {
-    case 'SKIP_WAITING':
-      self.skipWaiting();
-      break;
-    case 'GET_VERSION':
-      event.ports[0].postMessage({ version: CACHE_VERSION });
-      break;
-    case 'CLEAR_CACHE':
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => caches.delete(cacheName))
-        );
-      }).then(() => {
-        event.ports[0].postMessage({ success: true });
-      });
-      break;
-  }
-});
-
-// ============================================
-// 🚫 ERROR HANDLING
+// 🚨 MANEJO DE ERRORES GLOBAL
 // ============================================
 self.addEventListener('error', (event) => {
-  console.error('❌ Error en SW:', event.error);
+  console.error('🚨 SW: Error global:', event.error);
 });
 
 self.addEventListener('unhandledrejection', (event) => {
-  console.error('❌ Promise rechazada en SW:', event.reason);
+  console.error('🚨 SW: Promise rechazada:', event.reason);
 });
 
-console.log('🔧 Club Canino SW: Script cargado y listo para push notifications');
+// ============================================
+// 💗 MANTENER SW VIVO
+// ============================================
+self.addEventListener('sync', (event) => {
+  console.log('🔄 SW: Background sync:', event.tag);
+  
+  if (event.tag === 'background-sync') {
+    event.waitUntil(doBackgroundSync());
+  }
+});
+
+async function doBackgroundSync() {
+  console.log('🔄 SW: Ejecutando sincronización en background...');
+  // Aquí puedes sincronizar datos pendientes
+}
+
+console.log(`✅ Service Worker v${SW_VERSION} listo para push notifications`);
