@@ -1,6 +1,6 @@
 // src/components/notifications/NotificationSystem.jsx
 // 🔔 SISTEMA DE NOTIFICACIONES OPTIMIZADO - SIN MÚLTIPLES REGISTROS
-// ✅ CORREGIDO: Verificación de SW existente, singleton pattern
+// ✅ CORREGIDO: Verificación de SW existente, singleton pattern, sintaxis arreglada
 
 import { useState, useEffect, useRef } from 'react';
 import supabase from '../../lib/supabase.js';
@@ -283,22 +283,40 @@ const NotificationSystem = ({ userId, dogs = [] }) => {
   };
 
   // ============================================
-  // 💾 GUARDAR SUSCRIPCIÓN
+  // 💾 GUARDAR SUSCRIPCIÓN - CORREGIDO
   // ============================================
   const savePushSubscription = async (subscription) => {
     try {
+      // 🔍 DEBUG: Verificar estructura de la suscripción
+      console.log('🔍 Estructura completa de subscription:', subscription);
+      console.log('🔑 Keys disponibles:', subscription.keys);
+      console.log('📱 p256dh:', subscription.keys?.p256dh);
+      console.log('🔐 auth:', subscription.keys?.auth);
+      
+      // ✅ VALIDACIÓN antes de guardar
+      if (!subscription.keys?.p256dh || !subscription.keys?.auth) {
+        throw new Error('Claves VAPID faltantes en la suscripción');
+      }
+      
       const subscriptionData = {
         user_id: userId,
         endpoint: subscription.endpoint,
-        p256dh: subscription.keys?.p256dh || null,
-        auth: subscription.keys?.auth || null,
-        active: true
+        p256dh_key: subscription.keys.p256dh,    // ✅ Sin ? porque ya validamos arriba
+        auth_key: subscription.keys.auth,        // ✅ Sin ? porque ya validamos arriba
+        user_agent: navigator.userAgent,
+        device_type: getDeviceType(),
+        browser_name: getBrowserName(),
+        is_active: true,
+        last_used_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
       };
+
+      console.log('💾 Guardando suscripción:', subscriptionData);
 
       const { error } = await supabase
         .from('push_subscriptions')
         .upsert([subscriptionData], { 
-          onConflict: 'user_id' 
+          onConflict: 'endpoint'  // ✅ Tu schema tiene UNIQUE en endpoint
         });
 
       if (error) throw error;
@@ -307,7 +325,27 @@ const NotificationSystem = ({ userId, dogs = [] }) => {
       
     } catch (error) {
       console.error('❌ Error guardando suscripción:', error);
+      throw error; // Re-lanzar para que se maneje arriba
     }
+  };
+
+  // ============================================
+  // 🔧 HELPER FUNCTIONS
+  // ============================================
+  const getDeviceType = () => {
+    const ua = navigator.userAgent;
+    if (/tablet|ipad/i.test(ua)) return 'tablet';
+    if (/mobile|iphone|android/i.test(ua)) return 'mobile';
+    return 'desktop';
+  };
+
+  const getBrowserName = () => {
+    const ua = navigator.userAgent;
+    if (ua.includes('Chrome')) return 'Chrome';
+    if (ua.includes('Firefox')) return 'Firefox';
+    if (ua.includes('Safari')) return 'Safari';
+    if (ua.includes('Edge')) return 'Edge';
+    return 'Unknown';
   };
 
   // ============================================
