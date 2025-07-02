@@ -1,5 +1,6 @@
 // src/components/notifications/NotificationDisplay.jsx
-// 🔔 COMPONENTE PARA MOSTRAR NOTIFICACIONES AUTOMÁTICAS EN TIEMPO REAL
+// 🔔 COMPONENTE PARA MOSTRAR NOTIFICACIONES - COMPLETAMENTE CORREGIDO
+// ✅ Categorías mapeadas a las 8 válidas del schema
 
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
@@ -13,7 +14,6 @@ const NotificationDisplay = ({ userId, className = '' }) => {
   // ============================================
   // 📥 CARGAR NOTIFICACIONES
   // ============================================
-  
   const loadNotifications = async () => {
     try {
       console.log('📥 Cargando notificaciones para usuario:', userId);
@@ -50,7 +50,6 @@ const NotificationDisplay = ({ userId, className = '' }) => {
   // ============================================
   // ✅ MARCAR COMO LEÍDA
   // ============================================
-  
   const markAsRead = async (notificationId) => {
     try {
       console.log('✅ Marcando notificación como leída:', notificationId);
@@ -86,7 +85,6 @@ const NotificationDisplay = ({ userId, className = '' }) => {
   // ============================================
   // 🗑️ ELIMINAR NOTIFICACIÓN
   // ============================================
-  
   const deleteNotification = async (notificationId) => {
     try {
       console.log('🗑️ Eliminando notificación:', notificationId);
@@ -111,11 +109,12 @@ const NotificationDisplay = ({ userId, className = '' }) => {
   };
 
   // ============================================
-  // 🎨 OBTENER ESTILO POR CATEGORÍA
+  // 🎨 OBTENER ESTILO POR CATEGORÍA - CORREGIDO
   // ============================================
-  
   const getNotificationStyle = (category) => {
+    // ✅ SOLO USAR LAS 8 CATEGORÍAS VÁLIDAS DEL SCHEMA
     const styles = {
+      // Categorías válidas del schema
       behavior: {
         icon: '🚨',
         bgColor: 'bg-red-50',
@@ -123,43 +122,93 @@ const NotificationDisplay = ({ userId, className = '' }) => {
         textColor: 'text-red-800',
         iconBg: 'bg-red-100'
       },
-      improvement: {
-        icon: '✅',
-        bgColor: 'bg-green-50',
-        borderColor: 'border-green-200',
-        textColor: 'text-green-800',
-        iconBg: 'bg-green-100'
-      },
-      comparison: {
-        icon: '📊',
+      general: { // ✅ Para 'test', 'improvement', 'comparison' mapeadas aquí
+        icon: '💡',
         bgColor: 'bg-blue-50',
         borderColor: 'border-blue-200',
         textColor: 'text-blue-800',
         iconBg: 'bg-blue-100'
       },
-      test: {
-        icon: '🧪',
-        bgColor: 'bg-purple-50',
-        borderColor: 'border-purple-200',
-        textColor: 'text-purple-800',
-        iconBg: 'bg-purple-100'
-      },
-      system: {
+      alert: { // ✅ Para 'system' mapeada aquí
         icon: '⚠️',
         bgColor: 'bg-yellow-50',
         borderColor: 'border-yellow-200',
         textColor: 'text-yellow-800',
         iconBg: 'bg-yellow-100'
+      },
+      medical: {
+        icon: '💊',
+        bgColor: 'bg-green-50',
+        borderColor: 'border-green-200',
+        textColor: 'text-green-800',
+        iconBg: 'bg-green-100'
+      },
+      transport: {
+        icon: '🚐',
+        bgColor: 'bg-purple-50',
+        borderColor: 'border-purple-200',
+        textColor: 'text-purple-800',
+        iconBg: 'bg-purple-100'
+      },
+      routine: {
+        icon: '📅',
+        bgColor: 'bg-indigo-50',
+        borderColor: 'border-indigo-200',
+        textColor: 'text-indigo-800',
+        iconBg: 'bg-indigo-100'
+      },
+      training: {
+        icon: '🎓',
+        bgColor: 'bg-orange-50',
+        borderColor: 'border-orange-200',
+        textColor: 'text-orange-800',
+        iconBg: 'bg-orange-100'
+      },
+      tip: {
+        icon: '💡',
+        bgColor: 'bg-cyan-50',
+        borderColor: 'border-cyan-200',
+        textColor: 'text-cyan-800',
+        iconBg: 'bg-cyan-100'
       }
     };
     
-    return styles[category] || styles.system;
+    return styles[category] || styles.general;
+  };
+
+  // ============================================
+  // 🧪 CREAR NOTIFICACIÓN DE PRUEBA - CORREGIDA
+  // ============================================
+  const createTestNotification = async () => {
+    try {
+      console.log('🧪 Creando notificación de prueba...');
+      
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert([{
+          user_id: userId,
+          dog_id: null,
+          title: '🧪 Notificación de Prueba',
+          message: `Prueba del sistema de notificaciones - ${new Date().toLocaleString('es-CO')}`,
+          category: 'general', // ✅ CORREGIDO: 'general' en lugar de 'test'
+          read: false
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      console.log('✅ Notificación de prueba creada');
+      loadNotifications(); // Recargar
+      
+    } catch (error) {
+      console.error('❌ Error creando notificación de prueba:', error);
+    }
   };
 
   // ============================================
   // 🔄 EFECTOS Y LISTENERS
   // ============================================
-  
   useEffect(() => {
     if (userId) {
       loadNotifications();
@@ -183,40 +232,8 @@ const NotificationDisplay = ({ userId, className = '' }) => {
   }, [userId]);
 
   // ============================================
-  // 🧪 FUNCIONES DE TESTING
-  // ============================================
-  
-  const createTestNotification = async () => {
-    try {
-      console.log('🧪 Creando notificación de prueba...');
-      
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert([{
-          user_id: userId,
-          dog_id: null,
-          title: '🧪 Notificación de Prueba',
-          message: `Prueba del sistema de notificaciones - ${new Date().toLocaleString('es-CO')}`,
-          category: 'test',
-          read: false
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      console.log('✅ Notificación de prueba creada');
-      loadNotifications(); // Recargar
-      
-    } catch (error) {
-      console.error('❌ Error creando notificación de prueba:', error);
-    }
-  };
-
-  // ============================================
   // 🎨 RENDER
   // ============================================
-  
   if (loading) {
     return (
       <div className={`${className}`}>
@@ -312,9 +329,14 @@ const NotificationDisplay = ({ userId, className = '' }) => {
                           <p className="text-gray-700 text-sm mt-1 leading-relaxed">
                             {notification.message}
                           </p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            {new Date(notification.created_at).toLocaleString('es-CO')}
-                          </p>
+                          <div className="flex items-center justify-between mt-2">
+                            <p className="text-xs text-gray-500">
+                              {new Date(notification.created_at).toLocaleString('es-CO')}
+                            </p>
+                            <span className={`text-xs px-2 py-1 rounded-full ${style.bgColor} ${style.textColor}`}>
+                              {notification.category}
+                            </span>
+                          </div>
                         </div>
                         
                         {/* Acciones */}
@@ -322,7 +344,7 @@ const NotificationDisplay = ({ userId, className = '' }) => {
                           {!notification.read && (
                             <button
                               onClick={() => markAsRead(notification.id)}
-                              className="text-xs bg-white bg-opacity-50 hover:bg-opacity-75 px-2 py-1 rounded"
+                              className="text-xs bg-white bg-opacity-50 hover:bg-opacity-75 px-2 py-1 rounded transition-colors"
                               title="Marcar como leída"
                             >
                               ✓
@@ -330,7 +352,7 @@ const NotificationDisplay = ({ userId, className = '' }) => {
                           )}
                           <button
                             onClick={() => deleteNotification(notification.id)}
-                            className="text-xs bg-white bg-opacity-50 hover:bg-opacity-75 px-2 py-1 rounded text-red-600"
+                            className="text-xs bg-white bg-opacity-50 hover:bg-opacity-75 px-2 py-1 rounded text-red-600 transition-colors"
                             title="Eliminar"
                           >
                             ×
@@ -363,6 +385,7 @@ const NotificationDisplay = ({ userId, className = '' }) => {
         📊 <strong>Debug:</strong> {notifications.length} total, {unreadCount} no leídas
         • <span className="text-green-600">Recarga automática cada 30s</span>
         • <span className="text-blue-600">User ID: {userId}</span>
+        • <span className="text-purple-600">Categorías válidas: general, medical, routine, transport, behavior, training, alert, tip</span>
       </div>
     </div>
   );

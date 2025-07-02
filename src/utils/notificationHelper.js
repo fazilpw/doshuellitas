@@ -1,12 +1,49 @@
 // src/utils/notificationHelper.js
-// 🔔 HELPER PARA NOTIFICACIONES AUTOMÁTICAS - VERSION COMPLETA
+// 🔔 HELPER PARA NOTIFICACIONES AUTOMÁTICAS - COMPLETAMENTE CORREGIDO
+// ✅ Todas las categorías mapeadas a las 8 válidas del schema
 
 import supabase from '../lib/supabase.js';
 
 // ============================================
-// 🔧 FUNCIONES DE UTILIDAD BÁSICAS
+// 🔧 MAPEO DE CATEGORÍAS INCORRECTAS A VÁLIDAS
 // ============================================
+const mapCategoryToValid = (category) => {
+  const categoryMap = {
+    // Mapeos de categorías incorrectas a las 8 válidas del schema
+    'test': 'general',
+    'improvement': 'behavior', 
+    'comparison': 'general',
+    'system': 'alert',
+    'success': 'general',
+    'info': 'general',
+    'debug': 'general',
+    'prueba': 'general',
+    'consejos': 'tip',
+    'tips': 'tip',
+    
+    // Categorías ya correctas (sin cambios)
+    'general': 'general',
+    'medical': 'medical',
+    'routine': 'routine', 
+    'transport': 'transport',
+    'behavior': 'behavior',
+    'training': 'training',
+    'alert': 'alert',
+    'tip': 'tip'
+  };
+  
+  const validCategory = categoryMap[category] || 'general';
+  
+  if (category !== validCategory) {
+    console.log(`🔄 Categoría mapeada: '${category}' → '${validCategory}'`);
+  }
+  
+  return validCategory;
+};
 
+// ============================================
+// 🔧 FUNCIÓN DE UTILIDAD BÁSICA CORREGIDA
+// ============================================
 export const createTestNotification = async (userId, dogId, type = 'transport') => {
   const templates = {
     transport: {
@@ -30,7 +67,9 @@ export const createTestNotification = async (userId, dogId, type = 'transport') 
   const config = templates[type];
   
   try {
-    // 🔧 VERSIÓN SIMPLIFICADA: Crear notificación directa
+    // ✅ USAR CATEGORÍA VÁLIDA MAPEADA
+    const validCategory = mapCategoryToValid(type);
+    
     const { data, error } = await supabase
       .from('notifications')
       .insert([{
@@ -38,7 +77,7 @@ export const createTestNotification = async (userId, dogId, type = 'transport') 
         dog_id: dogId,
         title: `🧪 Prueba: ${config.template_key}`,
         message: `Notificación de prueba tipo ${type}. Variables: ${JSON.stringify(config.variables)}`,
-        category: type,
+        category: validCategory, // ✅ CORREGIDO: usar categoría válida
         read: false,
         created_at: new Date().toISOString()
       }])
@@ -55,18 +94,19 @@ export const createTestNotification = async (userId, dogId, type = 'transport') 
 };
 
 // ============================================
-// 🤖 CLASE PRINCIPAL DE NOTIFICACIONES
+// 🤖 CLASE PRINCIPAL DE NOTIFICACIONES - CORREGIDA
 // ============================================
-
 export class NotificationHelper {
   
   // ============================================
   // 🎯 FUNCIÓN PRINCIPAL - CREAR NOTIFICACIÓN DIRECTA
   // ============================================
-  
   static async createDirectNotification(userId, dogId, title, message, category = 'behavior') {
     try {
-      console.log('📝 Creando notificación directa:', { userId, dogId, title, message });
+      console.log('📝 Creando notificación directa:', { userId, dogId, title, message, category });
+      
+      // ✅ MAPEAR CATEGORÍA A UNA VÁLIDA
+      const validCategory = mapCategoryToValid(category);
       
       const { data, error } = await supabase
         .from('notifications')
@@ -75,7 +115,7 @@ export class NotificationHelper {
           dog_id: dogId,
           title: title,
           message: message,
-          category: category,
+          category: validCategory, // ✅ CORREGIDO: usar categoría válida
           read: false,
           created_at: new Date().toISOString()
         }])
@@ -99,7 +139,6 @@ export class NotificationHelper {
   // ============================================
   // 🎯 NOTIFICACIONES DE COMPORTAMIENTO AUTOMÁTICAS
   // ============================================
-  
   static async checkBehaviorAlertsAfterEvaluation(evaluation, dog, evaluatorId) {
     console.log('🔍 Verificando alertas de comportamiento para:', dog.name);
     console.log('📊 Niveles evaluados:', {
@@ -117,119 +156,97 @@ export class NotificationHelper {
       // ============================================
       if (evaluation.anxiety_level >= 8) {
         const title = `🚨 ${dog.name} - Ansiedad Alta Detectada`;
-        const message = `${dog.name} mostró un nivel de ansiedad de ${evaluation.anxiety_level}/10. Recomendamos: practicar ejercicios de relajación, evitar lugares muy concurridos y mantener rutinas predecibles.`;
+        const message = `${dog.name} mostró un nivel de ansiedad de ${evaluation.anxiety_level}/10. Considera practicar ejercicios de relajación y evitar situaciones estresantes por hoy.`;
         
         const notification = await this.createDirectNotification(
           dog.owner_id,
           dog.id,
           title,
           message,
-          'behavior'
+          'behavior' // ✅ CATEGORÍA VÁLIDA
         );
         
         notificationsCreated.push(notification);
-        console.log(`🚨 Alerta de ansiedad enviada para ${dog.name}`);
+        console.log(`🚨 Alerta de ansiedad alta enviada para ${dog.name}`);
       }
-
+      
       // ============================================
-      // 📚 2. OBEDIENCIA BAJA (<= 3)
+      // 📉 2. OBEDIENCIA BAJA (< 4)
       // ============================================
-      if (evaluation.obedience_level <= 3) {
+      if (evaluation.obedience_level < 4) {
         const title = `📚 ${dog.name} - Refuerzo en Obediencia`;
-        const message = `${dog.name} necesita refuerzo en obediencia (nivel ${evaluation.obedience_level}/10). Sugerimos: practicar comando "quieto" 5 min diarios, usar refuerzos positivos y mantener consistencia en las órdenes.`;
+        const message = `${dog.name} mostró un nivel de obediencia de ${evaluation.obedience_level}/10. Te sugerimos practicar comandos básicos por 10 minutos hoy.`;
         
         const notification = await this.createDirectNotification(
           dog.owner_id,
           dog.id,
           title,
           message,
-          'behavior'
+          'training' // ✅ CATEGORÍA VÁLIDA
         );
         
         notificationsCreated.push(notification);
-        console.log(`📚 Alerta de obediencia enviada para ${dog.name}`);
+        console.log(`📚 Alerta de obediencia baja enviada para ${dog.name}`);
       }
-
+      
       // ============================================
       // ⚡ 3. ENERGÍA MUY ALTA (>= 9)
       // ============================================
       if (evaluation.energy_level >= 9) {
         const title = `⚡ ${dog.name} - Energía Muy Alta`;
-        const message = `${dog.name} tiene energía muy alta (${evaluation.energy_level}/10). Recomendamos: aumentar tiempo de ejercicio, juegos de estimulación mental y actividades de búsqueda para cansarlo mentalmente.`;
+        const message = `${dog.name} tiene mucha energía hoy (${evaluation.energy_level}/10). ¡Perfecto momento para un paseo extra o juegos activos!`;
         
         const notification = await this.createDirectNotification(
           dog.owner_id,
           dog.id,
           title,
           message,
-          'behavior'
+          'routine' // ✅ CATEGORÍA VÁLIDA
         );
         
         notificationsCreated.push(notification);
-        console.log(`⚡ Alerta de energía alta enviada para ${dog.name}`);
+        console.log(`⚡ Sugerencia de ejercicio enviada para ${dog.name}`);
       }
-
+      
       // ============================================
-      // ✅ 4. OBEDIENCIA EXCELENTE (>= 8)
+      // 🎉 4. SOCIABILIDAD EXCELENTE (>= 9)
       // ============================================
-      if (evaluation.obedience_level >= 8) {
-        const title = `✅ ${dog.name} - ¡Excelente Obediencia!`;
-        const message = `¡Felicitaciones! ${dog.name} mostró excelente obediencia (${evaluation.obedience_level}/10). Continúa con el entrenamiento actual, está dando excelentes resultados.`;
+      if (evaluation.sociability_level >= 9) {
+        const title = `🎉 ${dog.name} - ¡Excelente Socialización!`;
+        const message = `¡Felicitaciones! ${dog.name} mostró una socialización excepcional (${evaluation.sociability_level}/10). ¡Sigue así!`;
         
         const notification = await this.createDirectNotification(
           dog.owner_id,
           dog.id,
           title,
           message,
-          'improvement'
+          'general' // ✅ CATEGORÍA VÁLIDA (para celebraciones)
         );
         
         notificationsCreated.push(notification);
-        console.log(`✅ Felicitación de obediencia enviada para ${dog.name}`);
+        console.log(`🎉 Felicitación por socialización enviada para ${dog.name}`);
       }
-
+      
       // ============================================
-      // 🐕 5. SOCIALIZACIÓN EXCELENTE (>= 8)
-      // ============================================
-      if (evaluation.sociability_level >= 8) {
-        const title = `🐕 ${dog.name} - ¡Excelente Socialización!`;
-        const message = `${dog.name} demostró excelente socialización (${evaluation.sociability_level}/10). ¡Es un ejemplo para otros perros! Perfecto para actividades grupales y juegos sociales.`;
-        
-        const notification = await this.createDirectNotification(
-          dog.owner_id,
-          dog.id,
-          title,
-          message,
-          'improvement'
-        );
-        
-        notificationsCreated.push(notification);
-        console.log(`🐕 Felicitación de socialización enviada para ${dog.name}`);
-      }
-
-      // ============================================
-      // 📊 6. COMPARATIVA CASA VS COLEGIO
+      // 📊 5. COMPARATIVA CASA VS COLEGIO (si hay datos)
       // ============================================
       try {
-        // Buscar última evaluación en ubicación diferente
         const otherLocation = evaluation.location === 'casa' ? 'colegio' : 'casa';
         
         const { data: lastOtherEvaluation } = await supabase
           .from('evaluations')
-          .select('anxiety_level, energy_level, sociability_level, obedience_level, location')
+          .select('anxiety_level, obedience_level, location, date')
           .eq('dog_id', dog.id)
           .eq('location', otherLocation)
-          .neq('id', evaluation.id)
-          .order('created_at', { ascending: false })
+          .order('date', { ascending: false })
           .limit(1)
           .single();
-
+        
         if (lastOtherEvaluation) {
-          // Comparar ansiedad
-          const anxietyDiff = evaluation.anxiety_level - lastOtherEvaluation.anxiety_level;
+          const anxietyDiff = Math.abs(evaluation.anxiety_level - lastOtherEvaluation.anxiety_level);
           
-          if (Math.abs(anxietyDiff) >= 3) {
-            const isHigher = anxietyDiff > 0;
+          if (anxietyDiff >= 3) {
+            const isHigher = evaluation.anxiety_level > lastOtherEvaluation.anxiety_level;
             const title = `📊 ${dog.name} - Diferencia Casa vs Colegio`;
             const message = `${dog.name} está ${isHigher ? 'más ansioso' : 'más relajado'} en ${evaluation.location} (${evaluation.anxiety_level}/10) que en ${otherLocation} (${lastOtherEvaluation.anxiety_level}/10). ${isHigher ? 'Considera ajustar el ambiente en ' + evaluation.location : 'Excelente adaptación en ' + evaluation.location}.`;
             
@@ -238,7 +255,7 @@ export class NotificationHelper {
               dog.id,
               title,
               message,
-              'comparison'
+              'general' // ✅ CATEGORÍA VÁLIDA (para comparativas)
             );
             
             notificationsCreated.push(notification);
@@ -274,7 +291,7 @@ export class NotificationHelper {
           dog.id,
           `⚠️ Error en Notificaciones Automáticas`,
           `Hubo un problema procesando las notificaciones automáticas para ${dog.name}. La evaluación se guardó correctamente.`,
-          'system'
+          'alert' // ✅ CATEGORÍA VÁLIDA (era 'system')
         );
       } catch (errorNotificationError) {
         console.error('❌ Error creando notificación de error:', errorNotificationError);
@@ -285,9 +302,8 @@ export class NotificationHelper {
   }
 
   // ============================================
-  // 🧪 FUNCIÓN DE PRUEBA RÁPIDA
+  // 🧪 FUNCIÓN DE PRUEBA CORREGIDA
   // ============================================
-  
   static async createTestNotification(userId, dogId, dogName = 'Rio') {
     try {
       console.log('🧪 Creando notificación de prueba...');
@@ -295,12 +311,13 @@ export class NotificationHelper {
       const title = `🧪 Prueba de Notificaciones - ${dogName}`;
       const message = `Esta es una notificación de prueba para verificar que el sistema funciona correctamente. Generada el ${new Date().toLocaleString('es-CO')}.`;
       
+      // ✅ USAR CATEGORÍA VÁLIDA
       const notification = await this.createDirectNotification(
         userId,
         dogId,
         title,
         message,
-        'test'
+        'general' // ✅ CORREGIDO: 'general' en lugar de 'test'
       );
       
       console.log('✅ Notificación de prueba creada exitosamente');
@@ -315,7 +332,6 @@ export class NotificationHelper {
   // ============================================
   // 📱 FUNCIÓN PARA REFRESCAR DASHBOARD
   // ============================================
-  
   static async triggerDashboardRefresh() {
     // Disparar evento personalizado para que el dashboard se refresque
     if (typeof window !== 'undefined') {
@@ -326,12 +342,50 @@ export class NotificationHelper {
       console.log('🔄 Evento de refresco del dashboard disparado');
     }
   }
+
+  // ============================================
+  // 💊 NOTIFICACIONES MÉDICAS AUTOMÁTICAS
+  // ============================================
+  static async checkMedicalReminders() {
+    console.log('💊 Verificando recordatorios médicos...');
+    
+    try {
+      // VACUNAS PRÓXIMAS A VENCER (próximos 7 días)
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 7);
+
+      const { data: upcomingVaccines } = await supabase
+        .from('dog_vaccines')
+        .select(`
+          *,
+          dog:dogs(name, owner_id)
+        `)
+        .gte('next_due_date', new Date().toISOString().split('T')[0])
+        .lte('next_due_date', nextWeek.toISOString().split('T')[0]);
+
+      for (const vaccine of upcomingVaccines || []) {
+        const daysUntil = Math.ceil((new Date(vaccine.next_due_date) - new Date()) / (1000 * 60 * 60 * 24));
+        
+        await this.createDirectNotification(
+          vaccine.dog.owner_id,
+          vaccine.dog_id,
+          `💉 Recordatorio de Vacuna - ${vaccine.dog.name}`,
+          `La vacuna ${vaccine.vaccine_name} de ${vaccine.dog.name} vence en ${daysUntil} días. Programa tu cita veterinaria.`,
+          'medical' // ✅ CATEGORÍA VÁLIDA
+        );
+      }
+
+      console.log(`✅ ${upcomingVaccines?.length || 0} recordatorios médicos procesados`);
+      
+    } catch (error) {
+      console.error('❌ Error verificando recordatorios médicos:', error);
+    }
+  }
 }
 
 // ============================================
 // 🔧 FUNCIÓN DE UTILIDAD PARA TESTING MANUAL
 // ============================================
-
 export const testNotifications = async (userId, dogId, dogName) => {
   try {
     console.log('🧪 Iniciando prueba manual de notificaciones...');
@@ -371,6 +425,7 @@ export const testNotifications = async (userId, dogId, dogName) => {
 };
 
 // ============================================
-// 🔧 EXPORTACIÓN DEFAULT PARA COMPATIBILIDAD
+// 🔧 EXPORTACIONES
 // ============================================
+export { mapCategoryToValid };
 export default NotificationHelper;

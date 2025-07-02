@@ -286,49 +286,111 @@ const NotificationSystem = ({ userId, dogs = [] }) => {
   // 💾 GUARDAR SUSCRIPCIÓN - CORREGIDO
   // ============================================
   const savePushSubscription = async (subscription) => {
-    try {
-      // 🔍 DEBUG: Verificar estructura de la suscripción
-      console.log('🔍 Estructura completa de subscription:', subscription);
-      console.log('🔑 Keys disponibles:', subscription.keys);
-      console.log('📱 p256dh:', subscription.keys?.p256dh);
-      console.log('🔐 auth:', subscription.keys?.auth);
+  try {
+    // 🔍 DEBUG COMPLETO: Verificar TODA la estructura
+    console.log('🔍 ===== DEBUG COMPLETO DE SUBSCRIPTION =====');
+    console.log('📱 Subscription completa:', subscription);
+    console.log('🌐 Endpoint:', subscription.endpoint);
+    console.log('🔑 Keys object:', subscription.keys);
+    console.log('📊 Keys keys:', subscription.keys ? Object.keys(subscription.keys) : 'No keys');
+    
+    // 🔍 DEBUG ESPECÍFICO de cada clave
+    if (subscription.keys) {
+      console.log('📱 p256dh exists:', 'p256dh' in subscription.keys);
+      console.log('📱 p256dh value:', subscription.keys.p256dh);
+      console.log('📱 p256dh type:', typeof subscription.keys.p256dh);
+      console.log('📱 p256dh length:', subscription.keys.p256dh?.length);
       
-      // ✅ VALIDACIÓN antes de guardar
-      if (!subscription.keys?.p256dh || !subscription.keys?.auth) {
-        throw new Error('Claves VAPID faltantes en la suscripción');
-      }
-      
-      const subscriptionData = {
-        user_id: userId,
-        endpoint: subscription.endpoint,
-        p256dh_key: subscription.keys.p256dh,    // ✅ Sin ? porque ya validamos arriba
-        auth_key: subscription.keys.auth,        // ✅ Sin ? porque ya validamos arriba
-        user_agent: navigator.userAgent,
-        device_type: getDeviceType(),
-        browser_name: getBrowserName(),
-        is_active: true,
-        last_used_at: new Date().toISOString(),
-        created_at: new Date().toISOString()
-      };
-
-      console.log('💾 Guardando suscripción:', subscriptionData);
-
-      const { error } = await supabase
-        .from('push_subscriptions')
-        .upsert([subscriptionData], { 
-          onConflict: 'endpoint'  // ✅ Tu schema tiene UNIQUE en endpoint
-        });
-
-      if (error) throw error;
-      
-      console.log('✅ Suscripción guardada en base de datos');
-      
-    } catch (error) {
-      console.error('❌ Error guardando suscripción:', error);
-      throw error; // Re-lanzar para que se maneje arriba
+      console.log('🔐 auth exists:', 'auth' in subscription.keys);
+      console.log('🔐 auth value:', subscription.keys.auth);
+      console.log('🔐 auth type:', typeof subscription.keys.auth);
+      console.log('🔐 auth length:', subscription.keys.auth?.length);
+    } else {
+      console.error('❌ subscription.keys es null/undefined!');
     }
-  };
+    
+    // 🔍 DEBUG VAPID KEY
+    console.log('🗝️ VAPID Key configurada:', vapidKey ? 'Sí' : 'No');
+    console.log('🗝️ VAPID Key length:', vapidKey?.length);
+    console.log('🗝️ VAPID Key sample:', vapidKey?.substring(0, 20) + '...');
+    
+    // ✅ VALIDACIÓN ESTRICTA
+    if (!subscription.keys) {
+      throw new Error('❌ subscription.keys es null - problema con VAPID key o Service Worker');
+    }
+    
+    if (!subscription.keys.p256dh) {
+      throw new Error('❌ p256dh faltante - problema generando claves');
+    }
+    
+    if (!subscription.keys.auth) {
+      throw new Error('❌ auth faltante - problema generando claves');
+    }
+    
+    // 🔍 VERIFICAR TIPO DE DATOS
+    const p256dhValue = subscription.keys.p256dh;
+    const authValue = subscription.keys.auth;
+    
+    console.log('🔄 Procesando claves...');
+    console.log('📱 p256dh procesada:', p256dhValue);
+    console.log('🔐 auth procesada:', authValue);
+    
+    // 🎯 INTENTAR CONVERTIR SI ES NECESARIO
+    let finalP256dh = p256dhValue;
+    let finalAuth = authValue;
+    
+    // Si son ArrayBuffer, convertir a string
+    if (p256dhValue instanceof ArrayBuffer) {
+      finalP256dh = btoa(String.fromCharCode(...new Uint8Array(p256dhValue)));
+      console.log('🔄 p256dh convertida de ArrayBuffer:', finalP256dh);
+    }
+    
+    if (authValue instanceof ArrayBuffer) {
+      finalAuth = btoa(String.fromCharCode(...new Uint8Array(authValue)));
+      console.log('🔄 auth convertida de ArrayBuffer:', finalAuth);
+    }
+    
+    const subscriptionData = {
+      user_id: userId,
+      endpoint: subscription.endpoint,
+      p256dh_key: finalP256dh,
+      auth_key: finalAuth,
+      user_agent: navigator.userAgent,
+      device_type: getDeviceType(),
+      browser_name: getBrowserName(),
+      is_active: true,
+      last_used_at: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    };
 
+    console.log('💾 ===== DATOS FINALES PARA GUARDAR =====');
+    console.log('📊 subscriptionData completa:', subscriptionData);
+    console.log('🔑 p256dh_key final:', subscriptionData.p256dh_key);
+    console.log('🔑 auth_key final:', subscriptionData.auth_key);
+    console.log('🔑 Claves son strings:', {
+      p256dh: typeof subscriptionData.p256dh_key === 'string',
+      auth: typeof subscriptionData.auth_key === 'string'
+    });
+
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .upsert([subscriptionData], { 
+        onConflict: 'endpoint'
+      });
+
+    if (error) {
+      console.error('❌ Error específico de Supabase:', error);
+      throw error;
+    }
+    
+    console.log('✅ Suscripción guardada en base de datos exitosamente');
+    
+  } catch (error) {
+    console.error('❌ Error completo en savePushSubscription:', error);
+    console.error('❌ Error stack:', error.stack);
+    throw error;
+  }
+};
   // ============================================
   // 🔧 HELPER FUNCTIONS
   // ============================================
