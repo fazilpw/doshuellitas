@@ -13,6 +13,8 @@ import ParentManagementPanel from './ParentManagementPanel.jsx';
 import { LogoutButton } from '../../utils/logoutHandler.jsx';
 import NotificationSystem from '../notifications/NotificationSystem.jsx';
 import NotificationManagerDashboard from '../notifications/NotificationManagerDashboard.jsx';
+import { createTestNotification } from '../../utils/notificationHelper.js';
+
 
 
 
@@ -577,6 +579,82 @@ const ParentDashboard = ({ authUser, authProfile }) => {
     );
   };
 
+ const TestNotificationButtons = ({ currentUser, dogs }) => {
+    const [testing, setTesting] = useState(false);
+
+    const testNotification = async (type) => {
+      if (!currentUser || dogs.length === 0) {
+        alert('⚠️ Necesitas tener al menos un perro registrado');
+        return;
+      }
+      
+      setTesting(true);
+      try {
+        await createTestNotification(currentUser.id, dogs[0].id, type);
+        alert(`✅ Notificación de ${type} enviada para ${dogs[0].name}`);
+      } catch (error) {
+        alert(`❌ Error: ${error.message}`);
+        console.error('Error:', error);
+      } finally {
+        setTesting(false);
+      }
+    };
+
+    return (
+      <div className="bg-white rounded-xl shadow-lg p-6 mt-6">
+        <h3 className="text-lg font-bold text-[#2C3E50] mb-4">
+          🧪 Probar Notificaciones Reales
+        </h3>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <button
+            onClick={() => testNotification('transport')}
+            disabled={testing}
+            className="bg-blue-100 text-blue-700 p-3 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+          >
+            🚐 Transporte
+          </button>
+          
+          <button
+            onClick={() => testNotification('behavior')}
+            disabled={testing}
+            className="bg-orange-100 text-orange-700 p-3 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
+          >
+            🎯 Comportamiento
+          </button>
+          
+          <button
+            onClick={() => testNotification('medical')}
+            disabled={testing}
+            className="bg-red-100 text-red-700 p-3 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+          >
+            💊 Médica
+          </button>
+          
+          <button
+            onClick={() => testNotification('improvement')}
+            disabled={testing}
+            className="bg-green-100 text-green-700 p-3 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+          >
+            🎉 Mejora
+          </button>
+        </div>
+        
+        <p className="text-sm text-gray-600 mt-3">
+          Estos botones crean notificaciones reales que aparecerán en tu dashboard
+        </p>
+        
+        {dogs.length === 0 && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-700 text-sm">
+              ⚠️ Necesitas tener al menos un perro registrado para probar las notificaciones
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ===============================================
   // 🎯 RENDERIZADO DE PÁGINAS
   // ===============================================
@@ -591,8 +669,8 @@ const ParentDashboard = ({ authUser, authProfile }) => {
           <div className={innerClasses}>
             <RoutineManager 
               currentUser={currentUser} 
-              dogs={dogs}                    // ← AGREGAR ESTA LÍNEA
-              loading={loading}              // ← AGREGAR ESTA LÍNEA TAMBIÉN
+              dogs={dogs}
+              loading={loading}
             />
           </div>
         </div>
@@ -605,13 +683,13 @@ const ParentDashboard = ({ authUser, authProfile }) => {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
               <VaccineManager 
                 currentUser={currentUser}
-                dogs={dogs}                  // ← AGREGAR ESTA LÍNEA
-                loading={loading}            // ← AGREGAR ESTA LÍNEA
+                dogs={dogs}
+                loading={loading}
               />
               <MedicineManager 
                 currentUser={currentUser}
-                dogs={dogs}                  // ← AGREGAR ESTA LÍNEA
-                loading={loading}            // ← AGREGAR ESTA LÍNEA
+                dogs={dogs}
+                loading={loading}
               />
             </div>
           </div>
@@ -625,7 +703,7 @@ const ParentDashboard = ({ authUser, authProfile }) => {
             {GPSComponent && selectedDog ? (
               <GPSComponent 
                 dogId={selectedDog.id}
-                dogs={dogs}                  // ← AGREGAR ESTA LÍNEA
+                dogs={dogs}
               />
             ) : (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
@@ -649,36 +727,40 @@ const ParentDashboard = ({ authUser, authProfile }) => {
           <div className={innerClasses}>
             <ParentManagementPanel 
               currentUser={currentUser}
-              dogs={dogs}                    // ← AGREGAR ESTA LÍNEA
+              dogs={dogs}
               onDataUpdated={handleDataUpdated}
             />
           </div>
         </div>
       );
 
-     // Agregar nueva opción en el switch del case 'notificaciones':
-case 'notificaciones':
-  return (
-    <div className={contentClasses}>
-      <div className={innerClasses}>
-        {/* Dashboard existente */}
-        <NotificationSystem 
-          userId={currentUser?.id}
-          dogs={dogs}
-        />
-        
-        {/* NUEVO: Dashboard de gestión */}
-        <div className="mt-8">
-          <NotificationManagerDashboard
-            userId={currentUser?.id}
-            dogs={dogs}
-            isAdmin={false}
-          />
+    case 'notificaciones':
+      return (
+        <div className={contentClasses}>
+          <div className={innerClasses}>
+            {/* Dashboard existente */}
+            <NotificationSystem 
+              userId={currentUser?.id}
+              dogs={dogs}
+            />
+            
+            {/* NUEVO: Dashboard de gestión */}
+            <div className="mt-8">
+              <NotificationManagerDashboard
+                userId={currentUser?.id}
+                dogs={dogs}
+                isAdmin={false}
+              />
+
+              <TestNotificationButtons 
+                currentUser={currentUser}
+                dogs={dogs}
+              />
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  );
-  
+      );
+
     default: // dashboard
       return (
         <div className={contentClasses}>
@@ -721,21 +803,21 @@ case 'notificaciones':
       {/* Main Content */}
       {renderPageContent()}
       
-      {/* 🔧 CORREGIDO: Modales con props correctas */}
+      {/* Modales */}
       {showEvaluationForm && selectedDog && selectedDog.id && (
-  <CompleteEvaluationForm
-    dogId={selectedDog.id}
-    userId={currentUser?.id}           // ← CORREGIDO
-    userRole={currentUser?.role}       // ← CORREGIDO
-    onClose={closeEvaluationForm}
-    onSave={onEvaluationSubmitted}     // ← CORREGIDO prop name
-  />
-)}
+        <CompleteEvaluationForm
+          dogId={selectedDog.id}
+          userId={currentUser?.id}
+          userRole={currentUser?.role}
+          onClose={closeEvaluationForm}
+          onSave={onEvaluationSubmitted}
+        />
+      )}
       {showProgressModal && selectedDogForProgress && (
         <DogProgressModal
           dog={selectedDogForProgress}
           onClose={closeProgressModal}
-          isOpen={showProgressModal} // 🔧 AGREGADO: prop isOpen faltante
+          isOpen={showProgressModal}
         />
       )}
     </div>
