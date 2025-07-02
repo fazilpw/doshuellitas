@@ -430,7 +430,11 @@ const ParentDashboard = ({ authUser, authProfile }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
         {dogs.map(dog => {
           const averagesData = dogAverages[dog.id];
-          console.log(`📊 Averages para ${dog.name}:`, averagesData);
+          if (averagesData && !window.lastLoggedAverages?.[dog.id]) {
+  console.log(`📊 Averages para ${dog.name}:`, averagesData);
+  window.lastLoggedAverages = window.lastLoggedAverages || {};
+  window.lastLoggedAverages[dog.id] = averagesData;
+}
           
           return (
             <div key={dog.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300">
