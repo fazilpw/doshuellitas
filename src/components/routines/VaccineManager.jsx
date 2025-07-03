@@ -402,6 +402,29 @@ const VaccineManager = ({ dogs = [], currentUser, onVaccineUpdated }) => {
         if (error) throw error;
         console.log('✅ Vacuna creada exitosamente');
       }
+
+      // 2. CREAR NOTIFICACIONES CRUZADAS
+      try {
+        const { NotificationHelper } = await import('../../utils/notificationHelper.js');
+        
+        const notificationResult = await NotificationHelper.notifyMedicalUpdate(
+          vaccineData.dog_id,
+          'vaccine',
+          {
+            dogName: selectedDog?.name || 'Perro',
+            vaccineName: formData.vaccine_name === 'Personalizada' ? formData.custom_vaccine_name : formData.vaccine_name,
+            dueDate: new Date(formData.next_due_date).toLocaleDateString('es-CO'),
+            description: `Vacuna ${formData.vaccine_name === 'Personalizada' ? formData.custom_vaccine_name : formData.vaccine_name} ${editingVaccine ? 'actualizada' : 'programada'}`
+          },
+          currentUser?.id
+        );
+        
+        if (notificationResult.success) {
+          console.log(`✅ ${notificationResult.notifications.length} notificaciones médicas enviadas`);
+        }
+      } catch (notifError) {
+        console.warn('⚠️ Error enviando notificaciones médicas:', notifError);
+      }
       
       setShowAddVaccine(false);
       setEditingVaccine(null);

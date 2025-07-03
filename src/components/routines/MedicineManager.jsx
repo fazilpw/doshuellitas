@@ -183,23 +183,46 @@ const MedicineManager = ({
         if (error) throw error;
         console.log('✅ Medicina creada exitosamente');
       }
-      
-      setShowAddMedicine(false);
-      setEditingMedicine(null);
-      resetForm();
-      fetchMedicines();
-      
-      if (onMedicineUpdated) {
-        onMedicineUpdated();
+
+      try {
+        const { NotificationHelper } = await import('../../utils/notificationHelper.js');
+        
+        const notificationResult = await NotificationHelper.notifyMedicalUpdate(
+          medicineData.dog_id,
+          'medicine',
+          {
+            dogName: selectedDog?.name || 'Perro',
+            medicineName: medicineData.medicine_name,
+            dosage: medicineData.dosage,
+            frequency: medicineData.frequency,
+            description: `Medicina ${medicineData.medicine_name} ${editingMedicine ? 'actualizada' : 'programada'}`
+          },
+          currentUser?.id
+        );
+        
+        if (notificationResult.success) {
+          console.log(`✅ ${notificationResult.notifications.length} notificaciones médicas enviadas`);
+        }
+      } catch (notifError) {
+        console.warn('⚠️ Error enviando notificaciones médicas:', notifError);
       }
-      
-    } catch (error) {
-      console.error('❌ Error saving medicine:', error);
-      alert('Error al guardar la medicina');
-    } finally {
-      setLoading(false);
+       
+      setShowAddMedicine(false);
+    setEditingMedicine(null);
+    resetForm();
+    fetchMedicines();
+    
+    if (onMedicineUpdated) {
+      onMedicineUpdated();
     }
-  };
+    
+  } catch (error) {
+    console.error('❌ Error saving medicine:', error);
+    alert('Error al guardar la medicina');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ===============================================
   // 🗑️ ELIMINAR MEDICINA (MEJORADO)

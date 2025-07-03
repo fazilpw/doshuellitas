@@ -301,6 +301,74 @@ const TeacherDashboard = ({ authUser, authProfile }) => {
     setLoading(false);
   };
 
+// 🆕 AGREGAR AQUÍ DESPUÉS DE handleDataUpdated:
+  const testMedicalNotifications = async () => {
+    try {
+      if (!selectedDog?.id || !currentUser?.id) {
+        alert('❌ Selecciona un perro y asegúrate de estar logueado');
+        return;
+      }
+
+      console.log('🧪 Probando notificaciones médicas...');
+
+      const { NotificationHelper } = await import('../../utils/notificationHelper.js');
+      
+      // Probar notificación de vacuna
+      const vaccineResult = await NotificationHelper.notifyMedicalUpdate(
+        selectedDog.id,
+        'vaccine',
+        {
+          dogName: selectedDog.name,
+          vaccineName: 'Rabia (PRUEBA)',
+          dueDate: '15/03/2025',
+          description: 'Vacuna de prueba del sistema'
+        },
+        currentUser.id
+      );
+
+      // Probar notificación de medicina
+      const medicineResult = await NotificationHelper.notifyMedicalUpdate(
+        selectedDog.id,
+        'medicine',
+        {
+          dogName: selectedDog.name,
+          medicineName: 'Antibiótico (PRUEBA)',
+          dosage: '250mg',
+          frequency: '12 horas',
+          description: 'Medicina de prueba del sistema'
+        },
+        currentUser.id
+      );
+
+      // Probar notificación de grooming
+      const groomingResult = await NotificationHelper.notifyMedicalUpdate(
+        selectedDog.id,
+        'grooming',
+        {
+          dogName: selectedDog.name,
+          appointmentDate: '20/03/2025',
+          groomingType: 'bath',
+          location: 'casa',
+          description: 'Sesión de grooming de prueba'
+        },
+        currentUser.id
+      );
+
+      console.log('✅ Pruebas completadas:', { vaccineResult, medicineResult, groomingResult });
+      
+      const totalNotifications = (vaccineResult.notifications?.length || 0) + 
+                                (medicineResult.notifications?.length || 0) +
+                                (groomingResult.notifications?.length || 0);
+      
+      alert(`✅ Prueba completada!\n${totalNotifications} notificaciones médicas enviadas`);
+
+    } catch (error) {
+      console.error('❌ Error en prueba médica:', error);
+      alert('❌ Error: ' + error.message);
+    }
+  };
+
+
   const handleLogout = async () => {
     try {
       console.log('🚪 Profesor cerrando sesión...');

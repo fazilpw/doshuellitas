@@ -17,13 +17,6 @@ import { createTestNotification } from '../../utils/notificationHelper.js';
 import RealPushNotifications from '../notifications/RealPushNotifications.jsx';
 import NotificationControlPanel from '../notifications/NotificationManagerDashboard.jsx';
 
-
-
-
-
-
-
-
 const ParentDashboard = ({ authUser, authProfile }) => {
   // ===============================================
   // 🎯 ESTADOS PRINCIPALES
@@ -46,6 +39,9 @@ const ParentDashboard = ({ authUser, authProfile }) => {
   // Estado para sidebar móvil
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // 🆕 Estados para mejoras
+  const [notifications, setNotifications] = useState([]);
+
   // ===============================================
   // 🔄 EFECTOS DE INICIALIZACIÓN
   // ===============================================
@@ -67,6 +63,66 @@ const ParentDashboard = ({ authUser, authProfile }) => {
       setSelectedDog(dogs[0]);
     }
   }, [dogs, selectedDogId]);
+
+  // 🆕 AUTO-REFRESH INTELIGENTE
+  useEffect(() => {
+    let refreshInterval;
+    
+    const startAutoRefresh = () => {
+      refreshInterval = setInterval(async () => {
+        if (document.visibilityState === 'visible' && currentUser?.id && dogs.length > 0) {
+          console.log('🔄 Auto-refresh de evaluaciones...');
+          const dogIds = dogs.map(dog => dog.id);
+          await fetchRecentEvaluations(dogIds);
+        }
+      }, 5 * 60 * 1000); // 5 minutos
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        startAutoRefresh();
+      } else {
+        clearInterval(refreshInterval);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    startAutoRefresh();
+
+    return () => {
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentUser?.id, dogs]);
+
+  // 🆕 LISTENER EN TIEMPO REAL PARA NUEVAS EVALUACIONES
+  useEffect(() => {
+    if (dogs.length === 0) return;
+
+    const dogIds = dogs.map(dog => dog.id);
+    
+    const channel = supabase
+      .channel('evaluations-changes')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'evaluations',
+        filter: `dog_id=in.(${dogIds.join(',')})`
+      }, (payload) => {
+        console.log('🔔 Nueva evaluación detectada:', payload.new);
+        
+        fetchRecentEvaluations(dogIds);
+        
+        if (payload.new.evaluator_id !== currentUser?.id) {
+          showNotification('Nueva evaluación disponible', 'success');
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [dogs, currentUser?.id]);
 
   // ===============================================
   // 🚀 FUNCIONES DE INICIALIZACIÓN
@@ -167,7 +223,7 @@ const ParentDashboard = ({ authUser, authProfile }) => {
           dogs(id, name, breed, size),
           profiles!evaluations_evaluator_id_fkey(full_name, email, role)
         `)
-        .in('dog_id', dogIds) // 🔧 CORREGIDO: Usar .in() en lugar de join roto
+        .in('dog_id', dogIds) // ✅ Usar .in() es correcto
         .order('date', { ascending: false })
         .limit(10);
 
@@ -210,28 +266,66 @@ const ParentDashboard = ({ authUser, authProfile }) => {
     setSelectedDog(null);
   };
 
+  // 🔧 CORREGIDA: Función principal para cuando se envía una evaluación
   const onEvaluationSubmitted = async (newEvaluation) => {
     console.log('✅ Nueva evaluación enviada:', newEvaluation);
     
-    // Actualizar lista de evaluaciones
-    setEvaluations(prev => [newEvaluation, ...prev]);
-    
-    // 🔧 CORREGIDO: Recalcular promedios con estructura correcta
-    if (newEvaluation.dog_id) {
-      try {
-        const updatedAveragesResult = await getDogAverages(newEvaluation.dog_id);
-        if (updatedAveragesResult.data) {
-          setDogAverages(prev => ({
-            ...prev,
-            [newEvaluation.dog_id]: updatedAveragesResult.data // ← .data es importante
-          }));
-        }
-      } catch (error) {
-        console.warn('⚠️ Error recalculando promedios:', error);
+    try {
+      // Mostrar feedback inmediato
+      showNotification('Evaluación guardada exitosamente', 'success');
+      
+      // 🔧 SOLUCIÓN 1: Refrescar evaluaciones desde BD en lugar de usar estado local
+      if (dogs.length > 0) {
+        const dogIds = dogs.map(dog => dog.id);
+        console.log('🔄 Refrescando evaluaciones desde BD...');
+        await fetchRecentEvaluations(dogIds);
       }
+      
+      // 🔧 SOLUCIÓN 2: Recalcular promedios con estructura correcta  
+      if (newEvaluation.dog_id) {
+        try {
+          const updatedAveragesResult = await getDogAverages(newEvaluation.dog_id);
+          if (updatedAveragesResult.data) {
+            setDogAverages(prev => ({
+              ...prev,
+              [newEvaluation.dog_id]: updatedAveragesResult.data
+            }));
+          }
+        } catch (error) {
+          console.warn('⚠️ Error recalculando promedios:', error);
+        }
+      }
+      
+      // 🔧 SOLUCIÓN 3: Cerrar formulario
+      closeEvaluationForm();
+      
+      // 🔧 SOLUCIÓN 4: Notificación de éxito
+      console.log('✅ Dashboard actualizado con nueva evaluación');
+      
+    } catch (error) {
+      console.error('❌ Error actualizando dashboard:', error);
+      showNotification('Error actualizando el dashboard', 'error');
+      
+      // Fallback: usar método anterior si falla
+      setEvaluations(prev => [newEvaluation, ...prev]);
+      closeEvaluationForm();
     }
+  };
+
+  // 🔧 Función para refrescar manualmente - SOLO UNA VEZ
+  const handleDataUpdated = async () => {
+    console.log('🔄 Refrescando datos del dashboard...');
+    setLoading(true);
     
-    closeEvaluationForm();
+    try {
+      if (currentUser?.id) {
+        await fetchUserDogs(currentUser.id);
+      }
+    } catch (error) {
+      console.error('❌ Error refrescando datos:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 🔧 CORREGIDO: Función openProgressModal
@@ -247,20 +341,128 @@ const ParentDashboard = ({ authUser, authProfile }) => {
     setSelectedDogForProgress(null);
   };
 
-  const handleDataUpdated = async () => {
-    console.log('🔄 Refrescando datos...');
-    setLoading(true);
-    if (currentUser?.id) {
-      await fetchUserDogs(currentUser.id);
-    }
-    setLoading(false);
+  // 🆕 SISTEMA DE NOTIFICACIONES PARA FEEDBACK
+  const showNotification = (message, type = 'info') => {
+    const id = Date.now();
+    const notification = { id, message, type };
+    
+    setNotifications(prev => [...prev, notification]);
+    
+    // Auto-remove después de 5 segundos
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
   };
 
-  
+// 🆕 AGREGAR AQUÍ DESPUÉS DE showNotification:
+  const testMedicalNotifications = async () => {
+    try {
+      if (!selectedDog?.id || !currentUser?.id) {
+        alert('❌ Selecciona un perro y asegúrate de estar logueado');
+        return;
+      }
+
+      console.log('🧪 Probando notificaciones médicas...');
+
+      const { NotificationHelper } = await import('../../utils/notificationHelper.js');
+      
+      // Probar notificación de vacuna
+      const vaccineResult = await NotificationHelper.notifyMedicalUpdate(
+        selectedDog.id,
+        'vaccine',
+        {
+          dogName: selectedDog.name,
+          vaccineName: 'Rabia (PRUEBA)',
+          dueDate: '15/03/2025',
+          description: 'Vacuna de prueba del sistema'
+        },
+        currentUser.id
+      );
+
+      // Probar notificación de medicina
+      const medicineResult = await NotificationHelper.notifyMedicalUpdate(
+        selectedDog.id,
+        'medicine',
+        {
+          dogName: selectedDog.name,
+          medicineName: 'Antibiótico (PRUEBA)',
+          dosage: '250mg',
+          frequency: '12 horas',
+          description: 'Medicina de prueba del sistema'
+        },
+        currentUser.id
+      );
+
+      // Probar notificación de grooming
+      const groomingResult = await NotificationHelper.notifyMedicalUpdate(
+        selectedDog.id,
+        'grooming',
+        {
+          dogName: selectedDog.name,
+          appointmentDate: '20/03/2025',
+          groomingType: 'bath',
+          location: 'casa',
+          description: 'Sesión de grooming de prueba'
+        },
+        currentUser.id
+      );
+
+      console.log('✅ Pruebas completadas:', { vaccineResult, medicineResult, groomingResult });
+      
+      const totalNotifications = (vaccineResult.notifications?.length || 0) + 
+                                (medicineResult.notifications?.length || 0) +
+                                (groomingResult.notifications?.length || 0);
+      
+      alert(`✅ Prueba completada!\n${totalNotifications} notificaciones médicas enviadas`);
+
+    } catch (error) {
+      console.error('❌ Error en prueba médica:', error);
+      alert('❌ Error: ' + error.message);
+    }
+  };
+
 
   // ===============================================
   // 🎨 COMPONENTES DE RENDERIZADO
   // ===============================================
+
+  // 🆕 Componente de notificaciones
+  const NotificationContainer = () => (
+    <div className="fixed top-4 right-4 z-50 space-y-2">
+      {notifications.map(notification => (
+        <div
+          key={notification.id}
+          className={`px-4 py-3 rounded-lg shadow-lg max-w-sm transform transition-all duration-300 ${
+            notification.type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+            notification.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+            'bg-blue-100 text-blue-800 border border-blue-200'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">{notification.message}</span>
+            <button
+              onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+              className="ml-2 text-current opacity-70 hover:opacity-100"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // 🔧 MEJORA: Botón de refresh en el UI
+  const RefreshButton = () => (
+    <button
+      onClick={handleDataUpdated}
+      disabled={loading}
+      className="flex items-center space-x-2 px-4 py-2 bg-[#56CCF2] text-white rounded-lg hover:bg-[#4AB8E0] transition-colors disabled:opacity-50"
+    >
+      <span className={`text-lg ${loading ? 'animate-spin' : ''}`}>🔄</span>
+      <span>Actualizar</span>
+    </button>
+  );
 
   // Mobile Header
   const renderMobileHeader = () => (
@@ -278,8 +480,55 @@ const ParentDashboard = ({ authUser, authProfile }) => {
       {mobileMenuOpen && (
         <div className="mt-4 space-y-2">
           {[
+            { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
+            { key: 'notificaciones', label: 'Notificaciones', icon: '🔔' },
+            { key: 'rutinas', label: 'Rutinas', icon: '📅' },
+            { key: 'salud', label: 'Salud', icon: '🏥' },
+            { key: 'tracking', label: 'Tracking', icon: '📍' },
+            { key: 'config', label: 'Configuración', icon: '⚙️' }
+          ].map(item => (
+            <button
+              key={item.key}
+              onClick={() => {
+                setCurrentPage(item.key);
+                setMobileMenuOpen(false);
+              }}
+              className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
+                currentPage === item.key
+                  ? 'bg-[#56CCF2] text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <span className="text-lg">{item.icon}</span>
+              <span className="font-medium">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  // Desktop Sidebar
+  const renderDesktopSidebar = () => (
+    <div className="hidden lg:block fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30">
+      {/* Header del sidebar */}
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center">
+            <span className="text-white text-lg">🐕</span>
+          </div>
+          <div>
+            <h2 className="font-bold text-[#2C3E50]">Club Canino</h2>
+            <p className="text-sm text-gray-600">Dashboard Padre</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navegación - CON NOTIFICACIONES AGREGADAS */}
+      <div className="p-3 space-y-2">
+        {[
           { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
-          { key: 'notificaciones', label: 'Notificaciones', icon: '🔔' }, // ← NUEVA LÍNEA
+          { key: 'notificaciones', label: 'Notificaciones', icon: '🔔' },
           { key: 'rutinas', label: 'Rutinas', icon: '📅' },
           { key: 'salud', label: 'Salud', icon: '🏥' },
           { key: 'tracking', label: 'Tracking', icon: '📍' },
@@ -287,163 +536,216 @@ const ParentDashboard = ({ authUser, authProfile }) => {
         ].map(item => (
           <button
             key={item.key}
-            onClick={() => {
-              setCurrentPage(item.key);
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
+            onClick={() => setCurrentPage(item.key)}
+            className={`w-full flex items-center space-x-3 px-3 py-3 rounded-xl transition-all group ${
               currentPage === item.key
-                ? 'bg-[#56CCF2] text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-[#56CCF2] text-white shadow-lg transform scale-105' 
+                : 'text-gray-700 hover:bg-gray-100 hover:scale-102'
             }`}
           >
-            <span className="text-lg">{item.icon}</span>
+            <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${
+              currentPage === item.key ?
+                'bg-white/20' : 'bg-gray-100 group-hover:bg-gray-200'
+            }`}>
+              <span className="text-lg">{item.icon}</span>
+            </div>
             <span className="font-medium">{item.label}</span>
           </button>
         ))}
       </div>
-    )}
-  </div>
-);
 
-  // Desktop Sidebar
-  const renderDesktopSidebar = () => (
-  <div className="hidden lg:block fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30">
-    {/* Header del sidebar */}
-    <div className="p-6 border-b border-gray-200">
-      <div className="flex items-center space-x-3">
-        <div className="w-10 h-10 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center">
-          <span className="text-white text-lg">🐕</span>
-        </div>
-        <div>
-          <h2 className="font-bold text-[#2C3E50]">Club Canino</h2>
-          <p className="text-sm text-gray-600">Dashboard Padre</p>
-        </div>
-      </div>
-    </div>
-
-    {/* Navegación - CON NOTIFICACIONES AGREGADAS */}
-    <div className="p-3 space-y-2">
-      {[
-        { key: 'dashboard', label: 'Dashboard', icon: '🏠' },
-        { key: 'notificaciones', label: 'Notificaciones', icon: '🔔' }, // ← NUEVA SECCIÓN
-        { key: 'rutinas', label: 'Rutinas', icon: '📅' },
-        { key: 'salud', label: 'Salud', icon: '🏥' },
-        { key: 'tracking', label: 'Tracking', icon: '📍' },
-        { key: 'config', label: 'Configuración', icon: '⚙️' }
-      ].map(item => (
-        <button
-          key={item.key}
-          onClick={() => setCurrentPage(item.key)}
-          className={`w-full flex items-center space-x-3 px-3 py-3 rounded-xl transition-all group ${
-            currentPage === item.key
-              ? 'bg-[#56CCF2] text-white shadow-lg transform scale-105' 
-              : 'text-gray-700 hover:bg-gray-100 hover:scale-102'
-          }`}
-        >
-          <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${
-            currentPage === item.key ?
-              'bg-white/20' : 'bg-gray-100 group-hover:bg-gray-200'
-          }`}>
-            <span className="text-lg">{item.icon}</span>
+      {/* Info del usuario */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+        <div className="flex items-center space-x-3 mb-3">
+          <div className="w-8 h-8 bg-[#56CCF2] rounded-full flex items-center justify-center">
+            <span className="text-white text-sm">👤</span>
           </div>
-          <span className="font-medium">{item.label}</span>
-        </button>
-      ))}
-    </div>
-
-    {/* Info del usuario (existente) */}
-    <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-      <div className="flex items-center space-x-3 mb-3">
-        <div className="w-8 h-8 bg-[#56CCF2] rounded-full flex items-center justify-center">
-          <span className="text-white text-sm">👤</span>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-900">{currentUser?.full_name}</p>
+            <p className="text-xs text-gray-500">{currentUser?.email}</p>
+          </div>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-900">{currentUser?.full_name}</p>
-          <p className="text-xs text-gray-500">{currentUser?.email}</p>
-        </div>
+        <LogoutButton />
       </div>
-      <LogoutButton />
     </div>
-  </div>
-);
+  );
+
+  // 🆕 MEJORAR EL RENDER DE EVALUACIONES RECIENTES
+  const renderEvaluationsRecentes = () => {
+    if (evaluations.length === 0) {
+      return (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
+          <div className="text-6xl mb-4">📝</div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No hay evaluaciones aún</h3>
+          <p className="text-gray-600">Las evaluaciones aparecerán aquí una vez que se registren</p>
+          <button
+            onClick={() => handleDataUpdated()}
+            className="mt-4 bg-[#56CCF2] text-white px-4 py-2 rounded-lg hover:bg-[#4AB8E0] transition-colors"
+          >
+            🔄 Buscar Evaluaciones
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="p-6 lg:p-8 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+          <h3 className="text-xl lg:text-2xl font-bold text-gray-900 flex items-center space-x-2">
+            <span className="text-2xl">📋</span>
+            <span>Evaluaciones Recientes</span>
+          </h3>
+          
+          {/* Botón de refresh */}
+          <button
+            onClick={handleDataUpdated}
+            disabled={loading}
+            className="flex items-center space-x-2 px-3 py-1 bg-[#56CCF2] text-white rounded-lg hover:bg-[#4AB8E0] transition-colors disabled:opacity-50 text-sm"
+          >
+            <span className={`${loading ? 'animate-spin' : ''}`}>🔄</span>
+            <span>Actualizar</span>
+          </button>
+        </div>
+        
+        <div className="divide-y divide-gray-100">
+          {evaluations.slice(0, 5).map((evaluation, index) => (
+            <div key={`${evaluation.id}-${index}`} className="p-4 lg:p-6 hover:bg-gray-50 transition-colors">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center text-white font-bold">
+                    {evaluation.dogs?.name?.charAt(0) || '?'}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-900">
+                      {evaluation.dogs?.name || 'Perro sin nombre'}
+                    </span>
+                    <div className="flex items-center space-x-2 text-sm text-gray-500">
+                      <span>{evaluation.location === 'casa' ? '🏠 Casa' : '🏫 Colegio'}</span>
+                      <span>•</span>
+                      <span>{new Date(evaluation.date).toLocaleDateString('es-CO')}</span>
+                      <span>•</span>
+                      <span>{evaluation.profiles?.full_name || 'Evaluador'}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Métricas rápidas */}
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full">
+                    E: {evaluation.energy_level || 0}/10
+                  </span>
+                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full">
+                    S: {evaluation.sociability_level || 0}/10
+                  </span>
+                  <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full">
+                    O: {evaluation.obedience_level || 0}/10
+                  </span>
+                  <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full">
+                    A: {evaluation.anxiety_level || 0}/10
+                  </span>
+                </div>
+              </div>
+              
+              {/* Mostrar notas si existen */}
+              {evaluation.notes && (
+                <div className="mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                  "{evaluation.notes}"
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        
+        {/* Mostrar más evaluaciones */}
+        {evaluations.length > 5 && (
+          <div className="p-4 bg-gray-50 text-center">
+            <button
+              onClick={() => setCurrentPage('evaluaciones')}
+              className="text-[#56CCF2] hover:text-[#4AB8E0] font-medium"
+            >
+              Ver todas las evaluaciones ({evaluations.length})
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // ===============================================
   // 🎨 CONTENIDO PRINCIPAL CORREGIDO
   // ===============================================
   const renderDashboardContent = () => {
-  // 🚨 CORREGIDO: Verificar loading ANTES que dogs.length
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-            <span className="text-4xl">🐕</span>
+    // 🚨 CORREGIDO: Verificar loading ANTES que dogs.length
+    if (loading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+              <span className="text-4xl">🐕</span>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Cargando...</h3>
+            <p className="text-gray-600 mb-8">
+              Obteniendo información de tus mascotas...
+            </p>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">Cargando...</h3>
-          <p className="text-gray-600 mb-8">
-            Obteniendo información de tus mascotas...
-          </p>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  // 🔧 CORREGIDO: Solo mostrar "sin perros" si NO está loading Y dogs está vacío
-  if (!loading && dogs.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">🐕</span>
+    // 🔧 CORREGIDO: Solo mostrar "sin perros" si NO está loading Y dogs está vacío
+    if (!loading && dogs.length === 0) {
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-4xl">🐕</span>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">¡Bienvenido al Club Canino!</h3>
+            <p className="text-gray-600 mb-8">
+              Parece que aún no tienes perros registrados. Contacta al administrador para agregar a tu mascota.
+            </p>
+            <button 
+              onClick={() => window.location.href = 'mailto:clubcaninodoshuellitas@gmail.com'}
+              className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
+            >
+              📧 Contactar Administrador
+            </button>
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">¡Bienvenido al Club Canino!</h3>
-          <p className="text-gray-600 mb-8">
-            Parece que aún no tienes perros registrados. Contacta al administrador para agregar a tu mascota.
-          </p>
-          <button 
-            onClick={() => window.location.href = 'mailto:clubcaninodoshuellitas@gmail.com'}
-            className="bg-[#56CCF2] text-white px-6 py-3 rounded-lg hover:bg-[#5B9BD5] transition-colors"
-          >
-            📧 Contactar Administrador
-          </button>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
     return (
       <div className="space-y-6 lg:space-y-8">
-      {/* Header con bienvenida */}
-      <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-2xl p-6 lg:p-8 text-white">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-          <div className="mb-4 lg:mb-0">
-            <h1 className="text-2xl lg:text-3xl font-bold mb-2">
-              ¡Hola {currentUser?.full_name?.split(' ')[0] || 'Papá'}! 👋
-            </h1>
-            <p className="opacity-90 text-lg">
-              Tienes {dogs.length} {dogs.length === 1 ? 'perro registrado' : 'perros registrados'} en el club
-            </p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-6xl lg:text-8xl opacity-20">🐕‍🦺</div>
+        {/* Header con bienvenida */}
+        <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-2xl p-6 lg:p-8 text-white">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+            <div className="mb-4 lg:mb-0">
+              <h1 className="text-2xl lg:text-3xl font-bold mb-2">
+                ¡Hola {currentUser?.full_name?.split(' ')[0] || 'Papá'}! 👋
+              </h1>
+              <p className="opacity-90 text-lg">
+                Tienes {dogs.length} {dogs.length === 1 ? 'perro registrado' : 'perros registrados'} en el club
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-6xl lg:text-8xl opacity-20">🐕‍🦺</div>
+            </div>
           </div>
         </div>
-      </div>
 
-
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
-        {dogs.map(dog => {
-          const averagesData = dogAverages[dog.id];
-          if (averagesData && !window.lastLoggedAverages?.[dog.id]) {
-  console.log(`📊 Averages para ${dog.name}:`, averagesData);
-  window.lastLoggedAverages = window.lastLoggedAverages || {};
-  window.lastLoggedAverages[dog.id] = averagesData;
-}
-          
-          return (
-            <div key={dog.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300">
-
+        {/* Grid de perros */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
+          {dogs.map(dog => {
+            const averagesData = dogAverages[dog.id];
+            if (averagesData && !window.lastLoggedAverages?.[dog.id]) {
+              console.log(`📊 Averages para ${dog.name}:`, averagesData);
+              window.lastLoggedAverages = window.lastLoggedAverages || {};
+              window.lastLoggedAverages[dog.id] = averagesData;
+            }
+            
+            return (
+              <div key={dog.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300">
                 <div className="p-6 lg:p-8">
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex-1">
@@ -537,58 +839,13 @@ const ParentDashboard = ({ authUser, authProfile }) => {
           })}
         </div>
 
-        {/* 🔧 CORREGIDO: Evaluaciones Recientes - Todas las métricas */}
-        {evaluations.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-6 lg:p-8 border-b border-gray-200 bg-gray-50">
-              <h3 className="text-xl lg:text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                <span className="text-2xl">📋</span>
-                <span>Evaluaciones Recientes</span>
-              </h3>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {evaluations.slice(0, 5).map(evaluation => (
-                <div key={evaluation.id} className="p-4 lg:p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] rounded-full flex items-center justify-center text-white font-bold">
-                        {evaluation.dogs?.name?.charAt(0)}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-gray-900">{evaluation.dogs?.name}</span>
-                        <div className="flex items-center space-x-2 text-sm text-gray-500">
-                          <span>{evaluation.location === 'casa' ? '🏠 Casa' : '🏫 Colegio'}</span>
-                          <span>•</span>
-                          <span>{new Date(evaluation.date).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {/* 🔧 CORREGIDO: Mostrar TODAS las métricas, no solo E y S */}
-                    <div className="flex flex-wrap gap-2 text-sm">
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full">
-                        E: {evaluation.energy_level}/10
-                      </span>
-                      <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full">
-                        S: {evaluation.sociability_level}/10
-                      </span>
-                      <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full">
-                        O: {evaluation.obedience_level}/10
-                      </span>
-                      <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full">
-                        A: {evaluation.anxiety_level}/10
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* 🔧 USAR EL NUEVO COMPONENTE MEJORADO */}
+        {renderEvaluationsRecentes()}
       </div>
     );
   };
 
- const TestNotificationButtons = ({ currentUser, dogs }) => {
+  const TestNotificationButtons = ({ currentUser, dogs }) => {
     const [testing, setTesting] = useState(false);
 
     const testNotification = async (type) => {
@@ -668,144 +925,141 @@ const ParentDashboard = ({ authUser, authProfile }) => {
   // 🎯 RENDERIZADO DE PÁGINAS
   // ===============================================
   const renderPageContent = () => {
-  const contentClasses = "flex-1 lg:ml-64 min-h-screen bg-gray-50";
-  const innerClasses = "p-4 lg:p-8 max-w-7xl mx-auto";
+    const contentClasses = "flex-1 lg:ml-64 min-h-screen bg-gray-50";
+    const innerClasses = "p-4 lg:p-8 max-w-7xl mx-auto";
 
-  switch (currentPage) {
-    case 'rutinas':
-      return (
-        <div className={contentClasses}>
-          <div className={innerClasses}>
-            <RoutineManager 
-              currentUser={currentUser} 
-              dogs={dogs}
-              loading={loading}
-            />
-          </div>
-        </div>
-      );
-    
-    case 'salud':
-      return (
-        <div className={contentClasses}>
-          <div className={innerClasses}>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <VaccineManager 
-                currentUser={currentUser}
-                dogs={dogs}
-                loading={loading}
-              />
-              <MedicineManager 
-                currentUser={currentUser}
+    switch (currentPage) {
+      case 'rutinas':
+        return (
+          <div className={contentClasses}>
+            <div className={innerClasses}>
+              <RoutineManager 
+                currentUser={currentUser} 
                 dogs={dogs}
                 loading={loading}
               />
             </div>
           </div>
-        </div>
-      );
-    
-    case 'tracking':
-      return (
-        <div className={contentClasses}>
-          <div className={innerClasses}>
-            {GPSComponent && selectedDog ? (
-              <GPSComponent 
-                dogId={selectedDog.id}
+        );
+      
+      case 'salud':
+        return (
+          <div className={contentClasses}>
+            <div className={innerClasses}>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <VaccineManager 
+                  currentUser={currentUser}
+                  dogs={dogs}
+                  loading={loading}
+                />
+                <MedicineManager 
+                  currentUser={currentUser}
+                  dogs={dogs}
+                  loading={loading}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'tracking':
+        return (
+          <div className={contentClasses}>
+            <div className={innerClasses}>
+              {GPSComponent && selectedDog ? (
+                <GPSComponent 
+                  dogId={selectedDog.id}
+                  dogs={dogs}
+                />
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+                  <div className="text-4xl mb-4">📍</div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Tracking GPS</h3>
+                  <p className="text-gray-600">
+                    {!selectedDog 
+                      ? 'Selecciona un perro para ver su ubicación en tiempo real'
+                      : 'Cargando componente de tracking...'
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      
+      case 'config':
+        return (
+          <div className={contentClasses}>
+            <div className={innerClasses}>
+              <ParentManagementPanel 
+                currentUser={currentUser}
+                dogs={dogs}
+                onDataUpdated={handleDataUpdated}
+              />
+            </div>
+          </div>
+        );
+
+      case 'notificaciones':
+        return (
+          <div className={contentClasses}>
+            <div className={innerClasses}>
+              
+              {/* 🔔 SISTEMA PRINCIPAL */}
+              <NotificationSystem 
+                userId={currentUser?.id}
                 dogs={dogs}
               />
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-                <div className="text-4xl mb-4">📍</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Tracking GPS</h3>
-                <p className="text-gray-600">
-                  {!selectedDog 
-                    ? 'Selecciona un perro para ver su ubicación en tiempo real'
-                    : 'Cargando componente de tracking...'
-                  }
-                </p>
+              
+              {/* 🔔 NOTIFICACIONES AUTOMÁTICAS RECIENTES */}
+              <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">
+                  🔔 Notificaciones Automáticas Recientes
+                </h3>
+                <NotificationListSimple userId={currentUser?.id} />
               </div>
-            )}
+              
+              {/* 🧪 PRUEBA RÁPIDA DEL SISTEMA */}
+              <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="font-medium text-purple-900 mb-2">🧪 Prueba Rápida del Sistema</h4>
+                <button
+                  onClick={() => testNotificationSystem(currentUser?.id, dogs[0]?.id)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm"
+                >
+                  Probar Notificaciones Automáticas
+                </button>
+              </div>
+
+              {/* 🎛️ DASHBOARD DE GESTIÓN COMPLETO (YA EXISTE) */}
+              <div className="mt-8">
+                <NotificationManagerDashboard
+                  userId={currentUser?.id}
+                  dogs={dogs}
+                  isAdmin={false}
+                />
+              </div>
+
+              {/* 📱 NOTIFICACIONES PUSH REALES */}
+              <RealPushNotifications 
+                userId={currentUser?.id}
+                userRole={currentUser?.role}
+                dogs={dogs}
+              />
+
+            </div>
           </div>
-        </div>
-      );
-    
-    case 'config':
-      return (
-        <div className={contentClasses}>
-          <div className={innerClasses}>
-            <ParentManagementPanel 
-              currentUser={currentUser}
-              dogs={dogs}
-              onDataUpdated={handleDataUpdated}
-            />
+        );
+
+      default: // dashboard
+        return (
+          <div className={contentClasses}>
+            <div className={innerClasses}>
+              {renderDashboardContent()}
+            </div>
           </div>
-        </div>
-      );
-
-    // ACTUALIZACIÓN RÁPIDA: Usa componentes existentes + notificaciones automáticas
-// Solo modifica la sección 'notificaciones' en tu ParentDashboard.jsx
-
-case 'notificaciones':
-  return (
-    <div className={contentClasses}>
-      <div className={innerClasses}>
-        
-        {/* 🔔 SISTEMA PRINCIPAL */}
-        <NotificationSystem 
-          userId={currentUser?.id}
-          dogs={dogs}
-        />
-        
-        {/* 🔔 NOTIFICACIONES AUTOMÁTICAS RECIENTES */}
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">
-            🔔 Notificaciones Automáticas Recientes
-          </h3>
-          <NotificationListSimple userId={currentUser?.id} />
-        </div>
-        
-        {/* 🧪 PRUEBA RÁPIDA DEL SISTEMA */}
-        <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <h4 className="font-medium text-purple-900 mb-2">🧪 Prueba Rápida del Sistema</h4>
-          <button
-            onClick={() => testNotificationSystem(currentUser?.id, dogs[0]?.id)}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm"
-          >
-            Probar Notificaciones Automáticas
-          </button>
-        </div>
-
-        {/* 🎛️ DASHBOARD DE GESTIÓN COMPLETO (YA EXISTE) */}
-        <div className="mt-8">
-          <NotificationManagerDashboard
-            userId={currentUser?.id}
-            dogs={dogs}
-            isAdmin={false}
-          />
-        </div>
-
-        {/* 📱 NOTIFICACIONES PUSH REALES */}
-        <RealPushNotifications 
-          userId={currentUser?.id}
-          userRole={currentUser?.role}
-          dogs={dogs}
-        />
-
-      </div>
-    </div>
-  );
-
-    default: // dashboard
-      return (
-        <div className={contentClasses}>
-          <div className={innerClasses}>
-            {renderDashboardContent()}
-          </div>
-        </div>
-      );
-  }
-};
+        );
+    }
+  };
 
   // ===============================================
   // 🎨 RENDERIZADO PRINCIPAL
@@ -838,6 +1092,9 @@ case 'notificaciones':
       {/* Main Content */}
       {renderPageContent()}
       
+      {/* 🆕 Contenedor de notificaciones */}
+      <NotificationContainer />
+      
       {/* Modales */}
       {showEvaluationForm && selectedDog && selectedDog.id && (
         <CompleteEvaluationForm
@@ -858,6 +1115,7 @@ case 'notificaciones':
     </div>
   );
 };
+
 // 🔔 Componente simple para mostrar notificaciones
 const NotificationListSimple = ({ userId }) => {
   const [notifications, setNotifications] = useState([]);

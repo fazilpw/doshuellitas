@@ -213,8 +213,33 @@ const GroomingManager = ({ dogs = [], currentUser, onGroomingUpdated }) => {
 
         if (error) throw error;
         console.log('✅ Sesión de grooming creada');
+        
+        // 🆕 CREAR NOTIFICACIONES DE GROOMING
+        try {
+          const { NotificationHelper } = await import('../../utils/notificationHelper.js');
+          
+          const notificationResult = await NotificationHelper.notifyMedicalUpdate(
+            sessionData.dog_id,
+            'grooming',
+            {
+              dogName: selectedDog?.name || 'Perro',
+              appointmentDate: new Date(sessionData.date).toLocaleDateString('es-CO'),
+              groomingType: sessionData.grooming_type,
+              location: sessionData.location,
+              description: `Sesión de grooming programada para ${selectedDog?.name || 'Perro'}`
+            },
+            currentUser?.id
+          );
+          
+          if (notificationResult.success) {
+            console.log(`✅ ${notificationResult.notifications.length} notificaciones de grooming enviadas`);
+          }
+        } catch (notifError) {
+          console.warn('⚠️ Error enviando notificaciones de grooming:', notifError);
+        }
       }
       
+      // Continuar con el flujo normal
       setShowAddSession(false);
       setEditingSession(null);
       resetSessionForm();
