@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Entrenamiento Anti-Ansiedad | Rio - Club Canino</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-cyan-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Header personalizado para Rio -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-900 mb-2">
+                🎯 Plan de Entrenamiento Anti-Ansiedad
+            </h1>
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex items-center justify-center space-x-4">
+                    <div class="text-center">
+                        <h2 class="text-2xl font-bold text-gray-800">🐕 Rio</h2>
+                        <p class="text-gray-600">Golden Retriever • 3 años</p>
+                    </div>
+                    <div class="border-l-2 border-gray-300 pl-4">
+                        <div class="text-sm text-gray-500 mb-1">Ansiedad Detectada</div>
+                        <div class="flex space-x-2">
+                            <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-sm">🏠 Casa: 7.4</span>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">🏫 Colegio: 5.0</span>
+                        </div>
+                        <div class="text-xs text-red-600 mt-1">⚠️ Diferencia: +2.4 puntos en casa</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Plan de Comandos Anti-Ansiedad -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            
+            <!-- Comandos Recomendados -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <span class="mr-2">🎯</span>
+                    Comandos Anti-Ansiedad Recomendados
+                </h3>
+                
+                <div class="space-y-4">
+                    <!-- Comando 1: Blaii (Quieto) -->
+                    <div class="border rounded-lg p-4 bg-green-50 border-green-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-green-800">🟢 "Blaii" (Quieto)</h4>
+                                <p class="text-sm text-green-600">⭐⭐ Dificultad Básica</p>
+                            </div>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">PERFECTO PARA ANSIEDAD</span>
+                        </div>
+                        <p class="text-sm text-gray-700 mb-3">
+                            Comando clave para calmar a Rio cuando esté ansioso en casa. 
+                            Enseña autocontrol y reduce la hiperactividad.
+                        </p>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <strong>Cuándo usar:</strong><br>
+                                • Antes de salir de casa<br>
+                                • Cuando lleguen visitas<br>
+                                • Si está muy excitado
+                            </div>
+                            <div>
+                                <strong>Progreso actual:</strong><br>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: 60%"></div>
+                                </div>
+                                <span class="text-gray-600">60% dominado</span>
+                            </div>
+                        </div>
+                        <button onclick="practicarComando('blaii')" class="mt-3 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">
+                            🎯 Practicar Ahora
+                        </button>
+                    </div>
+
+                    <!-- Comando 2: Plats (Echado) -->
+                    <div class="border rounded-lg p-4 bg-blue-50 border-blue-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-blue-800">🔵 "Plats" (Echado)</h4>
+                                <p class="text-sm text-blue-600">⭐⭐ Dificultad Básica</p>
+                            </div>
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">RELAJACIÓN</span>
+                        </div>
+                        <p class="text-sm text-gray-700 mb-3">
+                            Posición de máxima relajación. Ideal para reducir la energía alta 
+                            que Rio muestra en casa (7.0 vs 5.0 en colegio).
+                        </p>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <strong>Cuándo usar:</strong><br>
+                                • Durante momentos de alta energía<br>
+                                • Para crear rutinas de calma<br>
+                                • Antes de dormir
+                            </div>
+                            <div>
+                                <strong>Progreso actual:</strong><br>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div class="bg-blue-500 h-2 rounded-full" style="width: 45%"></div>
+                                </div>
+                                <span class="text-gray-600">45% dominado</span>
+                            </div>
+                        </div>
+                        <button onclick="practicarComando('plats')" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
+                            🎯 Practicar Ahora
+                        </button>
+                    </div>
+
+                    <!-- Comando 3: Sit (Sentado) -->
+                    <div class="border rounded-lg p-4 bg-yellow-50 border-yellow-200">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-yellow-800">🟡 "Sit" (Sentado)</h4>
+                                <p class="text-sm text-yellow-600">⭐ Dificultad Básica</p>
+                            </div>
+                            <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">FUNDACIONAL</span>
+                        </div>
+                        <p class="text-sm text-gray-700 mb-3">
+                            Comando base para establecer control. Perfecto para interrumpir 
+                            comportamientos ansiosos antes de que escalen.
+                        </p>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <strong>Cuándo usar:</strong><br>
+                                • Al inicio de cualquier sesión<br>
+                                • Para captar atención<br>
+                                • Como comando de "reset"
+                            </div>
+                            <div>
+                                <strong>Progreso actual:</strong><br>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div class="bg-yellow-500 h-2 rounded-full" style="width: 85%"></div>
+                                </div>
+                                <span class="text-gray-600">85% dominado</span>
+                            </div>
+                        </div>
+                        <button onclick="practicarComando('sit')" class="mt-3 bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 text-sm">
+                            🎯 Practicar Ahora
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plan de Sesiones Diarias -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <span class="mr-2">📅</span>
+                    Plan de Sesiones Anti-Ansiedad
+                </h3>
+                
+                <!-- Rutina Matutina -->
+                <div class="mb-6">
+                    <h4 class="font-semibold text-gray-700 mb-2 flex items-center">
+                        <span class="mr-2">🌅</span>
+                        Rutina Matutina (7:00 AM)
+                    </h4>
+                    <div class="bg-green-50 border border-green-200 rounded p-3 text-sm">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-medium">Sesión de Calma Previa</span>
+                            <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">5 min</span>
+                        </div>
+                        <ol class="list-decimal list-inside space-y-1 text-gray-700">
+                            <li>"Sit" → esperar 3 segundos → premio</li>
+                            <li>"Blaii" → esperar 5 segundos → premio</li>
+                            <li>"Plats" → relajación 10 segundos → premio grande</li>
+                        </ol>
+                        <div class="mt-2 text-xs text-green-700">
+                            💡 <strong>Objetivo:</strong> Reducir ansiedad antes de que María salga al trabajo
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rutina Vespertina -->
+                <div class="mb-6">
+                    <h4 class="font-semibold text-gray-700 mb-2 flex items-center">
+                        <span class="mr-2">🌆</span>
+                        Rutina Vespertina (6:00 PM)
+                    </h4>
+                    <div class="bg-blue-50 border border-blue-200 rounded p-3 text-sm">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-medium">Sesión de Liberación Controlada</span>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">8 min</span>
+                        </div>
+                        <ol class="list-decimal list-inside space-y-1 text-gray-700">
+                            <li>Ejercicio libre 3 minutos</li>
+                            <li>"Blaii" → parar actividad → premio</li>
+                            <li>"Sit" → "Plats" → relajación</li>
+                            <li>Sesión de caricias calmantes</li>
+                        </ol>
+                        <div class="mt-2 text-xs text-blue-700">
+                            💡 <strong>Objetivo:</strong> Liberar energía acumulada y terminar en calma
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progreso Semanal -->
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2 flex items-center">
+                        <span class="mr-2">📊</span>
+                        Seguimiento Esta Semana
+                    </h4>
+                    <div class="grid grid-cols-7 gap-1 mb-3">
+                        <div class="text-center">
+                            <div class="text-xs text-gray-500">L</div>
+                            <div class="h-6 bg-green-500 rounded text-white text-xs flex items-center justify-center">✓</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xs text-gray-500">M</div>
+                            <div class="h-6 bg-green-500 rounded text-white text-xs flex items-center justify-center">✓</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xs text-gray-500">X</div>
+                            <div class="h-6 bg-yellow-500 rounded text-white text-xs flex items-center justify-center">½</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xs text-gray-500">J</div>
+                            <div class="h-6 bg-green-500 rounded text-white text-xs flex items-center justify-center">✓</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xs text-gray-500">V</div>
+                            <div class="h-6 bg-blue-500 rounded text-white text-xs flex items-center justify-center">○</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xs text-gray-500">S</div>
+                            <div class="h-6 bg-gray-300 rounded text-gray-500 text-xs flex items-center justify-center">-</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xs text-gray-500">D</div>
+                            <div class="h-6 bg-gray-300 rounded text-gray-500 text-xs flex items-center justify-center">-</div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-600">
+                        ✓ Completa | ½ Parcial | ○ Hoy | - Pendiente
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Práctica -->
+        <div id="modal-practica" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-md w-full">
+                <h3 class="text-xl font-bold text-gray-800 mb-4" id="modal-titulo">Practicar Comando</h3>
+                <div id="modal-contenido" class="space-y-4">
+                    <!-- Contenido dinámico del comando -->
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button onclick="cerrarModal()" class="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                        Cancelar
+                    </button>
+                    <button onclick="completarSesion()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        ✅ Completar Sesión
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="text-center space-x-4">
+            <button onclick="nuevaEvaluacion()" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                📊 Nueva Evaluación de Ansiedad
+            </button>
+            <button onclick="verProgreso()" class="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors">
+                📈 Ver Progreso Histórico
+            </button>
+            <button onclick="contactarProfesor()" class="bg-purple-600 text-white px-8 py-3 rounded-lg hover:bg-purple-700 transition-colors">
+                👨‍🏫 Consultar Profesor
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Datos de comandos anti-ansiedad
+        const comandosAntiAnsiedad = {
+            'blaii': {
+                nombre: 'Blaii (Quieto)',
+                instrucciones: [
+                    '1. Ponte frente a Rio con una correa corta',
+                    '2. Di "Blaii" con voz firme pero calmada',
+                    '3. Si se mueve, suavemente regresalo a posición',
+                    '4. Espera 5-10 segundos de quietud',
+                    '5. Premia inmediatamente con "¡Muy bien!"'
+                ],
+                tips: 'Perfecto para momentos de alta ansiedad. Úsalo cuando Rio esté muy excitado.',
+                duracion: '5-8 repeticiones, 3 minutos total',
+                objetivo: 'Reducir ansiedad y establecer autocontrol'
+            },
+            'plats': {
+                nombre: 'Plats (Echado)',
+                instrucciones: [
+                    '1. Rio debe estar en posición "Sit" primero',
+                    '2. Di "Plats" y mueve premio al suelo',
+                    '3. Guía suavemente hacia posición echado',
+                    '4. Mantén posición 10-15 segundos',
+                    '5. Libera con "OK" y premio grande'
+                ],
+                tips: 'Excelente para relajación profunda. Úsalo cuando necesites que se calme completamente.',
+                duracion: '3-5 repeticiones, 5 minutos total',
+                objetivo: 'Relajación profunda y reducción de energía'
+            },
+            'sit': {
+                nombre: 'Sit (Sentado)',
+                instrucciones: [
+                    '1. Sostén premio sobre la cabeza de Rio',
+                    '2. Di "Sit" una sola vez',
+                    '3. Mueve premio hacia atrás lentamente',
+                    '4. En cuanto se siente, di "¡Sí!" y premia',
+                    '5. Repite 5-8 veces'
+                ],
+                tips: 'Comando fundamental. Úsalo para captar atención antes de otros comandos.',
+                duracion: '5-8 repeticiones, 2 minutos total',
+                objetivo: 'Atención y preparación para otros ejercicios'
+            }
+        };
+
+        function practicarComando(comando) {
+            const info = comandosAntiAnsiedad[comando];
+            document.getElementById('modal-titulo').textContent = `Practicar: ${info.nombre}`;
+            
+            document.getElementById('modal-contenido').innerHTML = `
+                <div class="bg-blue-50 border border-blue-200 rounded p-3">
+                    <h4 class="font-semibold text-blue-800 mb-2">🎯 Objetivo:</h4>
+                    <p class="text-sm text-blue-700">${info.objetivo}</p>
+                </div>
+                
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2">📋 Instrucciones:</h4>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-700">
+                        ${info.instrucciones.map(inst => `<li>${inst}</li>`).join('')}
+                    </ol>
+                </div>
+                
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-3">
+                    <h4 class="font-semibold text-yellow-800 mb-2">💡 Tip Especial:</h4>
+                    <p class="text-sm text-yellow-700">${info.tips}</p>
+                </div>
+                
+                <div class="bg-green-50 border border-green-200 rounded p-3">
+                    <h4 class="font-semibold text-green-800 mb-2">⏱️ Duración:</h4>
+                    <p class="text-sm text-green-700">${info.duracion}</p>
+                </div>
+            `;
+            
+            document.getElementById('modal-practica').classList.remove('hidden');
+            document.getElementById('modal-practica').classList.add('flex');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal-practica').classList.add('hidden');
+            document.getElementById('modal-practica').classList.remove('flex');
+        }
+
+        async function completarSesion() {
+            // Aquí se registraría la sesión en Supabase
+            alert('¡Excelente! Sesión registrada. El progreso de Rio ha sido actualizado.');
+            cerrarModal();
+        }
+
+        function nuevaEvaluacion() {
+            alert('Redirigiendo a evaluación de ansiedad específica para Rio...');
+        }
+
+        function verProgreso() {
+            alert('Mostrando gráficos de progreso en comandos anti-ansiedad...');
+        }
+
+        function contactarProfesor() {
+            alert('Enviando consulta al profesor sobre el plan anti-ansiedad de Rio...');
+        }
+    </script>
+</body>
+</html>

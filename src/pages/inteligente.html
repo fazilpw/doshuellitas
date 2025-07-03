@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔔 Centro de Notificaciones | María García - Club Canino</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-cyan-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        
+        <!-- Header del Centro de Notificaciones -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-900 mb-2">
+                🔔 Centro de Notificaciones
+            </h1>
+            <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800">👋 Hola María García</h2>
+                            <p class="text-gray-600">Tienes <span id="total-notificaciones" class="font-bold text-red-600">46</span> notificaciones pendientes sobre Rio</p>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="marcarTodasLeidas()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">
+                            ✅ Marcar Todas Leídas
+                        </button>
+                        <button onclick="actualizarNotificaciones()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
+                            🔄 Actualizar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros y Estadísticas -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+            
+            <!-- Resumen por Categoría -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">📊 Por Categoría</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarCategoria('transport')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                            <span class="text-sm">Transporte</span>
+                        </div>
+                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">16</span>
+                    </div>
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarCategoria('behavior')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                            <span class="text-sm">Comportamiento</span>
+                        </div>
+                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">13</span>
+                    </div>
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarCategoria('medical')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                            <span class="text-sm">Médico</span>
+                        </div>
+                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">8</span>
+                    </div>
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarCategoria('general')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-gray-500 rounded-full mr-2"></span>
+                            <span class="text-sm">General</span>
+                        </div>
+                        <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium">6</span>
+                    </div>
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarCategoria('training')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
+                            <span class="text-sm">Entrenamiento</span>
+                        </div>
+                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-medium">3</span>
+                    </div>
+                </div>
+                <button onclick="limpiarFiltros()" class="mt-4 w-full text-sm text-gray-600 hover:text-gray-800">
+                    🔄 Mostrar Todas
+                </button>
+            </div>
+
+            <!-- Filtro por Prioridad -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">⚡ Por Prioridad</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarPrioridad('urgent')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-red-600 rounded-full mr-2"></span>
+                            <span class="text-sm">Urgente</span>
+                        </div>
+                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-medium">2</span>
+                    </div>
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarPrioridad('high')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>
+                            <span class="text-sm">Alta</span>
+                        </div>
+                        <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-medium">8</span>
+                    </div>
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarPrioridad('medium')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                            <span class="text-sm">Media</span>
+                        </div>
+                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">24</span>
+                    </div>
+                    <div class="flex justify-between items-center cursor-pointer hover:bg-gray-50 p-2 rounded" onclick="filtrarPrioridad('low')">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-gray-400 rounded-full mr-2"></span>
+                            <span class="text-sm">Baja</span>
+                        </div>
+                        <span class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-medium">12</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones Rápidas -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">⚡ Acciones Rápidas</h3>
+                <div class="space-y-3">
+                    <button onclick="mostrarSoloSinLeer()" class="w-full bg-red-100 text-red-800 px-3 py-2 rounded hover:bg-red-200 text-sm">
+                        🔴 Solo No Leídas (46)
+                    </button>
+                    <button onclick="mostrarHoy()" class="w-full bg-blue-100 text-blue-800 px-3 py-2 rounded hover:bg-blue-200 text-sm">
+                        📅 Solo de Hoy (12)
+                    </button>
+                    <button onclick="mostrarRio()" class="w-full bg-green-100 text-green-800 px-3 py-2 rounded hover:bg-green-200 text-sm">
+                        🐕 Solo sobre Rio (46)
+                    </button>
+                    <button onclick="archivarAntiguos()" class="w-full bg-gray-100 text-gray-800 px-3 py-2 rounded hover:bg-gray-200 text-sm">
+                        📦 Archivar Antiguos
+                    </button>
+                </div>
+            </div>
+
+            <!-- Notificaciones Críticas -->
+            <div class="bg-red-50 border border-red-200 rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-bold text-red-800 mb-4">🚨 Requieren Atención</h3>
+                <div class="space-y-3">
+                    <div class="bg-white rounded p-3 border-l-4 border-red-500">
+                        <div class="flex justify-between items-start mb-1">
+                            <h4 class="font-medium text-sm text-gray-800">Ansiedad Alta</h4>
+                            <span class="text-xs text-red-600">URGENTE</span>
+                        </div>
+                        <p class="text-xs text-gray-600">Rio mostró nivel 8/10 de ansiedad hoy</p>
+                        <button onclick="verDetalleNotificacion('ansiedad-alta')" class="mt-2 text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700">
+                            Ver Detalles
+                        </button>
+                    </div>
+                    <div class="bg-white rounded p-3 border-l-4 border-orange-500">
+                        <div class="flex justify-between items-start mb-1">
+                            <h4 class="font-medium text-sm text-gray-800">Patrón Anómalo</h4>
+                            <span class="text-xs text-orange-600">ALTA</span>
+                        </div>
+                        <p class="text-xs text-gray-600">Diferencia casa vs colegio +2.4</p>
+                        <button onclick="verDetalleNotificacion('patron-anomalo')" class="mt-2 text-xs bg-orange-600 text-white px-2 py-1 rounded hover:bg-orange-700">
+                            Ver Análisis
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista Principal de Notificaciones -->
+        <div class="bg-white rounded-lg shadow-lg">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-gray-800">📱 Todas las Notificaciones</h3>
+                    <div class="flex space-x-2">
+                        <select id="ordenar-por" class="border rounded px-3 py-1 text-sm" onchange="cambiarOrden()">
+                            <option value="fecha-desc">Más Recientes Primero</option>
+                            <option value="fecha-asc">Más Antiguos Primero</option>
+                            <option value="prioridad">Por Prioridad</option>
+                            <option value="categoria">Por Categoría</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="lista-notificaciones" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                <!-- Notificaciones se cargarán dinámicamente -->
+                <div class="flex items-center justify-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span class="ml-2 text-gray-600">Cargando notificaciones...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Detalle de Notificación -->
+        <div id="modal-detalle" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-2xl w-full max-h-96 overflow-y-auto">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-xl font-bold text-gray-800" id="modal-titulo">Detalle de Notificación</h3>
+                    <button onclick="cerrarModalDetalle()" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="modal-contenido-detalle">
+                    <!-- Contenido dinámico -->
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button onclick="marcarComoLeida()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        ✅ Marcar como Leída
+                    </button>
+                    <button onclick="archivarNotificacion()" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                        📦 Archivar
+                    </button>
+                    <button onclick="responderNotificacion()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        💬 Responder
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Datos simulados basados en las estadísticas reales de María
+        const notificacionesEjemplo = [
+            {
+                id: 1,
+                tipo: 'behavior',
+                prioridad: 'urgent',
+                titulo: '🚨 Rio - Ansiedad Alta Detectada',
+                mensaje: 'Rio mostró un nivel de ansiedad de 8.2/10 en la evaluación de hoy en casa. Recomendamos aplicar técnicas de calma inmediatamente.',
+                fecha: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 horas atrás
+                leida: false,
+                categoria: 'behavior'
+            },
+            {
+                id: 2,
+                tipo: 'general',
+                prioridad: 'high',
+                titulo: '📊 Rio - Diferencia Casa vs Colegio',
+                mensaje: 'Se detectó una diferencia significativa en el comportamiento de Rio: Ansiedad casa (7.4) vs colegio (5.0). Diferencia: +2.4 puntos.',
+                fecha: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 horas atrás
+                leida: false,
+                categoria: 'general'
+            },
+            {
+                id: 3,
+                tipo: 'training',
+                prioridad: 'medium',
+                titulo: '📚 Rio - Refuerzo en Obediencia',
+                mensaje: 'Rio necesita práctica adicional en comandos de obediencia. Su nivel actual (6.3/10) está por debajo del promedio. Recomendamos sesiones diarias de "Blaii" y "Plats".',
+                fecha: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 horas atrás
+                leida: false,
+                categoria: 'training'
+            },
+            {
+                id: 4,
+                tipo: 'transport',
+                prioridad: 'low',
+                titulo: '🚗 Transporte - Llegada a Casa',
+                mensaje: 'El vehículo ABC-123 con Rio llegará a tu casa en aproximadamente 15 minutos. Conductor: Carlos Mendoza.',
+                fecha: new Date(Date.now() - 8 * 60 * 60 * 1000), // 8 horas atrás
+                leida: false,
+                categoria: 'transport'
+            },
+            {
+                id: 5,
+                tipo: 'medical',
+                prioridad: 'medium',
+                titulo: '🏥 Rio - Recordatorio Vacuna',
+                mensaje: 'La próxima vacuna de Rio está programada para el 15 de enero. Por favor confirma la cita con el veterinario.',
+                fecha: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12 horas atrás
+                leida: false,
+                categoria: 'medical'
+            }
+        ];
+
+        let notificacionesFiltradas = [...notificacionesEjemplo];
+        let filtroActivo = null;
+
+        function cargarNotificaciones() {
+            const lista = document.getElementById('lista-notificaciones');
+            
+            if (notificacionesFiltradas.length === 0) {
+                lista.innerHTML = `
+                    <div class="flex items-center justify-center py-8">
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">📭</div>
+                            <p class="text-gray-600">No hay notificaciones que coincidan con el filtro</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            lista.innerHTML = notificacionesFiltradas.map(notif => {
+                const fechaFormateada = notif.fecha.toLocaleString('es-ES', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                const prioridadClass = {
+                    urgent: 'border-l-red-600 bg-red-50',
+                    high: 'border-l-orange-500 bg-orange-50',
+                    medium: 'border-l-blue-500 bg-blue-50',
+                    low: 'border-l-gray-400 bg-gray-50'
+                };
+
+                const prioridadBadge = {
+                    urgent: 'bg-red-100 text-red-800',
+                    high: 'bg-orange-100 text-orange-800',
+                    medium: 'bg-blue-100 text-blue-800',
+                    low: 'bg-gray-100 text-gray-800'
+                };
+
+                return `
+                    <div class="p-4 hover:bg-gray-50 cursor-pointer border-l-4 ${prioridadClass[notif.prioridad]}" onclick="verDetalleNotificacion(${notif.id})">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <h4 class="font-medium text-gray-900">${notif.titulo}</h4>
+                                    <span class="px-2 py-1 rounded text-xs ${prioridadBadge[notif.prioridad]}">${notif.prioridad.toUpperCase()}</span>
+                                    ${!notif.leida ? '<span class="w-2 h-2 bg-red-500 rounded-full"></span>' : ''}
+                                </div>
+                                <p class="text-sm text-gray-700 mb-2">${notif.mensaje}</p>
+                                <div class="flex items-center text-xs text-gray-500 space-x-4">
+                                    <span>📅 ${fechaFormateada}</span>
+                                    <span>📂 ${notif.categoria}</span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2 ml-4">
+                                <button onclick="event.stopPropagation(); marcarComoLeida(${notif.id})" class="text-green-600 hover:text-green-800 text-sm">
+                                    ✅
+                                </button>
+                                <button onclick="event.stopPropagation(); archivarNotificacion(${notif.id})" class="text-gray-600 hover:text-gray-800 text-sm">
+                                    📦
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filtrarCategoria(categoria) {
+            filtroActivo = { tipo: 'categoria', valor: categoria };
+            notificacionesFiltradas = notificacionesEjemplo.filter(n => n.categoria === categoria);
+            cargarNotificaciones();
+            actualizarContadorTotal();
+        }
+
+        function filtrarPrioridad(prioridad) {
+            filtroActivo = { tipo: 'prioridad', valor: prioridad };
+            notificacionesFiltradas = notificacionesEjemplo.filter(n => n.prioridad === prioridad);
+            cargarNotificaciones();
+            actualizarContadorTotal();
+        }
+
+        function limpiarFiltros() {
+            filtroActivo = null;
+            notificacionesFiltradas = [...notificacionesEjemplo];
+            cargarNotificaciones();
+            actualizarContadorTotal();
+        }
+
+        function mostrarSoloSinLeer() {
+            filtroActivo = { tipo: 'sin_leer' };
+            notificacionesFiltradas = notificacionesEjemplo.filter(n => !n.leida);
+            cargarNotificaciones();
+            actualizarContadorTotal();
+        }
+
+        function actualizarContadorTotal() {
+            document.getElementById('total-notificaciones').textContent = notificacionesFiltradas.length;
+        }
+
+        function verDetalleNotificacion(id) {
+            const notif = notificacionesEjemplo.find(n => n.id === id);
+            if (!notif) return;
+
+            document.getElementById('modal-titulo').textContent = notif.titulo;
+            document.getElementById('modal-contenido-detalle').innerHTML = `
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded p-4">
+                        <h4 class="font-semibold text-gray-800 mb-2">Mensaje Completo:</h4>
+                        <p class="text-gray-700">${notif.mensaje}</p>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-1">Categoría:</h4>
+                            <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">${notif.categoria}</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-1">Prioridad:</h4>
+                            <span class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded text-sm">${notif.prioridad}</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-1">Fecha:</h4>
+                            <p class="text-gray-700 text-sm">${notif.fecha.toLocaleString('es-ES')}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800 mb-1">Estado:</h4>
+                            <span class="inline-block ${notif.leida ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} px-2 py-1 rounded text-sm">
+                                ${notif.leida ? 'Leída' : 'No Leída'}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    ${notif.categoria === 'behavior' ? `
+                        <div class="bg-yellow-50 border border-yellow-200 rounded p-4">
+                            <h4 class="font-semibold text-yellow-800 mb-2">💡 Recomendaciones:</h4>
+                            <ul class="list-disc list-inside text-sm text-yellow-700 space-y-1">
+                                <li>Aplicar técnicas de comando "Blaii" (Quieto) durante 5 minutos</li>
+                                <li>Reducir estímulos en casa por 30 minutos</li>
+                                <li>Considerar sesión de relajación con "Plats" (Echado)</li>
+                                <li>Contactar al profesor si persiste</li>
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            document.getElementById('modal-detalle').classList.remove('hidden');
+            document.getElementById('modal-detalle').classList.add('flex');
+        }
+
+        function cerrarModalDetalle() {
+            document.getElementById('modal-detalle').classList.add('hidden');
+            document.getElementById('modal-detalle').classList.remove('flex');
+        }
+
+        function marcarComoLeida(id) {
+            if (id) {
+                const notif = notificacionesEjemplo.find(n => n.id === id);
+                if (notif) notif.leida = true;
+            }
+            
+            cargarNotificaciones();
+            cerrarModalDetalle();
+        }
+
+        function marcarTodasLeidas() {
+            notificacionesEjemplo.forEach(n => n.leida = true);
+            cargarNotificaciones();
+            alert('✅ Todas las notificaciones han sido marcadas como leídas');
+        }
+
+        function archivarNotificacion(id) {
+            alert('📦 Notificación archivada (función en desarrollo)');
+            cerrarModalDetalle();
+        }
+
+        function responderNotificacion() {
+            alert('💬 Abriendo chat con el equipo del Club Canino...');
+            cerrarModalDetalle();
+        }
+
+        function actualizarNotificaciones() {
+            alert('🔄 Buscando nuevas notificaciones...');
+            // Aquí se conectaría con Supabase para obtener notificaciones reales
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            cargarNotificaciones();
+        });
+    </script>
+</body>
+</html>

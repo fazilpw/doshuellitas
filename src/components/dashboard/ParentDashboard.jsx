@@ -15,6 +15,8 @@ import NotificationSystem from '../notifications/NotificationSystem.jsx';
 import NotificationManagerDashboard from '../notifications/NotificationManagerDashboard.jsx';
 import { createTestNotification } from '../../utils/notificationHelper.js';
 import RealPushNotifications from '../notifications/RealPushNotifications.jsx';
+import NotificationControlPanel from '../notifications/NotificationManagerDashboard.jsx';
+
 
 
 
@@ -749,13 +751,13 @@ case 'notificaciones':
     <div className={contentClasses}>
       <div className={innerClasses}>
         
-        {/* 🔔 COMPONENTE EXISTENTE DE NOTIFICACIONES */}
+        {/* 🔔 SISTEMA PRINCIPAL */}
         <NotificationSystem 
           userId={currentUser?.id}
           dogs={dogs}
         />
         
-        {/* 🔔 AGREGAR: COMPONENTE SIMPLE PARA VER NOTIFICACIONES AUTOMÁTICAS */}
+        {/* 🔔 NOTIFICACIONES AUTOMÁTICAS RECIENTES */}
         <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-xl font-bold text-gray-900 mb-4">
             🔔 Notificaciones Automáticas Recientes
@@ -763,7 +765,7 @@ case 'notificaciones':
           <NotificationListSimple userId={currentUser?.id} />
         </div>
         
-        {/* 🧪 BOTÓN DE PRUEBA RÁPIDO */}
+        {/* 🧪 PRUEBA RÁPIDA DEL SISTEMA */}
         <div className="mt-6 bg-purple-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-medium text-purple-900 mb-2">🧪 Prueba Rápida del Sistema</h4>
           <button
@@ -774,7 +776,7 @@ case 'notificaciones':
           </button>
         </div>
 
-        {/* Dashboard de gestión existente */}
+        {/* 🎛️ DASHBOARD DE GESTIÓN COMPLETO (YA EXISTE) */}
         <div className="mt-8">
           <NotificationManagerDashboard
             userId={currentUser?.id}
@@ -782,11 +784,14 @@ case 'notificaciones':
             isAdmin={false}
           />
         </div>
+
+        {/* 📱 NOTIFICACIONES PUSH REALES */}
         <RealPushNotifications 
-  userId={currentUser?.id}
-  userRole={currentUser?.role}
-  dogs={dogs}
-/>
+          userId={currentUser?.id}
+          userRole={currentUser?.role}
+          dogs={dogs}
+        />
+
       </div>
     </div>
   );
