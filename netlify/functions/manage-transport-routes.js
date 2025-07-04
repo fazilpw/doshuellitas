@@ -36,7 +36,9 @@ exports.handler = async (event, context) => {
     const results = {
       routeType,
       dogsScheduled: 0,
+      stopsCreated: 0,
       notificationsSent: 0,
+      estimatedDuration: 0,
       errors: []
     };
 
@@ -145,7 +147,6 @@ exports.handler = async (event, context) => {
     // 📊 CREAR RESUMEN DE MÉTRICAS
     // ============================================
     const metricsData = {
-      execution_time: Date.now() - Date.parse(results.timestamp),
       dogs_processed: results.dogsScheduled,
       stops_created: results.stopsCreated,
       notifications_sent: results.notificationsSent,
@@ -330,11 +331,12 @@ async function sendTransportNotifications(dogs, routeData, routeType, results) {
   for (const dog of dogs) {
     if (!dog.owner?.id) continue;
 
-    const stop = routeData.stops.find(s => s.dog_id === dog.id);
-    const estimatedTime = stop ? new Date(stop.scheduled_time).toLocaleTimeString('es-CO', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    }) : 'Por confirmar';
+    // CALCULAR TIEMPO ESTIMADO BASADO EN EL ORDEN DE LOS PERROS
+    const dogIndex = dogs.findIndex(d => d.id === dog.id);
+    const baseTime = routeType === 'pickup' ? '5:30' : '3:15';
+    const minutesOffset = dogIndex * 15; // 15 minutos entre paradas
+    const [hours, minutes] = baseTime.split(':').map(Number);
+    const estimatedTime = `${hours}:${String(minutes + minutesOffset).padStart(2, '0')}`;
 
     // Crear notificación para el dashboard interno (tabla notifications)
     const notificationData = {
@@ -351,7 +353,6 @@ async function sendTransportNotifications(dogs, routeData, routeType, results) {
       priority: 'medium',
       data: {
         routeId: routeData.routeId,
-        stopId: stop?.id,
         dogId: dog.id,
         routeType: routeType,
         estimatedTime: estimatedTime,
@@ -385,7 +386,8 @@ async function sendTransportNotifications(dogs, routeData, routeType, results) {
     // ============================================
     const pushResult = await sendPushNotification(dog.owner.id, notificationData);
     
-    if (pushResult.successCount > 0) {
+    // VERIFICAR QUE pushResult EXISTE
+    if (pushResult && pushResult.successCount > 0) {
       console.log(`📱 Push notification enviada al celular de ${dog.owner.full_name || 'propietario'}`);
     } else {
       console.warn(`⚠️ No se pudo enviar push notification a ${dog.owner.full_name || 'propietario'}`);
@@ -414,7 +416,7 @@ async function sendPushNotification(userId, notificationData) {
 
     if (!subscriptions || subscriptions.length === 0) {
       console.log(`📱 Usuario ${userId} sin suscripciones push activas`);
-      return;
+      return { successCount: 0, errorCount: 0, totalSubscriptions: 0 }; // ✅ RETORNO CONSISTENTE
     }
 
     // Configurar payload para notificación nativa del celular
@@ -494,7 +496,8 @@ async function sendPushNotification(userId, notificationData) {
 
   } catch (error) {
     console.error('❌ Error crítico en push notifications:', error);
-    return { successCount: 0, errorCount: 1, error: error.message };
+    // ✅ SIEMPRE DEVOLVER OBJETO CONSISTENTE, INCLUSO EN ERRORES
+    return { successCount: 0, errorCount: 1, totalSubscriptions: 0, error: error.message };
   }
 }
 
