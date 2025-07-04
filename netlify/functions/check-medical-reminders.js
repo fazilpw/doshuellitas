@@ -1,18 +1,15 @@
 // netlify/functions/check-medical-reminders.js
-// 🏥 CRON JOB - VERIFICACIÓN MÉDICA AUTOMÁTICA CLUB CANINO DOS HUELLITAS
-// 
-// HORARIO COLOMBIA (UTC-5):
-// 🌅 VERIFICACIÓN: 8:00 AM (Cron: 0 13 * * *)
-//
-// URL CRON: https://doshuellitas.netlify.app/.netlify/functions/check-medical-reminders
 
-// ✅ SINTAXIS ES MODULES
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
+// Configurar VAPID keys
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || 'mailto:admin@doshuellitas.com',
+  process.env.PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 
-// ✅ FUNCIÓN PRINCIPAL CON SINTAXIS ES MODULES
-// ✅ FUNCIÓN PRINCIPAL CON SINTAXIS ES MODULES
 export const handler = async (event, context) => {
   const currentTime = new Date();
   const colombiaTime = new Date(currentTime.getTime() - (5 * 60 * 60 * 1000)); // UTC-5
