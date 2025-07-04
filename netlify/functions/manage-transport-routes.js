@@ -10,15 +10,16 @@
 const { createClient } = require('@supabase/supabase-js');
 const webpush = require('web-push');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL, 
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// 🔧 ADAPTADO A TUS VARIABLES EXISTENTES
+const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY;
 
-// Configurar VAPID para push notifications
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Configurar VAPID usando tus variables existentes
 webpush.setVapidDetails(
   process.env.VAPID_SUBJECT || 'mailto:admin@doshuellitas.com',
-  process.env.VAPID_PUBLIC_KEY, 
+  process.env.PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY, 
   process.env.VAPID_PRIVATE_KEY
 );
 
@@ -27,17 +28,15 @@ exports.handler = async (event, context) => {
   const currentTime = new Date();
   const colombiaTime = new Date(currentTime.getTime() - (5 * 60 * 60 * 1000)); // UTC-5
   
-  console.log(`🚐 [CRON] Gestión automática de transporte: ${routeType.toUpperCase()}`);
-  console.log(`⏰ Hora Colombia: ${colombiaTime.toLocaleTimeString('es-CO')}`);
+  // REDUCIR LOGS PARA CRON-JOB.ORG
+  console.log(`🚐 [CRON] ${routeType.toUpperCase()} - ${colombiaTime.toLocaleTimeString('es-CO')}`);
   
   try {
+    // RESULTADO SIMPLIFICADO PARA CRON
     const results = {
       routeType,
-      timestamp: colombiaTime.toISOString(),
       dogsScheduled: 0,
-      stopsCreated: 0,
       notificationsSent: 0,
-      estimatedDuration: 0,
       errors: []
     };
 
@@ -47,18 +46,22 @@ exports.handler = async (event, context) => {
     const today = colombiaTime.toISOString().split('T')[0];
     const dayOfWeek = colombiaTime.getDay() || 7; // Domingo = 7
     
-    // Solo días laborales (Lunes-Sábado)
+    // Solo días laborales (Lunes-Sábado) - SIN LOGS VERBOSOS
     if (dayOfWeek === 7) {
-      console.log('🏖️ Domingo - No hay transporte programado');
-      return successResponse(results, 'Domingo - No hay servicio');
+      return successResponse({ routeType, status: 'domingo', dogsScheduled: 0 }, 'Domingo - No hay servicio');
     }
 
+    // CONSULTA OPTIMIZADA - SOLO CAMPOS NECESARIOS
     const { data: activeDogs, error: dogsError } = await supabase
       .from('dogs')
       .select(`
-        *,
-        owner:profiles(*),
-        addresses:dog_addresses!dog_id(*)
+        id, name, owner_id,
+        owner:profiles(id, full_name, phone),
+        addresses:dog_addresses!dog_id(
+          id, full_address, latitude, longitude, 
+          contact_name, contact_phone, access_instructions,
+          is_primary, active
+        )
       `)
       .eq('active', true);
 
@@ -117,15 +120,31 @@ exports.handler = async (event, context) => {
     );
 
     // ============================================
-    // 📊 REGISTRAR ACTIVIDAD EN LOGS
+    // 📊 CREAR RESUMEN DE MÉTRICAS
+    // ============================================
+    const metricsData = {
+      execution_time: Date.now() - Date.parse(results.timestamp),
+      dogs_processed: results.dogsScheduled,
+      stops_created: results.stopsCreated,
+      notifications_sent: results.notificationsSent,
+      estimated_duration: results.estimatedDuration,
+      route_type: results.routeType,
+      success_rate: results.errors.length === 0 ? 100 : ((results.notificationsSent / results.dogsScheduled) * 100).toFixed(1)
+    };
+
+    console.log('📊 [MÉTRICAS] Resumen de ejecución:', metricsData);
+
+    // ============================================
+    // 📊 REGISTRAR ACTIVIDAD EN LOGS CON MÉTRICAS
     // ============================================
     await supabase.from('notification_logs').insert({
       user_id: null, // Sistema automático
-      title: `🚐 Gestión de transporte - ${routeType}`,
-      body: `Procesados ${results.dogsScheduled} perros, ${results.notificationsSent} notificaciones enviadas`,
+      title: `🚐 Gestión de transporte - ${routeType.toUpperCase()}`,
+      body: `✅ Procesados: ${results.dogsScheduled} perros | 📍 Paradas: ${results.stopsCreated} | 🔔 Notificaciones: ${results.notificationsSent} | ⏱️ Duración estimada: ${results.estimatedDuration}min | 🎯 Éxito: ${metricsData.success_rate}%`,
       category: 'transport',
-      priority: 'medium',
-      delivery_status: 'sent',
+      priority: results.errors.length > 0 ? 'high' : 'medium',
+      delivery_status: results.errors.length === 0 ? 'sent' : 'partial',
+      data: metricsData,
       sent_at: new Date().toISOString()
     });
 
@@ -287,7 +306,7 @@ async function sendTransportNotifications(dogs, routeData, routeType, results) {
       minute: '2-digit' 
     }) : 'Por confirmar';
 
-    // Crear notificación principal
+    // Crear notificación para el dashboard interno (tabla notifications)
     const notificationData = {
       user_id: dog.owner.id,
       dog_id: dog.id,
@@ -308,11 +327,12 @@ async function sendTransportNotifications(dogs, routeData, routeType, results) {
         estimatedTime: estimatedTime,
         vehicleInfo: {
           plate: routeData.vehicleInfo.license_plate,
-          driver: routeData.vehicleInfo.current_driver?.full_name
+          driver: routeData.vehicleInfo.current_driver?.full_name || 'Conductor asignado'
         }
       },
-      action_url: `/dashboard/parent/${dog.owner.id}?tab=transport`,
-      action_label: 'Ver seguimiento',
+      action_url: `/dashboard/parent/?tab=transport`,
+      action_label: '👁️ Ver seguimiento en vivo',
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Expira en 24 horas
       created_at: new Date().toISOString()
     };
 
@@ -331,9 +351,15 @@ async function sendTransportNotifications(dogs, routeData, routeType, results) {
     notifications.push(notification);
 
     // ============================================
-    // 📱 ENVIAR PUSH NOTIFICATION
+    // 📱 TAMBIÉN ENVIAR PUSH NOTIFICATION AL CELULAR
     // ============================================
-    await sendPushNotification(dog.owner.id, notificationData);
+    const pushResult = await sendPushNotification(dog.owner.id, notificationData);
+    
+    if (pushResult.successCount > 0) {
+      console.log(`📱 Push notification enviada al celular de ${dog.owner.full_name || 'propietario'}`);
+    } else {
+      console.warn(`⚠️ No se pudo enviar push notification a ${dog.owner.full_name || 'propietario'}`);
+    }
   }
 
   results.notificationsSent = notifications.length;
@@ -343,11 +369,13 @@ async function sendTransportNotifications(dogs, routeData, routeType, results) {
 }
 
 // ============================================
-// 📱 ENVIAR PUSH NOTIFICATION
+// 📱 ENVIAR NOTIFICACIONES PUSH AL CELULAR
 // ============================================
 async function sendPushNotification(userId, notificationData) {
   try {
-    // Obtener suscripciones push del usuario
+    console.log(`📱 Enviando push notification a usuario ${userId}...`);
+    
+    // Obtener suscripciones push activas del usuario desde Supabase
     const { data: subscriptions } = await supabase
       .from('push_subscriptions')
       .select('*')
@@ -359,49 +387,70 @@ async function sendPushNotification(userId, notificationData) {
       return;
     }
 
+    // Configurar payload para notificación nativa del celular
     const pushPayload = JSON.stringify({
       title: notificationData.title,
       body: notificationData.message,
       icon: '/icon-192.png',
-      badge: '/badge-72.png',
-      tag: `transport-${notificationData.data.routeType}`,
+      badge: '/icon-72.png',
+      tag: `transport-${notificationData.data.routeType}-${Date.now()}`,
       data: {
         ...notificationData.data,
         url: notificationData.action_url,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        type: 'transport'
       },
       actions: [
         {
           action: 'view',
-          title: 'Ver seguimiento'
+          title: '👁️ Ver seguimiento'
         },
         {
-          action: 'close',
-          title: 'Cerrar'
+          action: 'close', 
+          title: '❌ Cerrar'
         }
       ],
-      requireInteraction: true
+      requireInteraction: true, // Mantener visible hasta que el usuario interactúe
+      vibrate: [200, 100, 200], // Vibración en móviles
+      renotify: true // Permitir renotificación
     });
 
-    // Enviar a todas las suscripciones del usuario
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Enviar a todas las suscripciones activas del usuario
     for (const subscription of subscriptions) {
       try {
-        await webpush.sendNotification(
-          {
-            endpoint: subscription.endpoint,
-            keys: {
-              p256dh: subscription.p256dh_key,
-              auth: subscription.auth_key
-            }
-          },
-          pushPayload
-        );
-        console.log(`📱 Push enviado exitosamente a usuario ${userId}`);
-      } catch (pushError) {
-        console.error(`❌ Error enviando push a ${userId}:`, pushError);
+        // Configurar suscripción para web-push
+        const webPushSubscription = {
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.p256dh_key,
+            auth: subscription.auth_key
+          }
+        };
+
+        // Enviar notificación push
+        await webpush.sendNotification(webPushSubscription, pushPayload);
         
-        // Desactivar suscripción si está expirada
-        if (pushError.statusCode === 410) {
+        successCount++;
+        console.log(`✅ Push enviado exitosamente - Device: ${subscription.device_type || 'unknown'}`);
+        
+        // Actualizar última vez usado
+        await supabase
+          .from('push_subscriptions')
+          .update({ 
+            last_used_at: new Date().toISOString()
+          })
+          .eq('id', subscription.id);
+
+      } catch (pushError) {
+        errorCount++;
+        console.error(`❌ Error enviando push:`, pushError.message);
+        
+        // Si la suscripción expiró (410) o es inválida, desactivarla
+        if (pushError.statusCode === 410 || pushError.statusCode === 404) {
+          console.log(`🗑️ Desactivando suscripción expirada: ${subscription.id}`);
           await supabase
             .from('push_subscriptions')
             .update({ is_active: false })
@@ -410,8 +459,12 @@ async function sendPushNotification(userId, notificationData) {
       }
     }
 
+    console.log(`📊 Push summary - Usuario ${userId}: ${successCount} éxitos, ${errorCount} errores`);
+    return { successCount, errorCount, totalSubscriptions: subscriptions.length };
+
   } catch (error) {
-    console.error('❌ Error en push notifications:', error);
+    console.error('❌ Error crítico en push notifications:', error);
+    return { successCount: 0, errorCount: 1, error: error.message };
   }
 }
 
