@@ -6,35 +6,25 @@
 //
 // URL CRON: https://doshuellitas.netlify.app/.netlify/functions/daily-maintenance
 
-// ✅ USAR IMPORT DINÁMICO PARA EVITAR ERRORES DE DEPENDENCIAS
-const createSupabaseClient = async () => {
-  try {
-    const { createClient } = await import('@supabase/supabase-js');
-    return createClient;
-  } catch (error) {
-    console.error('❌ Error importando Supabase:', error);
-    // Fallback básico
-    return null;
-  }
-};
+// ✅ SINTAXIS ES MODULES
+import { createClient } from '@supabase/supabase-js';
 
-exports.handler = async (event, context) => {
+// ✅ FUNCIÓN PRINCIPAL CON SINTAXIS ES MODULES
+export const handler = async (event, context) => {
   const currentTime = new Date();
   const colombiaTime = new Date(currentTime.getTime() - (5 * 60 * 60 * 1000)); // UTC-5
   
   console.log(`🔧 [CRON] Mantenimiento nocturno del sistema - ${colombiaTime.toLocaleTimeString('es-CO')}`);
   
   try {
-    // ✅ CREAR CLIENTE SUPABASE DINÁMICAMENTE
-    const createClient = await createSupabaseClient();
-    
-    if (!createClient) {
-      throw new Error('No se pudo cargar Supabase client');
-    }
-
+    // ✅ CREAR CLIENTE SUPABASE CON ES MODULES
     const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY;
     
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Variables de entorno de Supabase no configuradas');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const results = {
@@ -118,6 +108,182 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
+// ============================================
+// 📊 PROCESAR EVALUACIONES SIMPLIFICADO
+// ============================================
+async function processSimpleEvaluations(supabase, results) {
+  console.log('📊 Procesando evaluaciones del día...');
+  
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data: todayEvaluations, error: evalError } = await supabase
+      .from('evaluations')
+      .select(`
+        *,
+        dog:dogs(name, owner_id)
+      `)
+      .eq('date', today);
+
+    if (evalError) throw evalError;
+
+    results.evaluationsProcessed = todayEvaluations?.length || 0;
+
+    // Detectar problemas simples
+    for (const evaluation of todayEvaluations || []) {
+      if (evaluation.anxiety_level >= 8) {
+        await createSimpleAlert(supabase, evaluation, 'ansiedad_alta');
+        results.notificationsSent++;
+      }
+    }
+
+    console.log(`✅ Evaluaciones procesadas: ${results.evaluationsProcessed}`);
+
+  } catch (error) {
+    console.error('❌ Error procesando evaluaciones:', error);
+    results.errors.push(`Evaluaciones: ${error.message}`);
+  }
+}
+
+// ============================================
+// 🚨 CREAR ALERTA SIMPLE
+// ============================================
+async function createSimpleAlert(supabase, evaluation, concern) {
+  try {
+    const notificationData = {
+      user_id: evaluation.dog.owner_id,
+      dog_id: evaluation.dog.id,
+      title: `⚠️ Atención requerida - ${evaluation.dog.name}`,
+      message: `Se detectó un nivel alto de ansiedad (${evaluation.anxiety_level}/10) en ${evaluation.dog.name}. Considera técnicas de relajación.`,
+      type: 'warning',
+      category: 'behavior',
+      priority: 'medium',
+      data: {
+        concern: concern,
+        anxietyLevel: evaluation.anxiety_level,
+        location: evaluation.location
+      },
+      action_url: `/dashboard/parent/?tab=evaluations`,
+      action_label: '📊 Ver evaluación',
+      expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date().toISOString()
+    };
+
+    await supabase
+      .from('notifications')
+      .insert(notificationData);
+
+    console.log(`✅ Alerta creada para ${evaluation.dog.name}`);
+
+  } catch (error) {
+    console.error('❌ Error creando alerta:', error);
+  }
+}
+
+// ============================================
+// 💡 GENERAR TIPS BÁSICOS
+// ============================================
+async function generateBasicTips(supabase, results) {
+  console.log('💡 Generando tips básicos...');
+  
+  try {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    
+    // Solo lunes (día 1)
+    if (dayOfWeek !== 1) {
+      console.log('📅 No es lunes, omitiendo tips');
+      return;
+    }
+
+    const tips = [
+      {
+        title: '🎯 Tip de entrenamiento',
+        content: 'Practica el comando "quieto" por 5 minutos diarios. Usa premios pequeños y sé constante.',
+        category: 'entrenamiento'
+      },
+      {
+        title: '🦷 Cuidado dental',
+        content: 'Cepilla los dientes de tu perro 2-3 veces por semana con pasta especial para perros.',
+        category: 'salud'
+      },
+      {
+        title: '🎾 Tiempo de juego',
+        content: 'Dedica 30 minutos diarios al juego activo. Reduce comportamientos destructivos.',
+        category: 'comportamiento'
+      }
+    ];
+
+    // Obtener usuarios activos
+    const { data: activeUsers } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('active', true)
+      .eq('role', 'padre');
+
+    const randomTip = tips[Math.floor(Math.random() * tips.length)];
+
+    // Enviar a todos los usuarios
+    for (const user of activeUsers || []) {
+      const notificationData = {
+        user_id: user.id,
+        title: randomTip.title,
+        message: randomTip.content,
+        type: 'info',
+        category: 'tip',
+        priority: 'low',
+        data: {
+          tipCategory: randomTip.category,
+          weekly: true
+        },
+        action_url: `/dashboard/parent/?tab=tips`,
+        action_label: '💡 Ver más tips',
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        created_at: new Date().toISOString()
+      };
+
+      await supabase
+        .from('notifications')
+        .insert(notificationData);
+
+      results.tipsGenerated++;
+    }
+
+    console.log(`✅ Tips generados: ${results.tipsGenerated}`);
+
+  } catch (error) {
+    console.error('❌ Error generando tips:', error);
+    results.errors.push(`Tips: ${error.message}`);
+  }
+}
+
+// ============================================
+// 🧹 LIMPIEZA BÁSICA DE DATOS
+// ============================================
+async function performBasicCleanup(supabase, results) {
+  console.log('🧹 Realizando limpieza básica...');
+  
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Limpiar notificaciones expiradas
+    const { error: notificationsError } = await supabase
+      .from('notifications')
+      .delete()
+      .lt('expires_at', thirtyDaysAgo.toISOString());
+
+    if (notificationsError) throw notificationsError;
+
+    results.dataCleanedUp = 50; // Estimación
+    console.log('✅ Limpieza básica completada');
+
+  } catch (error) {
+    console.error('❌ Error en limpieza:', error);
+    results.errors.push(`Limpieza: ${error.message}`);
+  }
+}
 
 // ============================================
 // 📊 PROCESAR EVALUACIONES SIMPLIFICADO

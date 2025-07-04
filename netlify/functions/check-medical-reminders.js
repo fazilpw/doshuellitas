@@ -6,29 +6,27 @@
 //
 // URL CRON: https://doshuellitas.netlify.app/.netlify/functions/check-medical-reminders
 
-const { createClient } = require('@supabase/supabase-js');
-const webpush = require('web-push');
+// ✅ SINTAXIS ES MODULES
+import { createClient } from '@supabase/supabase-js';
 
-// 🔧 CONFIGURACIÓN SUPABASE
-const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Configurar VAPID para push notifications
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || 'mailto:admin@doshuellitas.com',
-  process.env.PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY, 
-  process.env.VAPID_PRIVATE_KEY
-);
-
-exports.handler = async (event, context) => {
+// ✅ FUNCIÓN PRINCIPAL CON SINTAXIS ES MODULES
+export const handler = async (event, context) => {
   const currentTime = new Date();
   const colombiaTime = new Date(currentTime.getTime() - (5 * 60 * 60 * 1000)); // UTC-5
   
   console.log(`🏥 [CRON] Verificación médica automática - ${colombiaTime.toLocaleTimeString('es-CO')}`);
   
   try {
+    // ✅ CREAR CLIENTE SUPABASE CON ES MODULES
+    const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Variables de entorno de Supabase no configuradas');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const results = {
       timestamp: colombiaTime.toISOString(),
       vaccinesChecked: 0,
@@ -42,12 +40,12 @@ exports.handler = async (event, context) => {
     // ============================================
     // 💉 VERIFICAR VACUNAS PRÓXIMAS Y VENCIDAS
     // ============================================
-    await checkVaccineReminders(results);
+    await checkVaccineReminders(supabase, results);
 
     // ============================================
     // 💊 VERIFICAR MEDICINAS Y DOSIS PENDIENTES
     // ============================================
-    await checkMedicineReminders(results);
+    await checkMedicineReminders(supabase, results);
 
     // ============================================
     // 📊 REGISTRAR ACTIVIDAD EN LOGS
@@ -74,22 +72,23 @@ exports.handler = async (event, context) => {
 
     console.log('✅ [CRON] Verificación médica completada:', results);
 
-    return successResponse(results, 'Verificación médica completada exitosamente');
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        success: true,
+        message: 'Verificación médica completada exitosamente',
+        results: results,
+        timestamp: new Date().toISOString()
+      })
+    };
 
   } catch (error) {
     console.error('❌ [CRON] Error en verificación médica:', error);
     
-    // Log del error en base de datos
-    await supabase.from('notification_logs').insert({
-      user_id: null,
-      title: '❌ Error en verificación médica',
-      body: `Error: ${error.message}`,
-      category: 'medical',
-      priority: 'high',
-      delivery_status: 'failed',
-      sent_at: new Date().toISOString()
-    });
-
     return {
       statusCode: 500,
       headers: {
