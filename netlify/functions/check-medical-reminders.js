@@ -8,6 +8,8 @@
 
 // ✅ SINTAXIS ES MODULES
 import { createClient } from '@supabase/supabase-js';
+import webpush from 'web-push';
+
 
 // ✅ FUNCIÓN PRINCIPAL CON SINTAXIS ES MODULES
 // ✅ FUNCIÓN PRINCIPAL CON SINTAXIS ES MODULES
@@ -409,98 +411,6 @@ async function updateNextDoseDate(supabase, medicine) {
     console.error('❌ Error actualizando próxima dosis:', error);
   }
 }
-  const currentTime = new Date();
-  const colombiaTime = new Date(currentTime.getTime() - (5 * 60 * 60 * 1000)); // UTC-5
-  
-  console.log(`🏥 [CRON] Verificación médica automática - ${colombiaTime.toLocaleTimeString('es-CO')}`);
-  
-  try {
-    // ✅ CREAR CLIENTE SUPABASE CON ES MODULES
-    const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Variables de entorno de Supabase no configuradas');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const results = {
-      timestamp: colombiaTime.toISOString(),
-      vaccinesChecked: 0,
-      vaccinesOverdue: 0,
-      medicinesChecked: 0,
-      medicinesDue: 0,
-      notificationsSent: 0,
-      errors: []
-    };
-
-    // ============================================
-    // 💉 VERIFICAR VACUNAS PRÓXIMAS Y VENCIDAS
-    // ============================================
-    await checkVaccineReminders(supabase, results);
-
-    // ============================================
-    // 💊 VERIFICAR MEDICINAS Y DOSIS PENDIENTES
-    // ============================================
-    await checkMedicineReminders(supabase, results);
-
-    // ============================================
-    // 📊 REGISTRAR ACTIVIDAD EN LOGS
-    // ============================================
-    const metricsData = {
-      vaccines_checked: results.vaccinesChecked,
-      vaccines_overdue: results.vaccinesOverdue,
-      medicines_checked: results.medicinesChecked,
-      medicines_due: results.medicinesDue,
-      notifications_sent: results.notificationsSent,
-      success_rate: results.errors.length === 0 ? 100 : 90
-    };
-
-    await supabase.from('notification_logs').insert({
-      user_id: null, // Sistema automático
-      title: `🏥 Verificación médica automática`,
-      body: `💉 Vacunas: ${results.vaccinesChecked} verificadas, ${results.vaccinesOverdue} vencidas | 💊 Medicinas: ${results.medicinesChecked} verificadas, ${results.medicinesDue} pendientes | 🔔 ${results.notificationsSent} notificaciones enviadas`,
-      category: 'medical',
-      priority: results.vaccinesOverdue > 0 || results.medicinesDue > 0 ? 'high' : 'medium',
-      delivery_status: results.errors.length === 0 ? 'sent' : 'partial',
-      data: metricsData,
-      sent_at: new Date().toISOString()
-    });
-
-    console.log('✅ [CRON] Verificación médica completada:', results);
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({
-        success: true,
-        message: 'Verificación médica completada exitosamente',
-        results: results,
-        timestamp: new Date().toISOString()
-      })
-    };
-
-  } catch (error) {
-    console.error('❌ [CRON] Error en verificación médica:', error);
-    
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({
-        success: false,
-        error: error.message,
-        timestamp: new Date().toISOString()
-      })
-    };
-  }
-};
 
 // ============================================
 // 💉 VERIFICAR VACUNAS Y ENVIAR RECORDATORIOS
