@@ -82,7 +82,7 @@ exports.handler = async (event, context) => {
     results.dogsScheduled = eligibleDogs.length;
 
     // ============================================
-    // 🚗 OBTENER VEHÍCULO DISPONIBLE
+    // 🚗 OBTENER VEHÍCULO Y CONDUCTOR DISPONIBLE
     // ============================================
     const { data: availableVehicle, error: vehicleError } = await supabase
       .from('vehicles')
@@ -99,6 +99,37 @@ exports.handler = async (event, context) => {
     }
 
     // ============================================
+    // 👨‍💼 ASEGURAR QUE HAY UN CONDUCTOR ASIGNADO
+    // ============================================
+    let driverId = availableVehicle.current_driver_id;
+    
+    if (!driverId) {
+      console.log('⚠️ Vehículo sin conductor asignado, buscando conductor disponible...');
+      
+      // Buscar cualquier usuario activo (no solo conductor/admin)
+      const { data: availableDriver } = await supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .eq('active', true)
+        .limit(1)
+        .single();
+      
+      if (availableDriver) {
+        driverId = availableDriver.id;
+        console.log(`✅ Conductor encontrado: ${availableDriver.full_name}`);
+        
+        // Opcional: Asignar conductor al vehículo para futuras rutas
+        await supabase
+          .from('vehicles')
+          .update({ current_driver_id: driverId })
+          .eq('id', availableVehicle.id);
+          
+      } else {
+        throw new Error('No hay conductores disponibles para asignar la ruta');
+      }
+    }
+
+    // ============================================
     // 📍 CREAR RUTA AUTOMÁTICA
     // ============================================
     const routeData = await createAutomaticRoute(
@@ -106,6 +137,7 @@ exports.handler = async (event, context) => {
       eligibleDogs, 
       routeType, 
       colombiaTime,
+      driverId, // Pasar el driverId confirmado
       results
     );
 
@@ -184,18 +216,18 @@ exports.handler = async (event, context) => {
 // ============================================
 // 🗺️ CREAR RUTA AUTOMÁTICA OPTIMIZADA
 // ============================================
-async function createAutomaticRoute(vehicle, dogs, routeType, currentTime, results) {
+async function createAutomaticRoute(vehicle, dogs, routeType, currentTime, driverId, results) {
   console.log(`🗺️ Creando ruta automática de ${routeType} para ${dogs.length} perros`);
 
   // Configurar horarios según tipo de ruta
   const scheduleConfig = getScheduleConfig(routeType, currentTime);
   
-  // Crear registro de ruta principal
+  // Crear registro de ruta principal CON DRIVER_ID CONFIRMADO
   const { data: route, error: routeError } = await supabase
     .from('vehicle_routes')
     .insert({
       vehicle_id: vehicle.id,
-      driver_id: vehicle.current_driver_id,
+      driver_id: driverId, // Usar el driverId que confirmamos que existe
       dog_ids: dogs.map(d => d.id),
       route_type: routeType,
       route_name: `${routeType.toUpperCase()} - ${currentTime.toLocaleDateString('es-CO')}`,
