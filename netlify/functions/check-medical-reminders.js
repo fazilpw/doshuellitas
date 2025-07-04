@@ -8,16 +8,11 @@
 
 // ✅ SINTAXIS ES MODULES CORREGIDA
 import { createClient } from '@supabase/supabase-js';
-import webpush from 'web-push';
 
-// ✅ CONFIGURAR VAPID KEYS
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || 'mailto:admin@doshuellitas.com',
-  process.env.PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+// ✅ SINTAXIS ES MODULES CORREGIDA
+import { createClient } from '@supabase/supabase-js';
 
-// ✅ FUNCIÓN PRINCIPAL CORREGIDA
+// ✅ FUNCIÓN PRINCIPAL CORREGIDA CON MEJOR MANEJO DE ERRORES
 export const handler = async (event, context) => {
   const currentTime = new Date();
   const colombiaTime = new Date(currentTime.getTime() - (5 * 60 * 60 * 1000)); // UTC-5
@@ -25,6 +20,28 @@ export const handler = async (event, context) => {
   console.log(`🏥 [CRON] Verificación médica automática - ${colombiaTime.toLocaleTimeString('es-CO')}`);
   
   try {
+    // ✅ CONFIGURAR WEBPUSH DINÁMICAMENTE
+    let webpush = null;
+    try {
+      const webpushModule = await import('web-push');
+      webpush = webpushModule.default || webpushModule;
+      
+      const vapidPublic = process.env.PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY;
+      const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+      const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@doshuellitas.com';
+      
+      if (vapidPublic && vapidPrivate) {
+        webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
+        console.log('✅ VAPID configurado correctamente');
+      } else {
+        console.warn('⚠️ VAPID keys no encontradas, push notifications deshabilitadas');
+        webpush = null;
+      }
+    } catch (webpushError) {
+      console.warn('⚠️ Web-push no disponible:', webpushError.message);
+      webpush = null;
+    }
+    
     // ✅ CREAR CLIENTE SUPABASE CON ES MODULES
     const supabaseUrl = process.env.PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -42,18 +59,29 @@ export const handler = async (event, context) => {
       medicinesChecked: 0,
       medicinesDue: 0,
       notificationsSent: 0,
+      pushNotificationsSent: 0,
       errors: []
     };
 
     // ============================================
     // 💉 VERIFICAR VACUNAS PRÓXIMAS Y VENCIDAS
     // ============================================
-    await checkVaccineReminders(supabase, results);
+    try {
+      await checkVaccineReminders(supabase, webpush, results);
+    } catch (vaccineError) {
+      console.error('❌ Error en verificación de vacunas:', vaccineError);
+      results.errors.push(`Vacunas: ${vaccineError.message}`);
+    }
 
     // ============================================
     // 💊 VERIFICAR MEDICINAS Y DOSIS PENDIENTES
     // ============================================
-    await checkMedicineReminders(supabase, results);
+    try {
+      await checkMedicineReminders(supabase, webpush, results);
+    } catch (medicineError) {
+      console.error('❌ Error en verificación de medicinas:', medicineError);
+      results.errors.push(`Medicinas: ${medicineError.message}`);
+    }
 
     // ============================================
     // 📊 REGISTRAR ACTIVIDAD EN LOGS
@@ -64,19 +92,24 @@ export const handler = async (event, context) => {
       medicines_checked: results.medicinesChecked,
       medicines_due: results.medicinesDue,
       notifications_sent: results.notificationsSent,
+      push_notifications_sent: results.pushNotificationsSent,
       success_rate: results.errors.length === 0 ? 100 : 90
     };
 
-    await supabase.from('notification_logs').insert({
-      user_id: null, // Sistema automático
-      title: `🏥 Verificación médica automática`,
-      body: `💉 Vacunas: ${results.vaccinesChecked} verificadas, ${results.vaccinesOverdue} vencidas | 💊 Medicinas: ${results.medicinesChecked} verificadas, ${results.medicinesDue} pendientes | 🔔 ${results.notificationsSent} notificaciones enviadas`,
-      category: 'medical',
-      priority: results.vaccinesOverdue > 0 || results.medicinesDue > 0 ? 'high' : 'medium',
-      delivery_status: results.errors.length === 0 ? 'sent' : 'partial',
-      data: metricsData,
-      sent_at: new Date().toISOString()
-    });
+    try {
+      await supabase.from('notification_logs').insert({
+        user_id: null, // Sistema automático
+        title: `🏥 Verificación médica automática`,
+        body: `💉 Vacunas: ${results.vaccinesChecked} verificadas, ${results.vaccinesOverdue} vencidas | 💊 Medicinas: ${results.medicinesChecked} verificadas, ${results.medicinesDue} pendientes | 🔔 ${results.notificationsSent} notificaciones enviadas`,
+        category: 'medical',
+        priority: results.vaccinesOverdue > 0 || results.medicinesDue > 0 ? 'high' : 'medium',
+        delivery_status: results.errors.length === 0 ? 'sent' : 'partial',
+        data: metricsData,
+        sent_at: new Date().toISOString()
+      });
+    } catch (logError) {
+      console.error('❌ Error guardando log:', logError);
+    }
 
     console.log('✅ [CRON] Verificación médica completada:', results);
 
@@ -115,7 +148,7 @@ export const handler = async (event, context) => {
 // ============================================
 // 💉 VERIFICAR VACUNAS Y ENVIAR RECORDATORIOS
 // ============================================
-async function checkVaccineReminders(supabase, results) {
+async function checkVaccineReminders(supabase, webpush, results) {
   console.log('💉 Verificando vacunas próximas y vencidas...');
   
   try {
@@ -149,17 +182,17 @@ async function checkVaccineReminders(supabase, results) {
       // VACUNAS VENCIDAS (fecha pasada)
       if (daysUntilDue < 0) {
         results.vaccinesOverdue++;
-        await sendVaccineNotification(supabase, vaccine, 'overdue', Math.abs(daysUntilDue));
+        await sendVaccineNotification(supabase, webpush, vaccine, 'overdue', Math.abs(daysUntilDue), results);
         results.notificationsSent++;
       }
       // VACUNAS URGENTES (0-3 días)
       else if (daysUntilDue <= 3) {
-        await sendVaccineNotification(supabase, vaccine, 'urgent', daysUntilDue);
+        await sendVaccineNotification(supabase, webpush, vaccine, 'urgent', daysUntilDue, results);
         results.notificationsSent++;
       }
       // VACUNAS PRÓXIMAS (4-7 días)
       else if (daysUntilDue <= 7) {
-        await sendVaccineNotification(supabase, vaccine, 'upcoming', daysUntilDue);
+        await sendVaccineNotification(supabase, webpush, vaccine, 'upcoming', daysUntilDue, results);
         results.notificationsSent++;
       }
 
@@ -186,7 +219,7 @@ async function checkVaccineReminders(supabase, results) {
 // ============================================
 // 💊 VERIFICAR MEDICINAS Y DOSIS PENDIENTES
 // ============================================
-async function checkMedicineReminders(supabase, results) {
+async function checkMedicineReminders(supabase, webpush, results) {
   console.log('💊 Verificando medicinas y dosis pendientes...');
   
   try {
@@ -221,7 +254,7 @@ async function checkMedicineReminders(supabase, results) {
       // DOSIS VENCIDAS O DE HOY
       if (daysUntilDose <= 0) {
         results.medicinesDue++;
-        await sendMedicineNotification(supabase, medicine, 'due', Math.abs(daysUntilDose));
+        await sendMedicineNotification(supabase, webpush, medicine, 'due', Math.abs(daysUntilDose), results);
         results.notificationsSent++;
         
         // Calcular próxima dosis basada en frecuencia
@@ -229,7 +262,7 @@ async function checkMedicineReminders(supabase, results) {
       }
       // DOSIS PRÓXIMAS (mañana)
       else if (daysUntilDose === 1) {
-        await sendMedicineNotification(supabase, medicine, 'tomorrow', daysUntilDose);
+        await sendMedicineNotification(supabase, webpush, medicine, 'tomorrow', daysUntilDose, results);
         results.notificationsSent++;
       }
     }
@@ -245,7 +278,7 @@ async function checkMedicineReminders(supabase, results) {
 // ============================================
 // 📨 ENVIAR NOTIFICACIÓN DE VACUNA
 // ============================================
-async function sendVaccineNotification(supabase, vaccine, urgency, days) {
+async function sendVaccineNotification(supabase, webpush, vaccine, urgency, days, results) {
   try {
     let title, message, priority;
     
@@ -300,11 +333,14 @@ async function sendVaccineNotification(supabase, vaccine, urgency, days) {
       return;
     }
 
-    // Enviar push notification
-    const pushResult = await sendPushNotification(supabase, vaccine.dog.owner_id, notificationData);
-    
-    if (pushResult && pushResult.successCount > 0) {
-      console.log(`📱 Push de vacuna enviado a ${vaccine.dog.profiles?.full_name || 'propietario'}`);
+    // Enviar push notification si está disponible
+    if (webpush) {
+      const pushResult = await sendPushNotification(supabase, webpush, vaccine.dog.owner_id, notificationData);
+      
+      if (pushResult && pushResult.successCount > 0) {
+        console.log(`📱 Push de vacuna enviado a ${vaccine.dog.profiles?.full_name || 'propietario'}`);
+        results.pushNotificationsSent += pushResult.successCount;
+      }
     }
 
     console.log(`✅ Notificación de vacuna enviada: ${vaccine.vaccine_name} (${urgency})`);
@@ -317,7 +353,7 @@ async function sendVaccineNotification(supabase, vaccine, urgency, days) {
 // ============================================
 // 📨 ENVIAR NOTIFICACIÓN DE MEDICINA
 // ============================================
-async function sendMedicineNotification(supabase, medicine, urgency, days) {
+async function sendMedicineNotification(supabase, webpush, medicine, urgency, days, results) {
   try {
     let title, message, priority;
     
@@ -367,11 +403,14 @@ async function sendMedicineNotification(supabase, medicine, urgency, days) {
       return;
     }
 
-    // Enviar push notification
-    const pushResult = await sendPushNotification(supabase, medicine.dog.owner_id, notificationData);
-    
-    if (pushResult && pushResult.successCount > 0) {
-      console.log(`📱 Push de medicina enviado a ${medicine.dog.profiles?.full_name || 'propietario'}`);
+    // Enviar push notification si está disponible
+    if (webpush) {
+      const pushResult = await sendPushNotification(supabase, webpush, medicine.dog.owner_id, notificationData);
+      
+      if (pushResult && pushResult.successCount > 0) {
+        console.log(`📱 Push de medicina enviado a ${medicine.dog.profiles?.full_name || 'propietario'}`);
+        results.pushNotificationsSent += pushResult.successCount;
+      }
     }
 
     console.log(`✅ Notificación de medicina enviada: ${medicine.medicine_name} (${urgency})`);
@@ -434,9 +473,15 @@ async function updateNextDoseDate(supabase, medicine) {
 // ============================================
 // 📱 ENVIAR PUSH NOTIFICATION
 // ============================================
-async function sendPushNotification(supabase, userId, notificationData) {
+async function sendPushNotification(supabase, webpush, userId, notificationData) {
   try {
     console.log(`📱 Enviando push notification médica a usuario ${userId}...`);
+    
+    // Verificar si webpush está disponible
+    if (!webpush) {
+      console.log('📱 Web-push no disponible, omitiendo push notification');
+      return { successCount: 0, errorCount: 0, totalSubscriptions: 0, skipped: true };
+    }
     
     const { data: subscriptions } = await supabase
       .from('push_subscriptions')
