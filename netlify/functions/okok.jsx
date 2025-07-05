@@ -1,140 +1,101 @@
 // src/components/dashboard/CompleteEvaluationForm.jsx
-// 🚀 VERSIÓN COMPLETAMENTE CORREGIDA - RESPONSIVE SCROLL FUNCIONAL
-// ✅ SOLUCIONA: Modal sin scroll en móviles, altura dinámica, sticky elements
+// 🔔 FORMULARIO COMPLETO DE EVALUACIÓN - SOLUCIÓN FINAL ✅
+// ✅ CORRECCIÓN: Usar funciones que SÍ EXISTEN en notificationHelper.js
 
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
-import { NotificationHelper } from '../../utils/notificationHelper.js';
+import { notifyEvaluationCompleted } from '../../utils/managerIntegrations.js';
 
-const CompleteEvaluationForm = ({ 
-  dogId, 
-  userId, 
-  userRole, 
-  onClose, 
-  onSave,
-  dog 
-}) => {
+const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) => {
   // ===============================================
   // 🎯 ESTADOS PRINCIPALES
   // ===============================================
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [currentDog, setCurrentDog] = useState(dog);
-
-  // ===============================================
-  // 📱 ESTADO RESPONSIVE CRÍTICO - NUEVO
-  // ===============================================
-  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
-  const [isSmallViewport, setIsSmallViewport] = useState(window.innerHeight < 600);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-
-  // ===============================================
-  // 📊 DATOS DEL FORMULARIO
-  // ===============================================
   const [formData, setFormData] = useState({
-    // Métricas principales
+    // Métricas principales (Paso 1)
     energy_level: 5,
     sociability_level: 5,
     obedience_level: 5,
     anxiety_level: 5,
     
-    // Comportamientos observados
-    showed_aggression: false,
-    was_fearful: false,
-    showed_playfulness: false,
-    was_withdrawn: false,
-    showed_excitement: false,
-    was_calm: false,
-    destructive_behavior: false,
-    excessive_barking: false,
+    // Comportamientos observados (Paso 2)
+    barks_much: 'normal',
+    begs_food: 'a_veces',
+    destructive: 'nunca',
+    social_with_dogs: 'normal',
+    follows_everywhere: 'a_veces',
+    window_watching: 'normal',
     
-    // Actividades y hábitos
-    ate_well: false,
-    drank_water: false,
+    // Actividades y hábitos (Paso 3)
+    ate_well: 'normal',
+    bathroom_accidents: 'no',
+    played_with_toys: 'si',
     responded_to_commands: 'bien',
-    played_with_toys: false,
     interaction_quality: 'positiva',
-    bathroom_behavior: 'bien',
     
-    // Notas
+    // Notas y observaciones (Paso 4)
     notes: '',
     highlights: '',
     concerns: ''
   });
 
-  // ===============================================
-  // 🔧 HOOK RESPONSIVE PARA ALTURA - CRÍTICO NUEVO
-  // ===============================================
-  useEffect(() => {
-    const handleResize = () => {
-      const newHeight = window.innerHeight;
-      const newIsSmall = newHeight < 600;
-      const heightDifference = Math.abs(viewportHeight - newHeight);
-      
-      // Detectar teclado virtual (cambio significativo de altura)
-      const keyboardVisible = heightDifference > 150 && newHeight < viewportHeight;
-      
-      setViewportHeight(newHeight);
-      setIsSmallViewport(newIsSmall);
-      setIsKeyboardVisible(keyboardVisible);
-      
-      console.log('📱 Viewport actualizado:', {
-        height: newHeight,
-        isSmall: newIsSmall,
-        keyboard: keyboardVisible
-      });
-    };
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-    };
-  }, [viewportHeight]);
+  const [dog, setDog] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [step, setStep] = useState(1);
+  const [totalSteps] = useState(4);
+  const [success, setSuccess] = useState(false);
 
   // ===============================================
-  // 🐕 CARGAR DATOS DEL PERRO
+  // 🔄 EFECTOS DE INICIALIZACIÓN
   // ===============================================
   useEffect(() => {
-    const fetchDogData = async () => {
-      if (!dogId || currentDog) return;
+    if (dogId) {
+      fetchDogInfo();
+    }
+  }, [dogId]);
 
-      try {
-        const { data, error } = await supabase
-          .from('dogs')
-          .select('*')
-          .eq('id', dogId)
-          .single();
-
-        if (error) throw error;
-        setCurrentDog(data);
-      } catch (err) {
-        console.error('Error cargando perro:', err);
-        setError('Error cargando información del perro');
+  // ===============================================
+  // 📊 CARGAR DATOS DEL PERRO
+  // ===============================================
+  const fetchDogInfo = async () => {
+    try {
+      setError('');
+      console.log('🔍 Cargando información del perro:', dogId);
+      
+      const { data, error } = await supabase
+        .from('dogs')
+        .select(`
+          *,
+          profiles!dogs_owner_id_fkey(full_name, email, role)
+        `)
+        .eq('id', dogId);
+      
+      if (error) {
+        console.error('❌ Error consultando perro:', error);
+        throw new Error(`Error en base de datos: ${error.message}`);
       }
-    };
-
-    fetchDogData();
-  }, [dogId, currentDog]);
+      
+      if (!data || data.length === 0) {
+        throw new Error('Perro no encontrado');
+      }
+      
+      const dogData = data[0];
+      console.log('✅ Perro cargado:', dogData.name);
+      setDog(dogData);
+      
+    } catch (error) {
+      console.error('❌ Error cargando perro:', error);
+      setError(error.message);
+    }
+  };
 
   // ===============================================
-  // 🎛️ FUNCIONES DE MANEJO DE DATOS
+  // 🎛️ HANDLERS DE FORMULARIO
   // ===============================================
   const handleSliderChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: parseInt(value)
-    }));
-  };
-
-  const handleCheckboxChange = (field) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: !prev[field]
     }));
   };
 
@@ -152,100 +113,158 @@ const CompleteEvaluationForm = ({
     }));
   };
 
-  // ===============================================
-  // 🔄 NAVEGACIÓN ENTRE PASOS
-  // ===============================================
-  const totalSteps = 4;
-  const canGoNext = step < totalSteps;
-  const canGoPrev = step > 1;
-
-  const nextStep = () => {
-    if (canGoNext) {
-      setStep(prev => prev + 1);
-      // Scroll al inicio del contenido en móviles
-      const contentElement = document.getElementById('evaluation-content');
-      if (contentElement) {
-        contentElement.scrollTop = 0;
-      }
+  const nextStep = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (step < totalSteps) {
+      setStep(step + 1);
+      console.log(`Avanzando al paso ${step + 1}`);
     }
   };
 
-  const prevStep = () => {
-    if (canGoPrev) {
-      setStep(prev => prev - 1);
-      // Scroll al inicio del contenido en móviles
-      const contentElement = document.getElementById('evaluation-content');
-      if (contentElement) {
-        contentElement.scrollTop = 0;
-      }
+  const prevStep = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (step > 1) {
+      setStep(step - 1);
+      console.log(`Retrocediendo al paso ${step - 1}`);
     }
   };
 
   // ===============================================
-  // 💾 ENVÍO DEL FORMULARIO
+  // 💾 GUARDAR EVALUACIÓN CON NOTIFICACIONES - ✅ CORREGIDO
   // ===============================================
   const handleSubmit = async (e) => {
-    e?.preventDefault();
+    e.preventDefault();
+    e.stopPropagation();
     
-    if (loading) return;
+    if (step !== totalSteps) {
+      console.log(`No enviando - estamos en paso ${step}, necesitamos estar en paso ${totalSteps}`);
+      return;
+    }
     
     setLoading(true);
     setError('');
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      console.log('🚀 Enviando evaluación final...');
       
       const evaluationData = {
         dog_id: dogId,
         evaluator_id: userId,
         location: userRole === 'profesor' ? 'colegio' : 'casa',
-        date: today,
+        date: new Date().toISOString().split('T')[0],
         ...formData
       };
 
-      console.log('💾 Guardando evaluación:', evaluationData);
+      console.log('📊 Datos de evaluación:', evaluationData);
 
-      const { data, error } = await supabase
+      // 1. GUARDAR EVALUACIÓN EN BD
+      const { data: savedEvaluation, error: saveError } = await supabase
         .from('evaluations')
         .insert([evaluationData])
-        .select()
+        .select(`
+          *,
+          dogs(id, name, breed, owner_id),
+          profiles!evaluations_evaluator_id_fkey(full_name, email, role)
+        `)
         .single();
 
-      if (error) throw error;
-
-      // Procesar notificaciones automáticas
-      try {
-        if (currentDog && data) {
-          await NotificationHelper.checkBehaviorAlertsAfterEvaluation(
-            data,
-            currentDog,
-            userId
-          );
-        }
-      } catch (notificationError) {
-        console.warn('⚠️ Error en notificaciones:', notificationError);
+      if (saveError) {
+        console.error('❌ Error guardando evaluación:', saveError);
+        throw saveError;
       }
 
-      setSuccess(true);
-      
-      // Callback
-      if (onSave) onSave(data);
-      
-      // Cerrar después de 2 segundos
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      console.log('✅ Evaluación guardada exitosamente:', savedEvaluation);
 
-    } catch (err) {
-      console.error('❌ Error guardando evaluación:', err);
-      setError(err.message || 'Error al guardar la evaluación');
+      // 2. 🆕 PROCESAR NOTIFICACIONES AUTOMÁTICAS + CRUZADAS - ✅ CORREGIDO
+      try {
+        console.log('🔔 Procesando notificaciones con managerIntegrations...');
+        
+        const notificationResults = await notifyEvaluationCompleted(
+          savedEvaluation,
+          savedEvaluation.dogs || dog,
+          userId
+        );
+        
+        console.log('✅ Notificaciones procesadas:', notificationResults);
+        
+      } catch (notificationError) {
+        console.warn('⚠️ Error procesando notificaciones (evaluación guardada exitosamente):', notificationError);
+      }
+
+      // 3. ✅ MARCAR COMO EXITOSO Y CERRAR
+      setSuccess(true);
+      console.log('✅ Evaluación completada exitosamente');
+      
+      // Callback al componente padre
+      if (onSave) {
+        onSave(savedEvaluation);
+      }
+      
+      // Auto-cerrar después de 1 segundo
+      setTimeout(() => {
+        if (onClose) {
+          onClose();
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ Error en handleSubmit:', error);
+      setError(`Error guardando evaluación: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   // ===============================================
-  // 🎨 FUNCIONES DE RENDERIZADO DE PASOS
+  // 🧪 FUNCIÓN DE PRUEBA CORREGIDA - ✅ USANDO FUNCIONES QUE SÍ EXISTEN
+  // ===============================================
+  const testCrossNotifications = async () => {
+    try {
+      console.log('🧪 Probando notificaciones cruzadas...');
+      
+      if (!dogId || !userId) {
+        alert('❌ Faltan datos: dogId o userId');
+        return;
+      }
+
+      // ✅ CORREGIDO: Usar funciones que SÍ existen
+      const { NotificationHelper } = await import('../../utils/notificationHelper.js');
+      
+      // ✅ OPCIÓN 1: Usar testOptimizedNotificationFlow (que SÍ existe)
+      const result = await NotificationHelper.testOptimizedNotificationFlow(
+        userId, 
+        dogId, 
+        dog?.name || 'Max'
+      );
+      
+      console.log('✅ Prueba completada:', result);
+      alert(`✅ Prueba completada!\n- Alertas de comportamiento: ${result.behaviorAlerts?.length || 0}\n- Notificaciones cruzadas: ${result.crossRoleNotifications?.length || 0}\n- Mejoras detectadas: ${result.improvementNotifications?.length || 0}`);
+      
+    } catch (error) {
+      console.error('❌ Error en prueba:', error);
+      
+      // ✅ FALLBACK: Usar createTestNotification si la función anterior falla
+      try {
+        console.log('🔄 Intentando con createTestNotification...');
+        const { createTestNotification } = await import('../../utils/notificationHelper.js');
+        
+        const testResult = await createTestNotification(userId, dogId, 'behavior');
+        console.log('✅ Notificación de prueba creada:', testResult);
+        alert('✅ Notificación de prueba creada exitosamente!');
+        
+      } catch (fallbackError) {
+        console.error('❌ Error en fallback:', fallbackError);
+        alert('❌ Error en la prueba: ' + error.message);
+      }
+    }
+  };
+
+  // ===============================================
+  // 🎨 FUNCIONES DE RENDERIZADO (MANTENER IGUAL)
   // ===============================================
   const renderStep1 = () => (
     <div className="space-y-6">
@@ -622,206 +641,156 @@ const CompleteEvaluationForm = ({
   );
 
   // ===============================================
-  // 🚨 ESTADOS ESPECIALES
+  // 🎨 RENDERIZADO PRINCIPAL
   // ===============================================
-  if (success) {
+  if (!dogId || !userId) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl p-6 md:p-8 text-center max-w-md mx-auto">
-          <div className="text-green-500 text-6xl mb-4">✅</div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            ¡Evaluación Completada!
-          </h3>
-          <p className="text-gray-600 mb-4">
-            La evaluación de {currentDog?.name} se guardó exitosamente.
-          </p>
-          <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-            🔔 <strong>Notificaciones activadas</strong><br/>
-            Se enviaron alertas automáticas según el comportamiento detectado.
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+
+          <div className="p-6 text-center">
+            <div className="text-4xl mb-4">❌</div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Error</h3>
+            <p className="text-gray-600">Faltan datos necesarios para la evaluación</p>
+            <button
+              onClick={onClose}
+              className="mt-4 px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl p-6 md:p-8 text-center max-w-md mx-auto">
-          <div className="text-red-500 text-6xl mb-4">❌</div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Error</h3>
-          <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={onClose}
-            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ===============================================
-  // 🎯 CÁLCULO DINÁMICO DE ALTURA - CRÍTICO
-  // ===============================================
-  const getModalHeight = () => {
-    if (isSmallViewport || isKeyboardVisible) {
-      // En pantallas pequeñas o con teclado: fullscreen
-      return 'h-screen';
-    } else {
-      // En pantallas normales: altura máxima optimizada
-      return 'max-h-[95vh]';
-    }
-  };
-
-  const getModalClasses = () => {
-    const baseClasses = "bg-white rounded-2xl  w-full flex flex-col";
-    const heightClasses = getModalHeight();
-    const widthClasses = isSmallViewport ? "max-w-full mx-0 " : "max-w-4xl mx-auto";
-    
-    return `${baseClasses} ${heightClasses} ${widthClasses}`;
-  };
-
-  const getContainerClasses = () => {
-    return `fixed inset-0 bg-black  bg-opacity-50 z-50 flex items-center justify-center ${
-      isSmallViewport ? 'p-0' : 'p-4'
-    }`;
-  };
-
-  // ===============================================
-  // 🎨 RENDERIZADO PRINCIPAL CORREGIDO
-  // ===============================================
   return (
-    <div className={getContainerClasses()}>
-      <div className={getModalClasses()}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         
-        {/* ✅ HEADER OPTIMIZADO - FUERA DEL SCROLL CONTAINER */}
-        <div className="flex-shrink-0 bg-gradient-to-r rounded-t-2xl from-[#56CCF2] to-[#5B9BD5] text-white">
-          <div className="px-4 md:px-6 py-3 md:py-4">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] text-white p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Evaluación Completa</h2>
+              <p className="opacity-90">
+                {dog ? `${dog.name} - ${dog.breed}` : 'Cargando información...'}
+              </p>
+            </div>
             
-            {/* Header superior */}
-            <div className="flex justify-between items-center mb-2 md:mb-3">
-              <div className="flex-1">
-                <h2 className="text-lg md:text-xl font-bold">
-                  Evaluación de {currentDog?.name || 'Cargando...'}
-                </h2>
-                <p className="text-sm md:text-base opacity-90">
-                  {userRole === 'profesor' ? 'En el colegio' : 'En casa'} • 
-                  Paso {step} de {totalSteps}
-                </p>
+            <div className="flex items-center space-x-4">
+              {/* Progress indicator */}
+              <div className="text-right">
+                <div className="text-sm opacity-75">Paso {step} de {totalSteps}</div>
+                <div className="w-24 bg-white/20 rounded-full h-2 mt-1">
+                  <div 
+                    className="bg-white h-2 rounded-full transition-all duration-300" 
+                    style={{width: `${(step / totalSteps) * 100}%`}}
+                  ></div>
+                </div>
               </div>
               
+              {/* Close button */}
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0 ml-4"
-                type="button"
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               >
-                <span className="text-xl md:text-2xl">✕</span>
+                <span className="text-2xl">✕</span>
               </button>
-            </div>
-            
-            {/* Progress bar */}
-            <div className="w-full bg-white/20 rounded-full h-1.5 md:h-2">
-              <div 
-                className="bg-white h-1.5 md:h-2 rounded-full transition-all duration-300" 
-                style={{width: `${(step / totalSteps) * 100}%`}}
-              />
             </div>
           </div>
         </div>
 
-        {/* ✅ CONTENIDO CON SCROLL FUNCIONAL - ID PARA NAVEGACIÓN */}
-        <div 
-          id="evaluation-content"
-          className="flex-1 overflow-y-auto p-4 md:p-6"
-          style={{
-            // Altura dinámica crítica
-            height: isSmallViewport 
-              ? `calc(100vh - ${isKeyboardVisible ? '200px' : '140px'})` 
-              : 'auto'
-          }}
-        >
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center">
-                <div className="text-4xl mb-4">🔄</div>
-                <p className="text-gray-600">Guardando evaluación...</p>
-              </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {error ? (
+            <div className="p-6 text-center">
+              <div className="text-4xl mb-4">❌</div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Error</h3>
+              <p className="text-red-600 mb-4">{error}</p>
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Cerrar
+              </button>
             </div>
-          ) : !currentDog ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="text-center">
-                <div className="text-4xl mb-4">🔄</div>
-                <p className="text-gray-600">Cargando información...</p>
-              </div>
+          ) : success ? (
+            <div className="p-6 text-center">
+              <div className="text-4xl mb-4">✅</div>
+              <h3 className="text-xl font-bold text-green-900 mb-2">¡Evaluación Completada!</h3>
+              <p className="text-green-600">
+                La evaluación de {dog?.name} se guardó exitosamente
+              </p>
+            </div>
+          ) : loading ? (
+            <div className="p-6 text-center">
+              <div className="text-4xl mb-4">🔄</div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Guardando evaluación...</h3>
+              <p className="text-gray-600">Procesando datos y enviando notificaciones...</p>
+            </div>
+          ) : !dog ? (
+            <div className="p-6 text-center">
+              <div className="text-4xl mb-4">🔄</div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Cargando...</h3>
+              <p className="text-gray-600">Obteniendo información del perro...</p>
             </div>
           ) : (
-            <>
-              {step === 1 && renderStep1()}
-              {step === 2 && renderStep2()}
-              {step === 3 && renderStep3()}
-              {step === 4 && renderStep4()}
-            </>
+<div className="flex-1 overflow-y-auto p-6">
+              <form onSubmit={handleSubmit}>
+                {step === 1 && renderStep1()}
+                {step === 2 && renderStep2()}
+                {step === 3 && renderStep3()}
+                {step === 4 && renderStep4()}
+              </form>
+            </div>
           )}
         </div>
 
-        {/* ✅ FOOTER OPTIMIZADO - FUERA DEL SCROLL, COMPACTO EN MÓVILES */}
-        {!loading && currentDog && (
-          <div className="flex-shrink-0 rounded-b-2xl bg-gray-50 border-t border-gray-200">
-            <div className="px-4 md:px-6 py-3 md:py-4">
-              <div className="flex justify-between items-center">
-                
-                {/* Botón anterior */}
-                <button
-                  onClick={prevStep}
-                  disabled={!canGoPrev}
-                  className="px-3 md:px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm md:text-base"
-                  type="button"
-                >
-                  <span className="hidden md:inline">← Anterior</span>
-                  <span className="md:hidden">←</span>
-                </button>
+        {/* Footer */}
+        {!error && dog && !success && !loading && (
+          <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+            
+            {/* Botón anterior */}
+            <button
+              onClick={prevStep}
+              disabled={step === 1}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+            >
+              ← Anterior
+            </button>
 
-                {/* Indicador de paso - solo en desktop */}
-                <div className="hidden md:flex items-center text-sm text-gray-500">
-                  <span>Paso {step} de {totalSteps}</span>
-                  <div className="mx-3 w-16 bg-gray-200 rounded-full h-1">
-                    <div 
-                      className="bg-[#56CCF2] h-1 rounded-full transition-all duration-300"
-                      style={{width: `${(step / totalSteps) * 100}%`}}
-                    />
-                  </div>
-                  <span>{Math.round((step / totalSteps) * 100)}%</span>
-                </div>
+            {/* ✅ BOTÓN DE PRUEBA CORREGIDO */}
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                type="button"
+                onClick={testCrossNotifications}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+              >
+                🧪 Probar Notificaciones
+              </button>
+            )}
 
-                {/* Botón siguiente/enviar */}
-                {step < totalSteps ? (
-                  <button
-                    onClick={nextStep}
-                    className="px-3 md:px-6 py-2 bg-[#56CCF2] text-white rounded-lg hover:bg-[#5B9BD5] transition-colors text-sm md:text-base"
-                    type="button"
-                  >
-                    <span className="hidden md:inline">Siguiente →</span>
-                    <span className="md:hidden">→</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="px-4 md:px-8 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm md:text-base font-medium"
-                    type="button"
-                  >
-                    <span className="hidden md:inline">
-                      {loading ? '🔄 Guardando...' : '✅ Guardar Evaluación'}
-                    </span>
-                    <span className="md:hidden">
-                      {loading ? '🔄' : '✅ Guardar'}
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
+            {/* Botón siguiente/enviar */}
+            {step < totalSteps ? (
+              <button
+                onClick={nextStep}
+                className="px-6 py-2 bg-[#56CCF2] text-white rounded-lg hover:bg-[#5B9BD5] transition-colors"
+                type="button"
+              >
+                Siguiente →
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="px-8 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                type="button"
+              >
+                {loading ? '🔄 Guardando...' : '✅ Guardar Evaluación'}
+              </button>
+            )}
           </div>
         )}
       </div>
