@@ -8,9 +8,5 @@ import { ClientOnlyLoginPage } from '../components/auth/ClientOnlyAuthGuard.jsx'
 ---
 
 <Layout title="Login - Club Canino Dos Huellitas">
-  <!-- 
-    🚀 CRÍTICO: client:only="react" garantiza que este componente
-    NUNCA se ejecute durante SSR, solo del lado del cliente
-  -->
   <ClientOnlyLoginPage client:only="react" />
 </Layout>

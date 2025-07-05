@@ -4,6 +4,8 @@
 
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
+import { notifyVaccineScheduled } from '../../utils/managerIntegrations.js';
+
 
 const VaccineManager = ({ dogs = [], currentUser, onVaccineUpdated }) => {
   // ===============================================
@@ -405,26 +407,28 @@ const VaccineManager = ({ dogs = [], currentUser, onVaccineUpdated }) => {
 
       // 2. CREAR NOTIFICACIONES CRUZADAS
       try {
-        const { NotificationHelper } = await import('../../utils/notificationHelper.js');
-        
-        const notificationResult = await NotificationHelper.notifyMedicalUpdate(
-          vaccineData.dog_id,
-          'vaccine',
-          {
-            dogName: selectedDog?.name || 'Perro',
-            vaccineName: formData.vaccine_name === 'Personalizada' ? formData.custom_vaccine_name : formData.vaccine_name,
-            dueDate: new Date(formData.next_due_date).toLocaleDateString('es-CO'),
-            description: `Vacuna ${formData.vaccine_name === 'Personalizada' ? formData.custom_vaccine_name : formData.vaccine_name} ${editingVaccine ? 'actualizada' : 'programada'}`
-          },
-          currentUser?.id
-        );
-        
-        if (notificationResult.success) {
-          console.log(`✅ ${notificationResult.notifications.length} notificaciones médicas enviadas`);
-        }
-      } catch (notifError) {
-        console.warn('⚠️ Error enviando notificaciones médicas:', notifError);
-      }
+  const vaccineData = {
+    dog_id: selectedDogId,
+    vaccine_name: formData.vaccine_name === 'Personalizada' ? 
+      formData.custom_vaccine_name : formData.vaccine_name,
+    next_due_date: formData.next_due_date,
+    administered: false // o según tu lógica
+  };
+  
+  const selectedDog = dogs.find(dog => dog.id === selectedDogId);
+  
+  const notificationResult = await notifyVaccineScheduled(
+    vaccineData,
+    selectedDog?.name || 'Perro',
+    currentUser?.id
+  );
+  
+  if (notificationResult.success) {
+    console.log(`✅ ${notificationResult.notifications.length} notificaciones de vacuna enviadas`);
+  }
+} catch (notificationError) {
+  console.warn('⚠️ Error enviando notificaciones de vacuna:', notificationError);
+}
       
       setShowAddVaccine(false);
       setEditingVaccine(null);

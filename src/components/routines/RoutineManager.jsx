@@ -3,6 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
+import { notifyRoutineCreated } from '../../utils/managerIntegrations.js';
+
 
 const RoutineManager = ({ dogs = [], currentUser, parentLoading = false, onRoutineUpdated }) => {
   // Estados principales
@@ -205,22 +207,48 @@ const RoutineManager = ({ dogs = [], currentUser, parentLoading = false, onRouti
 
     // 2. Crear el routine_schedule
     const { error: scheduleError } = await supabase
-      .from('routine_schedules')
-      .insert({
-        routine_id: routineData.id,
-        name: formData.name,
-        time: formData.time,
-        days_of_week: formData.days_of_week,
-        reminder_minutes: formData.reminder_minutes,
-        notes: formData.notes
-      });
+  .from('routine_schedules')
+  .insert({
+    routine_id: routineData.id,
+    name: formData.name,
+    time: formData.time,
+    days_of_week: formData.days_of_week,
+    reminder_minutes: formData.reminder_minutes,
+    notes: formData.notes
+  });
 
-    if (scheduleError) throw scheduleError;
+if (scheduleError) throw scheduleError;
 
-    console.log('✅ Rutina creada exitosamente');
-  };
+console.log('✅ Rutina creada exitosamente');
 
-  const updateRoutine = async () => {
+// ⬇️ AGREGAR ESTA SECCIÓN DESPUÉS:
+// 3. Notificar creación de rutina
+try {
+  const selectedDog = dogs.find(dog => dog.id === selectedDogId);
+  const mockSchedules = [{ time: formData.time, days_of_week: formData.days_of_week }];
+  
+  const notificationResult = await notifyRoutineCreated(
+    {
+      name: formData.name,
+      category: formData.category,
+      description: formData.notes || `Rutina ${formData.name} programada`
+    },
+    mockSchedules,
+    selectedDogId,
+    selectedDog?.name || 'Perro',
+    currentUser?.id
+  );
+  
+  if (notificationResult.success) {
+    console.log(`✅ ${notificationResult.notifications.length} notificaciones de rutina enviadas`);
+  }
+} catch (notificationError) {
+  console.warn('⚠️ Error enviando notificaciones de rutina:', notificationError);
+  // No fallar el guardado por problemas de notificación
+}
+};
+
+const updateRoutine = async () => {
     // Actualizar dog_routine
     const { error: routineError } = await supabase
       .from('dog_routines')

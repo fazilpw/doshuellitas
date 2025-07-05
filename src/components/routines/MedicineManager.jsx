@@ -4,6 +4,8 @@
 
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
+import { notifyMedicineScheduled } from '../../utils/managerIntegrations.js';
+
 
 const MedicineManager = ({ 
   dogs = [], 
@@ -185,27 +187,25 @@ const MedicineManager = ({
       }
 
       try {
-        const { NotificationHelper } = await import('../../utils/notificationHelper.js');
-        
-        const notificationResult = await NotificationHelper.notifyMedicalUpdate(
-          medicineData.dog_id,
-          'medicine',
-          {
-            dogName: selectedDog?.name || 'Perro',
-            medicineName: medicineData.medicine_name,
-            dosage: medicineData.dosage,
-            frequency: medicineData.frequency,
-            description: `Medicina ${medicineData.medicine_name} ${editingMedicine ? 'actualizada' : 'programada'}`
-          },
-          currentUser?.id
-        );
-        
-        if (notificationResult.success) {
-          console.log(`✅ ${notificationResult.notifications.length} notificaciones médicas enviadas`);
-        }
-      } catch (notifError) {
-        console.warn('⚠️ Error enviando notificaciones médicas:', notifError);
-      }
+  const selectedDog = dogs.find(dog => dog.id === selectedDogId);
+  
+  const notificationResult = await notifyMedicineScheduled(
+    {
+      ...medicineData,
+      medicine_type: formData.medicine_type,
+      is_ongoing: formData.is_ongoing,
+      next_dose_date: formData.next_dose_date
+    },
+    selectedDog?.name || 'Perro',
+    currentUser?.id
+  );
+  
+  if (notificationResult.success) {
+    console.log(`✅ ${notificationResult.notifications.length} notificaciones de medicina enviadas`);
+  }
+} catch (notificationError) {
+  console.warn('⚠️ Error enviando notificaciones de medicina:', notificationError);
+}
        
       setShowAddMedicine(false);
     setEditingMedicine(null);

@@ -1,9 +1,10 @@
 // src/components/dashboard/CompleteEvaluationForm.jsx
-// 🔔 FORMULARIO COMPLETO DE EVALUACIÓN CON NOTIFICACIONES CRUZADAS
-// ✅ Todas las funcionalidades integradas + sistema de notificaciones automáticas
+// 🔔 FORMULARIO COMPLETO DE EVALUACIÓN - SOLUCIÓN FINAL ✅
+// ✅ CORRECCIÓN: Usar funciones que SÍ EXISTEN en notificationHelper.js
 
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
+import { notifyEvaluationCompleted } from '../../utils/managerIntegrations.js';
 
 const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) => {
   // ===============================================
@@ -133,7 +134,7 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
   };
 
   // ===============================================
-  // 💾 GUARDAR EVALUACIÓN CON NOTIFICACIONES CRUZADAS
+  // 💾 GUARDAR EVALUACIÓN CON NOTIFICACIONES - ✅ CORREGIDO
   // ===============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -178,33 +179,19 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
 
       console.log('✅ Evaluación guardada exitosamente:', savedEvaluation);
 
-      // 2. 🆕 PROCESAR NOTIFICACIONES AUTOMÁTICAS + CRUZADAS
+      // 2. 🆕 PROCESAR NOTIFICACIONES AUTOMÁTICAS + CRUZADAS - ✅ CORREGIDO
       try {
-        console.log('🔔 Procesando notificaciones automáticas y cruzadas...');
+        console.log('🔔 Procesando notificaciones con managerIntegrations...');
         
-        // Importar el helper de notificaciones
-        const { NotificationHelper } = await import('../../utils/notificationHelper.js');
-        
-        // Procesar todas las notificaciones (comportamiento + cruzadas)
-        const notificationResults = await NotificationHelper.processEvaluationNotifications(
+        const notificationResults = await notifyEvaluationCompleted(
           savedEvaluation,
-          savedEvaluation.dogs, // Datos del perro con owner_id
-          userId // ID del evaluador
+          savedEvaluation.dogs || dog,
+          userId
         );
         
         console.log('✅ Notificaciones procesadas:', notificationResults);
         
-        // Log detallado para debugging
-        if (notificationResults.behaviorAlerts?.length > 0) {
-          console.log(`📨 ${notificationResults.behaviorAlerts.length} alertas de comportamiento enviadas`);
-        }
-        
-        if (notificationResults.crossRoleNotifications?.length > 0) {
-          console.log(`🔄 ${notificationResults.crossRoleNotifications.length} notificaciones cruzadas enviadas`);
-        }
-
       } catch (notificationError) {
-        // No fallar la evaluación si las notificaciones fallan
         console.warn('⚠️ Error procesando notificaciones (evaluación guardada exitosamente):', notificationError);
       }
 
@@ -233,7 +220,7 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
   };
 
   // ===============================================
-  // 🧪 FUNCIÓN DE PRUEBA PARA NOTIFICACIONES CRUZADAS
+  // 🧪 FUNCIÓN DE PRUEBA CORREGIDA - ✅ USANDO FUNCIONES QUE SÍ EXISTEN
   // ===============================================
   const testCrossNotifications = async () => {
     try {
@@ -244,36 +231,51 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
         return;
       }
 
+      // ✅ CORREGIDO: Usar funciones que SÍ existen
       const { NotificationHelper } = await import('../../utils/notificationHelper.js');
       
-      const result = await NotificationHelper.testCrossRoleNotifications(dogId, userId, dog?.name || 'Max');
+      // ✅ OPCIÓN 1: Usar testOptimizedNotificationFlow (que SÍ existe)
+      const result = await NotificationHelper.testOptimizedNotificationFlow(
+        userId, 
+        dogId, 
+        dog?.name || 'Max'
+      );
       
       console.log('✅ Prueba completada:', result);
-      alert(`✅ Prueba completada!\n- Alertas de comportamiento: ${result.behaviorAlerts?.length || 0}\n- Notificaciones cruzadas: ${result.crossRoleNotifications?.length || 0}`);
+      alert(`✅ Prueba completada!\n- Alertas de comportamiento: ${result.behaviorAlerts?.length || 0}\n- Notificaciones cruzadas: ${result.crossRoleNotifications?.length || 0}\n- Mejoras detectadas: ${result.improvementNotifications?.length || 0}`);
       
     } catch (error) {
       console.error('❌ Error en prueba:', error);
-      alert('❌ Error en la prueba: ' + error.message);
+      
+      // ✅ FALLBACK: Usar createTestNotification si la función anterior falla
+      try {
+        console.log('🔄 Intentando con createTestNotification...');
+        const { createTestNotification } = await import('../../utils/notificationHelper.js');
+        
+        const testResult = await createTestNotification(userId, dogId, 'behavior');
+        console.log('✅ Notificación de prueba creada:', testResult);
+        alert('✅ Notificación de prueba creada exitosamente!');
+        
+      } catch (fallbackError) {
+        console.error('❌ Error en fallback:', fallbackError);
+        alert('❌ Error en la prueba: ' + error.message);
+      }
     }
   };
 
   // ===============================================
-  // 🎨 FUNCIONES DE RENDERIZADO
+  // 🎨 FUNCIONES DE RENDERIZADO (MANTENER IGUAL)
   // ===============================================
   const renderStep1 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">
-          📊 Métricas Principales
-        </h3>
-        <p className="text-gray-600">
-          Evalúa el comportamiento general de {dog?.name}
-        </p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Paso 1: Métricas Principales</h3>
+        <p className="text-gray-600">Evalúa el comportamiento general de {dog?.name}</p>
       </div>
 
       {/* Nivel de Energía */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="space-y-3">
+        <label className="block text-sm font-semibold text-gray-700">
           ⚡ Nivel de Energía: {formData.energy_level}/10
         </label>
         <input
@@ -282,18 +284,18 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
           max="10"
           value={formData.energy_level}
           onChange={(e) => handleSliderChange('energy_level', e.target.value)}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
-          <span>Muy tranquilo</span>
-          <span>Muy activo</span>
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>Muy calmado</span>
+          <span>Muy energético</span>
         </div>
       </div>
 
-      {/* Nivel de Sociabilidad */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          🤝 Nivel de Sociabilidad: {formData.sociability_level}/10
+      {/* Sociabilidad */}
+      <div className="space-y-3">
+        <label className="block text-sm font-semibold text-gray-700">
+          😊 Sociabilidad: {formData.sociability_level}/10
         </label>
         <input
           type="range"
@@ -301,18 +303,18 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
           max="10"
           value={formData.sociability_level}
           onChange={(e) => handleSliderChange('sociability_level', e.target.value)}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
+        <div className="flex justify-between text-xs text-gray-500">
           <span>Muy tímido</span>
           <span>Muy sociable</span>
         </div>
       </div>
 
-      {/* Nivel de Obediencia */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          📚 Nivel de Obediencia: {formData.obedience_level}/10
+      {/* Obediencia */}
+      <div className="space-y-3">
+        <label className="block text-sm font-semibold text-gray-700">
+          🎯 Obediencia: {formData.obedience_level}/10
         </label>
         <input
           type="range"
@@ -320,17 +322,17 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
           max="10"
           value={formData.obedience_level}
           onChange={(e) => handleSliderChange('obedience_level', e.target.value)}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
+        <div className="flex justify-between text-xs text-gray-500">
           <span>No obedece</span>
           <span>Muy obediente</span>
         </div>
       </div>
 
-      {/* Nivel de Ansiedad */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+      {/* Ansiedad */}
+      <div className="space-y-3">
+        <label className="block text-sm font-semibold text-gray-700">
           😰 Nivel de Ansiedad: {formData.anxiety_level}/10
         </label>
         <input
@@ -339,9 +341,9 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
           max="10"
           value={formData.anxiety_level}
           onChange={(e) => handleSliderChange('anxiety_level', e.target.value)}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
+        <div className="flex justify-between text-xs text-gray-500">
           <span>Muy relajado</span>
           <span>Muy ansioso</span>
         </div>
@@ -352,108 +354,115 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">
-          🐕 Comportamientos Observados
-        </h3>
-        <p className="text-gray-600">
-          Comportamientos específicos de {dog?.name}
-        </p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Paso 2: Comportamientos Observados</h3>
+        <p className="text-gray-600">¿Cómo se comportó {dog?.name} hoy?</p>
       </div>
 
-      {/* Ladridos */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          🔊 ¿Ladra mucho?
-        </label>
-        <select
-          value={formData.barks_much}
-          onChange={(e) => handleSelectChange('barks_much', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="poco">Poco</option>
-          <option value="normal">Normal</option>
-          <option value="mucho">Mucho</option>
-        </select>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Ladridos */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            🔊 ¿Ladró mucho?
+          </label>
+          <select
+            value={formData.barks_much}
+            onChange={(e) => handleSelectChange('barks_much', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="nunca">Nunca</option>
+            <option value="poco">Poco</option>
+            <option value="normal">Normal</option>
+            <option value="mucho">Mucho</option>
+            <option value="excesivo">Excesivo</option>
+          </select>
+        </div>
 
-      {/* Socialización con otros perros */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          🐾 Socialización con otros perros
-        </label>
-        <select
-          value={formData.social_with_dogs}
-          onChange={(e) => handleSelectChange('social_with_dogs', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="poco">Poco sociable</option>
-          <option value="normal">Normal</option>
-          <option value="mucho">Muy sociable</option>
-        </select>
-      </div>
+        {/* Mendicidad de comida */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            🍖 ¿Pidió comida?
+          </label>
+          <select
+            value={formData.begs_food}
+            onChange={(e) => handleSelectChange('begs_food', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="nunca">Nunca</option>
+            <option value="a_veces">A veces</option>
+            <option value="frecuentemente">Frecuentemente</option>
+            <option value="constantemente">Constantemente</option>
+          </select>
+        </div>
 
-      {/* Sigue a todas partes */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          👣 ¿Te sigue a todas partes?
-        </label>
-        <select
-          value={formData.follows_everywhere}
-          onChange={(e) => handleSelectChange('follows_everywhere', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="no">No</option>
-          <option value="a_veces">A veces</option>
-          <option value="siempre">Siempre</option>
-        </select>
-      </div>
+        {/* Destructividad */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            💥 ¿Fue destructivo?
+          </label>
+          <select
+            value={formData.destructive}
+            onChange={(e) => handleSelectChange('destructive', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="nunca">Nunca</option>
+            <option value="leve">Leve</option>
+            <option value="moderado">Moderado</option>
+            <option value="severo">Severo</option>
+          </select>
+        </div>
 
-      {/* Observar por la ventana */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          🪟 ¿Observa por la ventana?
-        </label>
-        <select
-          value={formData.window_watching}
-          onChange={(e) => handleSelectChange('window_watching', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="poco">Poco</option>
-          <option value="normal">Normal</option>
-          <option value="mucho">Mucho</option>
-        </select>
-      </div>
+        {/* Socialización con otros perros */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            🐕 ¿Cómo se llevó con otros perros?
+          </label>
+          <select
+            value={formData.social_with_dogs}
+            onChange={(e) => handleSelectChange('social_with_dogs', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="muy_bien">Muy bien</option>
+            <option value="bien">Bien</option>
+            <option value="normal">Normal</option>
+            <option value="tímido">Tímido</option>
+            <option value="agresivo">Agresivo</option>
+          </select>
+        </div>
 
-      {/* Pedir comida */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          🍖 ¿Pide comida?
-        </label>
-        <select
-          value={formData.begs_food}
-          onChange={(e) => handleSelectChange('begs_food', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="nunca">Nunca</option>
-          <option value="a_veces">A veces</option>
-          <option value="siempre">Siempre</option>
-        </select>
-      </div>
+        {/* Seguimiento */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            👣 ¿Te siguió a todas partes?
+          </label>
+          <select
+            value={formData.follows_everywhere}
+            onChange={(e) => handleSelectChange('follows_everywhere', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="nunca">Nunca</option>
+            <option value="a_veces">A veces</option>
+            <option value="frecuentemente">Frecuentemente</option>
+            <option value="constantemente">Constantemente</option>
+          </select>
+        </div>
 
-      {/* Destructivo */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          💥 ¿Es destructivo?
-        </label>
-        <select
-          value={formData.destructive}
-          onChange={(e) => handleSelectChange('destructive', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="nunca">Nunca</option>
-          <option value="a_veces">A veces</option>
-          <option value="frecuente">Frecuentemente</option>
-        </select>
+        {/* Observación por la ventana */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            🪟 ¿Vigiló por la ventana?
+          </label>
+          <select
+            value={formData.window_watching}
+            onChange={(e) => handleSelectChange('window_watching', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="nunca">Nunca</option>
+            <option value="poco">Poco</option>
+            <option value="normal">Normal</option>
+            <option value="mucho">Mucho</option>
+            <option value="obsesivo">Obsesivo</option>
+          </select>
+        </div>
       </div>
     </div>
   );
@@ -461,94 +470,98 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
   const renderStep3 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">
-          🎯 Actividades y Hábitos
-        </h3>
-        <p className="text-gray-600">
-          Actividades específicas de hoy
-        </p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Paso 3: Actividades y Hábitos</h3>
+        <p className="text-gray-600">Rutinas diarias de {dog?.name}</p>
       </div>
 
-      {/* Comió bien */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          🍽️ ¿Comió bien?
-        </label>
-        <select
-          value={formData.ate_well}
-          onChange={(e) => handleSelectChange('ate_well', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="excelente">Excelente</option>
-          <option value="normal">Normal</option>
-          <option value="poco">Poco</option>
-        </select>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Alimentación */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            🍽️ ¿Comió bien?
+          </label>
+          <select
+            value={formData.ate_well}
+            onChange={(e) => handleSelectChange('ate_well', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="excelente">Excelente</option>
+            <option value="bien">Bien</option>
+            <option value="normal">Normal</option>
+            <option value="poco">Poco</option>
+            <option value="nada">No comió</option>
+          </select>
+        </div>
 
-      {/* Accidentes de baño */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          🚽 Accidentes de baño
-        </label>
-        <select
-          value={formData.bathroom_accidents}
-          onChange={(e) => handleSelectChange('bathroom_accidents', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="no">No</option>
-          <option value="uno">Uno</option>
-          <option value="varios">Varios</option>
-        </select>
-      </div>
+        {/* Accidentes de baño */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            🚽 ¿Tuvo accidentes de baño?
+          </label>
+          <select
+            value={formData.bathroom_accidents}
+            onChange={(e) => handleSelectChange('bathroom_accidents', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="no">No</option>
+            <option value="uno">Uno</option>
+            <option value="varios">Varios</option>
+            <option value="muchos">Muchos</option>
+          </select>
+        </div>
 
-      {/* Jugó con juguetes */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          🧸 ¿Jugó con juguetes?
-        </label>
-        <select
-          value={formData.played_with_toys}
-          onChange={(e) => handleSelectChange('played_with_toys', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="si">Sí</option>
-          <option value="poco">Poco</option>
-          <option value="no">No</option>
-        </select>
-      </div>
+        {/* Juego con juguetes */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            🎾 ¿Jugó con juguetes?
+          </label>
+          <select
+            value={formData.played_with_toys}
+            onChange={(e) => handleSelectChange('played_with_toys', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="si">Sí</option>
+            <option value="poco">Poco</option>
+            <option value="no">No</option>
+          </select>
+        </div>
 
-      {/* Respondió a comandos */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          📢 ¿Respondió a comandos?
-        </label>
-        <select
-          value={formData.responded_to_commands}
-          onChange={(e) => handleSelectChange('responded_to_commands', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="excelente">Excelente</option>
-          <option value="bien">Bien</option>
-          <option value="regular">Regular</option>
-          <option value="mal">Mal</option>
-        </select>
-      </div>
+        {/* Respuesta a comandos */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            📢 ¿Respondió a comandos?
+          </label>
+          <select
+            value={formData.responded_to_commands}
+            onChange={(e) => handleSelectChange('responded_to_commands', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="excelente">Excelente</option>
+            <option value="bien">Bien</option>
+            <option value="regular">Regular</option>
+            <option value="mal">Mal</option>
+            <option value="no_respondio">No respondió</option>
+          </select>
+        </div>
 
-      {/* Calidad de interacción */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          💝 Calidad de interacción
-        </label>
-        <select
-          value={formData.interaction_quality}
-          onChange={(e) => handleSelectChange('interaction_quality', e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-        >
-          <option value="excelente">Excelente</option>
-          <option value="positiva">Positiva</option>
-          <option value="neutra">Neutra</option>
-          <option value="negativa">Negativa</option>
-        </select>
+        {/* Calidad de interacción */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            💝 Calidad general de la interacción
+          </label>
+          <select
+            value={formData.interaction_quality}
+            onChange={(e) => handleSelectChange('interaction_quality', e.target.value)}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          >
+            <option value="excelente">Excelente</option>
+            <option value="muy_positiva">Muy positiva</option>
+            <option value="positiva">Positiva</option>
+            <option value="neutral">Neutral</option>
+            <option value="negativa">Negativa</option>
+            <option value="muy_negativa">Muy negativa</option>
+          </select>
+        </div>
       </div>
     </div>
   );
@@ -556,54 +569,73 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
   const renderStep4 = () => (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2">
-          📝 Notas y Observaciones
-        </h3>
-        <p className="text-gray-600">
-          Comentarios adicionales sobre {dog?.name}
-        </p>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Paso 4: Notas y Observaciones</h3>
+        <p className="text-gray-600">Comparte detalles adicionales sobre {dog?.name}</p>
       </div>
 
-      {/* Destacados */}
+      {/* Notas generales */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          ⭐ Lo mejor del día
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          📝 Notas generales
+        </label>
+        <textarea
+          value={formData.notes}
+          onChange={(e) => handleTextChange('notes', e.target.value)}
+          placeholder="Describe cualquier comportamiento específico, situaciones especiales, o detalles importantes..."
+          className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          rows="4"
+        />
+      </div>
+
+      {/* Aspectos destacados */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          ⭐ Aspectos positivos destacados
         </label>
         <textarea
           value={formData.highlights}
           onChange={(e) => handleTextChange('highlights', e.target.value)}
-          placeholder="¿Qué fue lo mejor que hizo hoy?"
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-          rows={3}
+          placeholder="¿Qué hizo muy bien hoy? ¿Qué comportamientos fueron excelentes?"
+          className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          rows="3"
         />
       </div>
 
       {/* Preocupaciones */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          ⚠️ Áreas de atención
+        <label className="block text-sm font-semibold text-gray-700 mb-2">
+          ⚠️ Preocupaciones o áreas de mejora
         </label>
         <textarea
           value={formData.concerns}
           onChange={(e) => handleTextChange('concerns', e.target.value)}
-          placeholder="¿Algo que necesita atención o mejora?"
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-          rows={3}
+          placeholder="¿Hay algún comportamiento que necesite atención? ¿Algo preocupante?"
+          className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
+          rows="3"
         />
       </div>
 
-      {/* Notas generales */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          💬 Notas generales
-        </label>
-        <textarea
-          value={formData.notes}
-          onChange={(e) => handleTextChange('notes', e.target.value)}
-          placeholder="Cualquier observación adicional..."
-          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#56CCF2] focus:border-transparent"
-          rows={4}
-        />
+      {/* Resumen visual */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <h4 className="font-semibold text-gray-900 mb-3">📊 Resumen de la evaluación</h4>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <span className="text-sm text-gray-600">Energía:</span>
+            <span className="font-medium ml-2">{formData.energy_level}/10</span>
+          </div>
+          <div>
+            <span className="text-sm text-gray-600">Sociabilidad:</span>
+            <span className="font-medium ml-2">{formData.sociability_level}/10</span>
+          </div>
+          <div>
+            <span className="text-sm text-gray-600">Obediencia:</span>
+            <span className="font-medium ml-2">{formData.obedience_level}/10</span>
+          </div>
+          <div>
+            <span className="text-sm text-gray-600">Ansiedad:</span>
+            <span className="font-medium ml-2">{formData.anxiety_level}/10</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -611,79 +643,90 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
   // ===============================================
   // 🎨 RENDERIZADO PRINCIPAL
   // ===============================================
-  if (success) {
+  if (!dogId || !userId) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold text-green-600 mb-4">
-            ¡Evaluación Guardada!
-          </h2>
-          <p className="text-gray-600 mb-6">
-            La evaluación de {dog?.name} se guardó exitosamente y las notificaciones automáticas fueron enviadas.
-          </p>
-          <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-gray-500 mt-2">Cerrando automáticamente...</p>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-2xl max-w-md w-full">
+          <div className="p-6 text-center">
+            <div className="text-4xl mb-4">❌</div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Error</h3>
+            <p className="text-gray-600">Faltan datos necesarios para la evaluación</p>
+            <button
+              onClick={onClose}
+              className="mt-4 px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         
         {/* Header */}
         <div className="bg-gradient-to-r from-[#56CCF2] to-[#5B9BD5] text-white p-6">
-          <div className="flex justify-between items-center">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold">
-                Evaluación de {dog?.name || 'Cargando...'}
-              </h2>
+              <h2 className="text-2xl font-bold">Evaluación Completa</h2>
               <p className="opacity-90">
-                Paso {step} de {totalSteps} - {userRole === 'profesor' ? 'Colegio' : 'Casa'}
+                {dog ? `${dog.name} - ${dog.breed}` : 'Cargando información...'}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-gray-200 text-2xl w-8 h-8 flex items-center justify-center"
-            >
-              ×
-            </button>
-          </div>
-          
-          {/* Progress bar */}
-          <div className="mt-4 bg-white bg-opacity-20 rounded-full h-2">
-            <div 
-              className="bg-white h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(step / totalSteps) * 100}%` }}
-            />
+            
+            <div className="flex items-center space-x-4">
+              {/* Progress indicator */}
+              <div className="text-right">
+                <div className="text-sm opacity-75">Paso {step} de {totalSteps}</div>
+                <div className="w-24 bg-white/20 rounded-full h-2 mt-1">
+                  <div 
+                    className="bg-white h-2 rounded-full transition-all duration-300" 
+                    style={{width: `${(step / totalSteps) * 100}%`}}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Close button */}
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <span className="text-2xl">✕</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
+        <div className="flex-1 overflow-y-auto">
           {error ? (
-            <div className="p-6">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-                <div className="text-4xl mb-4">❌</div>
-                <h3 className="text-xl font-bold text-red-800 mb-2">Error</h3>
-                <p className="text-red-600 mb-4">{error}</p>
-                <div className="space-x-3">
-                  <button
-                    onClick={() => setError('')}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                  >
-                    Reintentar
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                  >
-                    Cerrar
-                  </button>
-                </div>
-              </div>
+            <div className="p-6 text-center">
+              <div className="text-4xl mb-4">❌</div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Error</h3>
+              <p className="text-red-600 mb-4">{error}</p>
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Cerrar
+              </button>
+            </div>
+          ) : success ? (
+            <div className="p-6 text-center">
+              <div className="text-4xl mb-4">✅</div>
+              <h3 className="text-xl font-bold text-green-900 mb-2">¡Evaluación Completada!</h3>
+              <p className="text-green-600">
+                La evaluación de {dog?.name} se guardó exitosamente
+              </p>
+            </div>
+          ) : loading ? (
+            <div className="p-6 text-center">
+              <div className="text-4xl mb-4">🔄</div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Guardando evaluación...</h3>
+              <p className="text-gray-600">Procesando datos y enviando notificaciones...</p>
             </div>
           ) : !dog ? (
             <div className="p-6 text-center">
@@ -704,7 +747,7 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
         </div>
 
         {/* Footer */}
-        {!error && dog && (
+        {!error && dog && !success && !loading && (
           <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
             
             {/* Botón anterior */}
@@ -717,7 +760,7 @@ const CompleteEvaluationForm = ({ dogId, userId, userRole, onClose, onSave }) =>
               ← Anterior
             </button>
 
-            {/* Botones de prueba (solo en desarrollo) */}
+            {/* ✅ BOTÓN DE PRUEBA CORREGIDO */}
             {process.env.NODE_ENV === 'development' && (
               <button
                 type="button"

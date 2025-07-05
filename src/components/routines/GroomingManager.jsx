@@ -3,6 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import supabase from '../../lib/supabase.js';
+import { notifyGroomingCompleted } from '../../utils/managerIntegrations.js';
+
 
 const GroomingManager = ({ dogs = [], currentUser, onGroomingUpdated }) => {
   // Estados principales
@@ -216,27 +218,24 @@ const GroomingManager = ({ dogs = [], currentUser, onGroomingUpdated }) => {
         
         // 🆕 CREAR NOTIFICACIONES DE GROOMING
         try {
-          const { NotificationHelper } = await import('../../utils/notificationHelper.js');
-          
-          const notificationResult = await NotificationHelper.notifyMedicalUpdate(
-            sessionData.dog_id,
-            'grooming',
-            {
-              dogName: selectedDog?.name || 'Perro',
-              appointmentDate: new Date(sessionData.date).toLocaleDateString('es-CO'),
-              groomingType: sessionData.grooming_type,
-              location: sessionData.location,
-              description: `Sesión de grooming programada para ${selectedDog?.name || 'Perro'}`
-            },
-            currentUser?.id
-          );
-          
-          if (notificationResult.success) {
-            console.log(`✅ ${notificationResult.notifications.length} notificaciones de grooming enviadas`);
-          }
-        } catch (notifError) {
-          console.warn('⚠️ Error enviando notificaciones de grooming:', notifError);
-        }
+  const notificationResult = await notifyGroomingCompleted(
+    {
+      service_type: sessionData.grooming_type,
+      service_date: sessionData.date,
+      performed_by: sessionData.groomer_name || 'Staff del club',
+      cost: sessionData.cost,
+      notes: sessionData.notes
+    },
+    selectedDog?.name || 'Perro',
+    currentUser?.id
+  );
+  
+  if (notificationResult.success) {
+    console.log(`✅ ${notificationResult.notifications.length} notificaciones de grooming enviadas`);
+  }
+} catch (notificationError) {
+  console.warn('⚠️ Error enviando notificaciones de grooming:', notificationError);
+}
       }
       
       // Continuar con el flujo normal
