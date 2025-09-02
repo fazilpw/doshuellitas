@@ -10,7 +10,7 @@ const Facilities = () => {
         id: 1,
         image: '/images/lugar/perrookok.webp',
         title: 'Campus principal',
-        description: 'Más de 8.000m² de áreas verdes donde tu mascota puede correr, jugar y socializar libremente.'
+        description: 'Más de 11.000m² de áreas verdes donde tu mascota puede correr, jugar y socializar libremente.'
       },
       {
         id: 2,
