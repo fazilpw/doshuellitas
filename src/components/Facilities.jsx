@@ -8,7 +8,7 @@ const Facilities = () => {
     areas: [
       {
         id: 1,
-        image: '/images/lugar/lugar.webp',
+        image: '/images/lugar/perrookok.webp',
         title: 'Campus principal',
         description: 'Más de 8.000m² de áreas verdes donde tu mascota puede correr, jugar y socializar libremente.'
       },
@@ -54,7 +54,7 @@ const Facilities = () => {
   const featuredFacility = {
     title: "Campus de 8.000m² libre de corrales",
     description: "Nuestro campus principal es un espacio diseñado completamente libre de corrales, donde tu mascota puede vivir una experiencia natural de socialización y ejercicio en un ambiente seguro y controlado.",
-    image: "/images/lugar/lugar.webp",
+    image: "/images/lugar/lugar_2.webp",
     features: [
       {
         title: "Amplitud sin límites",
@@ -178,71 +178,89 @@ const Facilities = () => {
         
        
 
-        {/* Nueva Sección: Hotel Canino - Solo Texto */}
-        <div className="mt-16 bg-white rounded-lg shadow-md p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-[#56CCF2] bg-opacity-20 rounded-full mb-4">
-              <span className="text-3xl">🏨</span>
-            </div>
-            <h3 className="text-2xl md:text-4xl  font-dynapuff font-bold text-[#2C3E50] mb-4">Hotel Canino - Servicios de Alojamiento</h3>
-            <p className="text-gray-600 max-w-3xl mx-auto">
-              Cuando necesites viajar, tu peludito tendrá un hogar temporal lleno de amor y cuidados profesionales.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Habitaciones caninas */}
-            <div className="text-center">
-              <div className="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-white text-xl">🛏️</span>
+{/* Nueva Sección: Hotel Canino - CON IMAGEN DE FONDO */}
+        <div className="mt-16 relative rounded-lg shadow-md overflow-hidden">
+          {/* IMAGEN DE FONDO */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center"
+            style={{
+              backgroundImage: "url('/images/lugar/perroopkokok.webp')" // 👈 CAMBIAR POR TU IMAGEN
+            }}
+          ></div>
+          
+          {/* OVERLAY PARA LEGIBILIDAD */}
+          <div className="absolute inset-0 bg-[#005f7f] bg-opacity-70"></div>
+          
+          {/* CONTENIDO CON Z-INDEX */}
+          <div className="relative z-10 p-8">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-[#56CCF2] bg-opacity-20 rounded-full mb-4">
+                <span className="text-3xl">🏨</span>
               </div>
-              <h4 className="text-lg font-semibold text-[#2C3E50] mb-3">Habitaciones Caninas</h4>
-              <p className="text-gray-600 text-sm">
-                Espacios cómodos y seguros para el descanso nocturno de los huéspedes del hotel canino.
+              <h3 className="text-2xl md:text-4xl font-dynapuff font-bold text-white mb-4">
+                Hotel Canino - Servicios de Alojamiento
+              </h3>
+              <p className="text-white max-w-3xl mx-auto">
+                Cuando necesites viajar, tu peludito tendrá un hogar temporal lleno de amor y cuidados profesionales.
               </p>
             </div>
 
-            {/* Comodidades especiales */}
-            <div className="text-center">
-              <div className="w-12 h-12 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-white text-xl">⭐</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Habitaciones caninas */}
+              <div className="text-center">
+                <div className="w-12 h-12 bg-[#56CCF2] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-white text-xl">🛏️</span>
+                </div>
+                <h4 className="text-lg font-semibold text-white mb-3">Habitaciones Caninas</h4>
+                <p className="text-white text-sm">
+                  Espacios cómodos y seguros para el descanso nocturno de los huéspedes del hotel canino.
+                </p>
               </div>
-              <h4 className="text-lg font-semibold text-[#2C3E50] mb-3">Comodidades Especiales</h4>
-              <p className="text-gray-600 text-sm">
-                Camas ortopédicas, calefacción, música relajante y todos los elementos para el bienestar de tu mascota.
-              </p>
-            </div>
 
-            {/* Cuidado nocturno */}
-            <div className="text-center">
-              <div className="w-12 h-12 bg-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-white text-xl">🌙</span>
+              {/* Comodidades especiales */}
+              <div className="text-center">
+                <div className="w-12 h-12 bg-[#C7EA46] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-white text-xl">⭐</span>
+                </div>
+                <h4 className="text-lg font-semibold text-white mb-3">Comodidades Especiales</h4>
+                <p className="text-white text-sm">
+                  Camas ortopédicas, calefacción, música relajante y todos los elementos para el bienestar de tu mascota.
+                </p>
               </div>
-              <h4 className="text-lg font-semibold text-[#2C3E50] mb-3">Cuidado Nocturno</h4>
-              <p className="text-gray-600 text-sm">
-                Supervisión profesional durante las horas de descanso para garantizar la tranquilidad de tu peludito.
-              </p>
-            </div>
-          </div>
 
-          {/* Información adicional */}
-          <div className="mt-8 bg-[#FFFBF0] rounded-lg p-6">
-            <div className="flex items-start">
-              <div className="w-8 h-8 bg-[#56CCF2] rounded-full flex items-center justify-center mr-4 mt-1">
-                <span className="text-white text-sm">💡</span>
-              </div>
-              <div>
-                <h5 className="font-semibold text-[#2C3E50] mb-2">¿Necesitas que cuidemos a tu peludito por unos días?</h5>
-                <p className="text-gray-600 text-sm">
-                  Nuestro hotel canino ofrece la misma atención y cariño que tu mascota recibe en casa. 
-                  Actividades diarias, socialización, alimentación personalizada y mucho amor las 24 horas.
+              {/* Cuidado nocturno */}
+              <div className="text-center">
+                <div className="w-12 h-12 bg-[#5B9BD5] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-white text-xl">🌙</span>
+                </div>
+                <h4 className="text-lg font-semibold text-white mb-3">Cuidado Nocturno</h4>
+                <p className="text-white text-sm">
+                  Supervisión profesional durante las horas de descanso para garantizar la tranquilidad de tu peludito.
                 </p>
               </div>
             </div>
+
+            {/* Información adicional */}
+            <div className="mt-8 bg-[#FFFBF0] bg-opacity-80 rounded-lg p-6 backdrop-blur-sm">
+              <div className="flex items-start">
+                <div className="w-8 h-8 bg-[#56CCF2] rounded-full flex items-center justify-center mr-4 mt-1">
+                  <span className="text-white text-sm">💡</span>
+                </div>
+                <div>
+                  <h5 className="font-semibold text-[#2C3E50] mb-2">
+                    ¿Necesitas que cuidemos a tu peludito por unos días?
+                  </h5>
+                  <p className="text-gray-600 text-sm">
+                    Nuestro hotel canino ofrece la misma atención y cariño que tu mascota recibe en casa. 
+                    Actividades diarias, socialización, alimentación personalizada y mucho amor las 24 horas.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </div>    
       </div>
-    </div>
+   </div>
   );
 };
 

@@ -63,8 +63,8 @@ const Testimonials = () => {
     <div className="bg-[#56CCF2] py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-6xl font-bold font-dynapuff text-white">Lo Que Dicen Nuestras Familias</h2>
-          <p className="mt-4 text-lg text-white opacity-90">
+          <h2 className="text-3xl md:text-6xl font-bold font-dynapuff text-[#2C3E50]">Lo Que Dicen Nuestras Familias</h2>
+          <p className="mt-4 text-lg text-[#2C3E50] opacity-90">
             Historias reales de papás y mamás de nuestros peluditos
           </p>
         </div>

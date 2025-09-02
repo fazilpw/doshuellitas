@@ -5,11 +5,11 @@ const SimpleCarousel = ({ title, subtitle }) => {
 
   const images = [
     {
-      src: "/images/perros/club-huellitas-Aussie-merlado.webp",
+      src: "/images/lugar/instructo_002.webp",
       alt: "Campus principal Club Canino Dos Huellitas"
     },
     {
-      src: "/images/perros/club-huellitas-puddle.webp",
+      src: "/images/lugar/instructor_001.webp",
       alt: "Actividades con puddle"
     },
     {

@@ -5,11 +5,11 @@ const SimpleCarousel = ({ title, subtitle }) => {
 
   const images = [
     {
-      src: "/images/perros/club-huellitas-Aussie-merlado.webp",
+      src: "/images/lugar/instructor_001.webp",
       alt: "Campus principal Club Canino Dos Huellitas"
     },
     {
-      src: "/images/perros/club-huellitas-puddle.webp",
+      src: "/images/lugar/instructo_002.webp",
       alt: "Actividades con puddle"
     },
     {
@@ -37,7 +37,7 @@ const SimpleCarousel = ({ title, subtitle }) => {
       alt: "Zona de entrenamiento avanzado"
     },
     {
-      src: "/images/perros/club-huellitas-perro-007.webp",
+      src: "/images/lugar/perro_003.webp",
       alt: "Flota de vehículos especializados"
     },
     {

@@ -33,3 +33,7 @@ dist-ssr
 
 # Directorios específicos
 .netlify/
+
+firebase-data/
+.firebase/
+functions/node_modules/
