@@ -41,7 +41,7 @@ const Hero = () => {
             </p>
             
             <p className="text-gray-600 mb-8 text-lg">
-              En nuestro campus de más de 8.000m² libre de corrales, tu mejor amigo 
+              En nuestro campus de más de 11.000m² libre de corrales, tu mejor amigo 
               disfrutará de socialización supervisada, actividades deportivas y 
               formación dirigida por profesionales certificados.
             </p>

@@ -39,7 +39,7 @@ export const BUSINESS_SCHEMA = {
   "image": [
     "https://clubcaninodoshuellitas.com/images/og-image.jpg"
   ],
-  "description": "Guardería, colegio y hotel canino con servicio de ruta puerta a puerta. Más de 8.000m² de áreas libres de corrales para la recreación, socialización y formación de tu mascota.",
+  "description": "Guardería, colegio y hotel canino con servicio de ruta puerta a puerta. Más de 11.000m² de áreas libres de corrales para la recreación, socialización y formación de tu mascota.",
   "address": {
     "@type": "PostalAddress",
     "streetAddress": "Vereda la aurora, subida por la 7ma con 175",
@@ -117,7 +117,7 @@ export const FAQ_SCHEMA = {
       "name": "¿Cómo garantizan la seguridad de mi perro?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "La seguridad es nuestra prioridad número uno. Contamos con un equipo de profesionales certificados que supervisan a los perros en todo momento. Nuestras instalaciones de 8.000m² están diseñadas pensando en la seguridad, sin corrales y con áreas delimitadas según el tamaño y temperamento de cada mascota. Realizamos una evaluación inicial de comportamiento y agrupamos a los perros según su compatibilidad. Adicionalmente, contamos con supervisión veterinaria permanente y protocolos de emergencia bien establecidos."
+        "text": "La seguridad es nuestra prioridad número uno. Contamos con un equipo de profesionales certificados que supervisan a los perros en todo momento. Nuestras instalaciones de 11.000m² están diseñadas pensando en la seguridad, sin corrales y con áreas delimitadas según el tamaño y temperamento de cada mascota. Realizamos una evaluación inicial de comportamiento y agrupamos a los perros según su compatibilidad. Adicionalmente, contamos con supervisión veterinaria permanente y protocolos de emergencia bien establecidos."
       }
     },
     {
@@ -151,7 +151,7 @@ export const FAQ_SCHEMA = {
 export const generateSEOMetaTags = (page = {}) => {
   const defaults = {
     title: "Club Canino Dos Huellitas | Guardería y Colegio Canino en Bogotá",
-    description: "Guardería, colegio y hotel canino con servicio de ruta puerta a puerta. Más de 8.000m² de áreas libres de corrales para la recreación, socialización y formación de tu mascota.",
+    description: "Guardería, colegio y hotel canino con servicio de ruta puerta a puerta. Más de 11.000m² de áreas libres de corrales para la recreación, socialización y formación de tu mascota.",
     image: "/images/og-image.jpg",
     url: "https://www.clubcaninodoshuellitas.com"
   };

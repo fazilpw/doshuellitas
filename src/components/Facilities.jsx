@@ -52,13 +52,13 @@ const Facilities = () => {
 
   // Instalación destacada (Campus principal)
   const featuredFacility = {
-    title: "Campus de 8.000m² libre de corrales",
+    title: "Campus de 11.000m² libre de corrales",
     description: "Nuestro campus principal es un espacio diseñado completamente libre de corrales, donde tu mascota puede vivir una experiencia natural de socialización y ejercicio en un ambiente seguro y controlado.",
     image: "/images/lugar/lugar_2.webp",
     features: [
       {
         title: "Amplitud sin límites",
-        description: "Más de 8.000m² de espacios abiertos para que tu mascota explore y se ejercite libremente."
+        description: "Más de 11.000m² de espacios abiertos para que tu mascota explore y se ejercite libremente."
       },
       {
         title: "Supervisión profesional",

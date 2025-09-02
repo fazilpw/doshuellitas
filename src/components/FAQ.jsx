@@ -38,7 +38,7 @@ const FAQ = () => {
     {
       id: 1,
       question: "¿Cómo garantizan la seguridad de mi perro?",
-      answer: "La seguridad es nuestra prioridad número uno. Contamos con un equipo de profesionales certificados que supervisan a los perros en todo momento. Nuestras instalaciones de 8.000m² están diseñadas pensando en la seguridad, sin corrales y con áreas delimitadas según el tamaño y temperamento de cada mascota. Realizamos una evaluación inicial de comportamiento y agrupamos a los perros según su compatibilidad. Adicionalmente, contamos con supervisión veterinaria permanente y protocolos de emergencia bien establecidos."
+      answer: "La seguridad es nuestra prioridad número uno. Contamos con un equipo de profesionales certificados que supervisan a los perros en todo momento. Nuestras instalaciones de 11.000m² están diseñadas pensando en la seguridad, sin corrales y con áreas delimitadas según el tamaño y temperamento de cada mascota. Realizamos una evaluación inicial de comportamiento y agrupamos a los perros según su compatibilidad. Adicionalmente, contamos con supervisión veterinaria permanente y protocolos de emergencia bien establecidos."
     },
     {
       id: 2,

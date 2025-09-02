@@ -24,7 +24,7 @@ const Services = () => {
         </svg>
       ),
       title: "Guardería Canina",
-      description: "Cuidado diario profesional en un ambiente seguro y divertido. Tu peludito disfrutará de actividades recreativas, socialización y ejercicio en nuestro campus de 8.000m²."
+      description: "Cuidado diario profesional en un ambiente seguro y divertido. Tu peludito disfrutará de actividades recreativas, socialización y ejercicio en nuestro campus de 11.000m²."
     },
     {
       id: 2,
