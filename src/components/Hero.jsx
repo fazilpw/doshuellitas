@@ -24,8 +24,7 @@ const Hero = () => {
     <div className="bg-[#FFFBF0] py-12 md:py-20 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center">
-          {/* Columna de texto (izquierda) */}
-          <div className="md:w-1/2 md:pr-12 mb-10 md:mb-0">
+\          <div className="md:w-1/2 md:pr-12 mb-10 md:mb-0">
             <div className="flex items-center mb-6">
               <div className="w-16 h-1 bg-[#56CCF2]"></div>
               <p className="ml-4 text-[#56CCF2] font-dynapuff font-normal">¡BIENVENIDOS!</p>

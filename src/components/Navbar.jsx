@@ -14,7 +14,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-20">
           <div className="flex-shrink-0 flex items-center">
             <img 
-              className="h-24 " 
+              className="h-20 p-2 " 
               src="/logo.svg" 
               alt="Club Canino Dos Huellitas" 
             />

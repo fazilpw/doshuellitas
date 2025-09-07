@@ -147,14 +147,13 @@ const SimpleCarousel = ({ title, subtitle }) => {
               </p>
             ) : (
               <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                Donde nuestros amigos de cuatro patas viven, juegan y son felices todos los días 🎾
-              </p>
+Cada espacio está pensado para que tu gordito se sienta en casa y disfrute momentos llenos de amor y alegría junto sus amigos y guías caninos              </p>
             )}
 
             {/* Info general */}
             <div className="bg-white/60 rounded-lg p-6 mb-6">
               <p className="text-lg text-[#2C3E50] font-medium">
-                ✨ Aquí pasan el rato nuestros peluditos favoritos
+                Donde ser perro es sinónimo de ser amado, cuidado y libre 🩵🤩
               </p>
               <p className="text-gray-600 mt-2">
                 {images.length} fotos de pura diversión canina
@@ -165,19 +164,19 @@ const SimpleCarousel = ({ title, subtitle }) => {
             <div className="space-y-4">
               <div className="flex items-center text-gray-600">
                 <span className="text-2xl mr-3">🐾</span>
-                <span>Peluditos felices todos los días</span>
+                <span>Felicidad garantizada</span>
               </div>
               <div className="flex items-center text-gray-600">
                 <span className="text-2xl mr-3">🎾</span>
-                <span>Espacios para jugar y correr</span>
+                <span>Diversión sin límites</span>
               </div>
               <div className="flex items-center text-gray-600">
                 <span className="text-2xl mr-3">❤️</span>
-                <span>Mucho amor y cuidados</span>
+                <span>Cuidados con amor </span>
               </div>
               <div className="flex items-center text-gray-600">
                 <span className="text-2xl mr-3">📸</span>
-                <span>Momentos únicos de nuestros peludos</span>
+                <span> Magia en cada momento</span>
               </div>
             </div>
 
